@@ -41,9 +41,8 @@ clean:
 	rm -rf _output
 	go clean ./...
 
-# Generate VSCode extension configuration from devgen.toml files
+# Build VSCode extension
 vscode:
-	go run ./cmd/vscgen
 	@cd vscode-devgen && sed -i '' 's/"version": "[^"]*"/"version": "$(VSCODE_VERSION)"/' package.json
 	cd vscode-devgen && npm run compile && npm run package
 
@@ -55,7 +54,6 @@ publish:
 	@# Update package.json version
 	@cd vscode-devgen && sed -i '' 's/"version": "[^"]*"/"version": "$(RELEASE_VERSION)"/' package.json
 	@# Build vscode extension
-	go run ./cmd/vscgen
 	cd vscode-devgen && npm run compile && npm run package
 	@# Amend last commit with version bump
 	git add vscode-devgen/package.json
