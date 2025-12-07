@@ -137,6 +137,8 @@ make vscode   # 构建 VSCode 扩展
 
 ## Release Notes
 
+- [v0.2.0](docs/release/v0.2.0.md) - 2025-12-07
+- [v0.1.3](docs/release/v0.1.3.md) - 2025-12-07
 - [v0.1.2](docs/release/v0.1.2.md) - 2025-12-07
 - [v0.1.1](docs/release/v0.1.1.md) - 2025-12-07
 - [v0.1.0](docs/release/v0.1.0.md) - 2025-12-07
