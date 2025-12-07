@@ -82,14 +82,17 @@ func (x User) Validate() error {
 	if x.IP != "" && net.ParseIP(x.IP) == nil {
 		errs = append(errs, fmt.Sprintf("IP must be a valid IP address, got %q", x.IP))
 	}
-	if x.Code != "" && !_validateRegexAlphanum.MatchString(x.Code) {
-		errs = append(errs, fmt.Sprintf("Code must contain only letters and numbers, got %q", x.Code))
-	}
 	if len(x.Code) != 6 {
 		errs = append(errs, fmt.Sprintf("Code must be exactly 6 characters, got %d", len(x.Code)))
 	}
+	if x.Code != "" && !_validateRegexAlphanum.MatchString(x.Code) {
+		errs = append(errs, fmt.Sprintf("Code must contain only letters and numbers, got %q", x.Code))
+	}
 	if err := x.Address.Validate(); err != nil {
 		errs = append(errs, fmt.Sprintf("Address: %v", err))
+	}
+	if x.OptionalAddress == nil {
+		errs = append(errs, "OptionalAddress is required")
 	}
 	if x.OptionalAddress != nil {
 		if err := x.OptionalAddress.Validate(); err != nil {

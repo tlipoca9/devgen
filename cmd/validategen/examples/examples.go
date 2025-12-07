@@ -77,6 +77,7 @@ type User struct {
 	Address Address
 
 	// validategen:@method(Validate)
+	// validategen:@required
 	OptionalAddress *Address
 
 	// validategen:@method(Validate)

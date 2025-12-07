@@ -377,11 +377,67 @@ type validateRule struct {
 	Param string
 }
 
+// rulePriority defines the execution order for validation rules.
+// Lower numbers execute first.
+var rulePriority = map[string]int{
+	// 1. Required check - must come first
+	"required": 10,
+
+	// 2. Range/length checks
+	"min": 20,
+	"max": 21,
+	"len": 22,
+	"gt":  23,
+	"gte": 24,
+	"lt":  25,
+	"lte": 26,
+
+	// 3. Equality checks
+	"eq":    30,
+	"ne":    31,
+	"oneof": 32,
+
+	// 4. Format checks
+	"email":    40,
+	"url":      41,
+	"uuid":     42,
+	"ip":       43,
+	"ipv4":     44,
+	"ipv6":     45,
+	"alpha":    46,
+	"alphanum": 47,
+	"numeric":  48,
+	"regex":    49,
+	"format":   50,
+
+	// 5. String content checks
+	"contains":   60,
+	"excludes":   61,
+	"startswith": 62,
+	"endswith":   63,
+
+	// 6. Nested validation - should come last
+	"method": 70,
+}
+
 func (vg *Generator) generateFieldValidation(g *genkit.GeneratedFile, fv *fieldValidation, customRegex *regexTracker) {
 	fieldName := fv.Field.Name
 	fieldType := fv.Field.Type
 
-	for _, rule := range fv.Rules {
+	// Sort rules by priority for deterministic output
+	rules := make([]*validateRule, len(fv.Rules))
+	copy(rules, fv.Rules)
+	sort.SliceStable(rules, func(i, j int) bool {
+		pi := rulePriority[rules[i].Name]
+		pj := rulePriority[rules[j].Name]
+		if pi != pj {
+			return pi < pj
+		}
+		// Same priority: maintain original order (stable sort)
+		return false
+	})
+
+	for _, rule := range rules {
 		switch rule.Name {
 		case "required":
 			vg.genRequired(g, fieldName, fieldType)
