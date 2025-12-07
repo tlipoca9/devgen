@@ -7,11 +7,3 @@
 name = "goplugin"
 path = "../plugin-goplugin/goplugin.so"
 type = "plugin"
-
-[tools.goplugin]
-output_suffix = "_marked.go"
-
-[[tools.goplugin.annotations]]
-name = "mark"
-type = "type"
-doc = "Mark this type for code generation"

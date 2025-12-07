@@ -1,7 +1,6 @@
 package testdata
 
 // markgen:@mark
-// execgen:@mark
 // goplugin:@mark
 type User struct {
 	ID   int
@@ -9,7 +8,6 @@ type User struct {
 }
 
 // markgen:@mark
-// execgen:@mark
 // goplugin:@mark
 type Order struct {
 	ID     int

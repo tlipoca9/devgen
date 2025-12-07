@@ -13,7 +13,7 @@ rm -f testdata/testdata_marked.go
 rm -f ../plugin-goplugin/goplugin.so
 
 # Always use go run to get latest code
-DEVGEN="go run ../../cmd/devgen"
+DEVGEN="go run ../../../cmd/devgen"
 
 echo "Using devgen: $DEVGEN"
 echo ""
