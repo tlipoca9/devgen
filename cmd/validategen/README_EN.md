@@ -564,3 +564,128 @@ validategen supports all Go built-in numeric types:
 - Unsigned integers: `uint`, `uint8`, `uint16`, `uint32`, `uint64`
 - Floating point: `float32`, `float64`
 - Alias types: `byte` (uint8), `rune` (int32), `uintptr`
+
+---
+
+## Testing and Benchmarks
+
+### Run Unit Tests
+
+```bash
+# Run all tests
+go test -v ./cmd/validategen/generator/...
+
+# Run tests with coverage
+go test -v ./cmd/validategen/generator/... -coverprofile=coverage.out
+go tool cover -func=coverage.out
+```
+
+### Run Benchmarks
+
+Benchmarks are implemented using [Ginkgo gmeasure](https://onsi.github.io/ginkgo/#benchmarking-code) to obtain statistically meaningful performance data.
+
+#### Step 1: Run Benchmarks
+
+```bash
+# Run tests (including benchmarks)
+cd /path/to/devgen
+go test -v ./cmd/validategen/generator/... -count=1
+```
+
+#### Step 2: Generate Report Files
+
+```bash
+# Generate JSON format report
+ginkgo --json-report=benchmark_report.json ./cmd/validategen/generator/...
+
+# Generate JUnit XML format report
+ginkgo --junit-report=benchmark_report.xml ./cmd/validategen/generator/...
+
+# Generate both formats
+ginkgo --json-report=benchmark_report.json --junit-report=benchmark_report.xml ./cmd/validategen/generator/...
+```
+
+### Benchmark Results Summary
+
+**Test Environment**:
+- OS: darwin (macOS)
+- Arch: arm64
+- CPU: Apple M4 Pro
+- 1000 iterations per annotation, 100 samples
+
+#### Simple Validation Annotations (No Regex)
+
+| Annotation | Mean (1000x) | Per Op ~= | Description |
+|------------|--------------|-----------|-------------|
+| `@required` (string) | 272ns | 0.27ns | String non-empty check |
+| `@required` (int) | 273ns | 0.27ns | Numeric non-zero check |
+| `@required` (slice) | 269ns | 0.27ns | Slice length check |
+| `@required` (pointer) | 288ns | 0.29ns | Pointer non-nil check |
+| `@min` / `@max` (int) | 270ns | 0.27ns | Numeric comparison |
+| `@min` / `@max` (string len) | 271ns | 0.27ns | String length comparison |
+| `@len` | 272ns | 0.27ns | Exact length check |
+| `@gt` / `@gte` / `@lt` / `@lte` | 271ns | 0.27ns | Numeric comparison |
+| `@eq` / `@ne` | 270ns | 0.27ns | Equality comparison |
+| `@oneof` (string, 4 values) | 531ns | 0.53ns | Enum value check |
+| `@oneof` (int) | 269ns | 0.27ns | Integer enum check |
+
+#### String Operation Annotations
+
+| Annotation | Mean (1000x) | Per Op ~= | Description |
+|------------|--------------|-----------|-------------|
+| `@contains` | 4.8µs | 4.8ns | `strings.Contains` |
+| `@excludes` | 4.5µs | 4.5ns | `!strings.Contains` |
+| `@startswith` | 299ns | 0.30ns | `strings.HasPrefix` |
+| `@endswith` | 1.6µs | 1.6ns | `strings.HasSuffix` |
+
+#### Regex Validation Annotations
+
+| Annotation | Mean (1000x) | Per Op ~= | Description |
+|------------|--------------|-----------|-------------|
+| `@email` (valid) | 180µs | 180ns | Email regex match |
+| `@email` (invalid) | 156µs | 156ns | Regex fast fail |
+| `@url` (valid) | 253µs | 253ns | URL regex match |
+| `@url` (invalid) | 16µs | 16ns | Regex fast fail |
+| `@uuid` (valid) | 152µs | 152ns | UUID regex match |
+| `@uuid` (invalid) | 1.3µs | 1.3ns | Regex fast fail |
+| `@alpha` | 89µs | 89ns | Letters only regex |
+| `@alphanum` | 78µs | 78ns | Alphanumeric regex |
+| `@numeric` | 89µs | 89ns | Numbers only regex |
+| `@regex` (simple) | 45µs | 45ns | Simple custom regex |
+| `@regex` (complex) | 246µs | 246ns | Complex regex pattern |
+
+#### Format Validation Annotations
+
+| Annotation | Mean (1000x) | Per Op ~= | Description |
+|------------|--------------|-----------|-------------|
+| `@format(json)` (valid) | 69µs | 69ns | `json.Valid` |
+| `@format(json)` (invalid) | 131µs | 131ns | JSON parse failure |
+| `@format(yaml)` (valid) | 3.85ms | 3.85µs | YAML parsing |
+| `@format(yaml)` (invalid) | 3.37ms | 3.37µs | YAML parse failure |
+| `@format(toml)` (valid) | 1.72ms | 1.72µs | TOML parsing |
+| `@format(toml)` (invalid) | 1.31ms | 1.31µs | TOML parse failure |
+| `@format(csv)` (valid) | 885µs | 885ns | CSV parsing |
+| `@format(csv)` (invalid) | 854µs | 854ns | CSV parse failure |
+
+#### IP Address Validation Annotations
+
+| Annotation | Mean (1000x) | Per Op ~= | Description |
+|------------|--------------|-----------|-------------|
+| `@ip` (ipv4) | 12.6µs | 12.6ns | `net.ParseIP` |
+| `@ip` (ipv6) | 42µs | 42ns | IPv6 parsing slower |
+| `@ipv4` | 15.6µs | 15.6ns | IPv4 + To4() check |
+| `@ipv6` | 43.6µs | 43.6ns | IPv6 + To4() check |
+
+### Performance Analysis
+
+**Performance Highlights**:
+- Simple validation annotations perform excellently (< 1ns/op): `@required`, `@min`, `@max`, `@eq`, `@ne`, etc.
+- Pre-compiled regex patterns avoid repeated compilation overhead
+- Invalid input is usually faster than valid input because regex can fail fast
+
+**Performance Difference Reasons**:
+- Format validation (`@format`) requires full parsing; YAML/TOML are slower (µs level)
+- Regex validation (`@email`, `@uuid`, `@regex`) is 100-500x slower than simple comparison
+- IP address parsing requires calling `net.ParseIP`, medium performance
+- String operations (`@contains`, `@startswith`) performance is between the two
+- JSON validation is fastest (using `json.Valid`), CSV is second

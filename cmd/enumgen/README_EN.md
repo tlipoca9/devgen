@@ -280,7 +280,7 @@ func main() {
 }
 ```
 
-## Testing
+## Testing and Benchmarks
 
 ### Run Unit Tests
 
@@ -294,3 +294,105 @@ go tool cover -func=coverage.out
 ```
 
 Current test coverage: **99.6%** (46 test cases)
+
+### Run Benchmarks
+
+Benchmarks are implemented using [Ginkgo gmeasure](https://onsi.github.io/ginkgo/#benchmarking-code) to obtain statistically meaningful performance data.
+
+#### Step 1: Run Benchmarks
+
+```bash
+# Run tests (including benchmarks)
+cd /path/to/devgen
+go test -v ./cmd/enumgen/generator/... -count=1
+```
+
+#### Step 2: Generate Report Files
+
+```bash
+# Generate JSON format report
+ginkgo --json-report=benchmark_report.json ./cmd/enumgen/generator/...
+
+# Generate JUnit XML format report
+ginkgo --junit-report=benchmark_report.xml ./cmd/enumgen/generator/...
+
+# Generate both formats
+ginkgo --json-report=benchmark_report.json --junit-report=benchmark_report.xml ./cmd/enumgen/generator/...
+```
+
+#### Step 3: View Detailed Output
+
+Running tests will output detailed benchmark results to the console, including:
+- Mean
+- StdDev (Standard Deviation)
+- Min/Max
+- Sample count and iteration count
+
+### Benchmark Results Summary (2025-12-07)
+
+**Test Environment**:
+- OS: darwin (macOS)
+- Arch: arm64
+- CPU: Apple M4 Pro
+- 1000 iterations per method, 100 samples
+
+**Test Configuration**:
+- RandomSeed: 1765086644
+- TotalSpecs: 70
+- SuiteSucceeded: true
+- RunTime: ~290ms
+
+| Method | Mean (1000x) | Per Op ~= | Description |
+|--------|--------------|-----------|-------------|
+| IsValid/valid | 1.54µs | 1.5ns | Validate valid enum value |
+| IsValid/invalid | 2.77µs | 2.8ns | Validate invalid enum value |
+| String/valid | 2.26µs | 2.3ns | Valid value to string |
+| String/invalid | 69.87µs | 70ns | Invalid value to string (requires formatting) |
+| MarshalJSON/direct | 53.66µs | 54ns | Direct MarshalJSON call |
+| MarshalJSON/via_json_Marshal | 124.24µs | 124ns | Via json.Marshal |
+| UnmarshalJSON/direct | 95.93µs | 96ns | Direct UnmarshalJSON call |
+| UnmarshalJSON/via_json_Unmarshal | 157.38µs | 157ns | Via json.Unmarshal |
+| MarshalText | 15.32µs | 15ns | Text serialization |
+| UnmarshalText | 15.15µs | 15ns | Text deserialization |
+| Value | 11.61µs | 12ns | SQL driver.Valuer |
+| Scan/string | 7.61µs | 7.6ns | SQL Scanner (string) |
+| Scan/bytes | 30.09µs | 30ns | SQL Scanner ([]byte) |
+| Scan/nil | 1.11µs | 1.1ns | SQL Scanner (nil) |
+| Parse/valid | 5.29µs | 5.3ns | Parse valid string |
+| Parse/invalid | 95.01µs | 95ns | Parse invalid string (requires error creation) |
+| Contains/valid | 1.80µs | 1.8ns | Check valid value |
+| Contains/invalid | 2.57µs | 2.6ns | Check invalid value |
+| ContainsName/valid | 5.36µs | 5.4ns | Check valid name |
+| ContainsName/invalid | 6.16µs | 6.2ns | Check invalid name |
+| Name/valid | 2.31µs | 2.3ns | Get valid value name |
+| Name/invalid | 55.12µs | 55ns | Get invalid value name (requires formatting) |
+| List | 301ns | 0.3ns | Return all enum values |
+| Names | 24.36µs | 24ns | Return all names |
+
+### Performance Analysis
+
+**Performance Highlights**:
+- Core methods (`IsValid`, `String`, `Contains`, `Parse`) perform excellently with valid input (< 10ns/op)
+- `List()` method takes only ~0.3ns as it directly returns pre-allocated slice
+- Direct `MarshalJSON` call is ~**2.3x faster** than via `json.Marshal`
+- Direct `UnmarshalJSON` call is ~**1.6x faster** than via `json.Unmarshal`
+
+**Performance Difference Reasons**:
+- Invalid value handling is slower due to error message formatting or default string generation
+- `Scan/bytes` is slower than `Scan/string` due to type conversion
+- Standard library calls are slower than direct calls due to reflection overhead
+
+### Benchmark Code Location
+
+Benchmark code is located in `cmd/enumgen/generator/generator_benchmark_test.go`, implemented using Ginkgo gmeasure package:
+
+```go
+experiment := gmeasure.NewExperiment("EnumGen Benchmark")
+AddReportEntry(experiment.Name, experiment)
+
+experiment.SampleDuration("IsValid/valid", func(idx int) {
+    for i := 0; i < iterations; i++ {
+        _ = gen.GenerateOptionString.IsValid()
+    }
+}, gmeasure.SamplingConfig{N: samples, Duration: time.Second})
+```
