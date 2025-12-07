@@ -1,0 +1,5 @@
+# Generated files
+testdata/*_marked.go
+
+# Dynamic config (created by test-all.sh)
+devgen.toml
