@@ -39,6 +39,38 @@ func (eg *Generator) Name() string {
 	return ToolName
 }
 
+// Config returns the tool configuration for VSCode extension integration.
+func (eg *Generator) Config() genkit.ToolConfig {
+	return genkit.ToolConfig{
+		OutputSuffix: "_enum.go",
+		Annotations: []genkit.AnnotationConfig{
+			{
+				Name: "enum",
+				Type: "type",
+				Doc:  "Generate enum helper methods (options: string, json, text, sql)",
+				Params: &genkit.AnnotationParams{
+					Values: []string{"string", "json", "text", "sql"},
+					Docs: map[string]string{
+						"string": "Generate String() method",
+						"json":   "Generate MarshalJSON/UnmarshalJSON methods",
+						"text":   "Generate MarshalText/UnmarshalText methods",
+						"sql":    "Generate Value/Scan methods for database/sql",
+					},
+				},
+			},
+			{
+				Name: "name",
+				Type: "field",
+				Doc:  "Custom name for enum value",
+				Params: &genkit.AnnotationParams{
+					Type:        "string",
+					Placeholder: "name",
+				},
+			},
+		},
+	}
+}
+
 // Run processes all packages and generates enum helpers.
 func (eg *Generator) Run(gen *genkit.Generator, log *genkit.Logger) error {
 	var totalCount int

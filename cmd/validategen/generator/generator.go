@@ -74,6 +74,69 @@ func (vg *Generator) Name() string {
 	return ToolName
 }
 
+// Config returns the tool configuration for VSCode extension integration.
+func (vg *Generator) Config() genkit.ToolConfig {
+	return genkit.ToolConfig{
+		OutputSuffix: "_validate.go",
+		Annotations: []genkit.AnnotationConfig{
+			{Name: "validate", Type: "type", Doc: "Generate Validate() method for struct"},
+			{Name: "required", Type: "field", Doc: "Field must not be empty/zero"},
+			{Name: "min", Type: "field", Doc: "Minimum value or length", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
+			{Name: "max", Type: "field", Doc: "Maximum value or length", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
+			{Name: "len", Type: "field", Doc: "Exact length", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
+			{Name: "eq", Type: "field", Doc: "Must equal specified value", Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"}},
+			{Name: "ne", Type: "field", Doc: "Must not equal specified value", Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"}},
+			{Name: "gt", Type: "field", Doc: "Must be greater than", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
+			{Name: "gte", Type: "field", Doc: "Must be greater than or equal", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
+			{Name: "lt", Type: "field", Doc: "Must be less than", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
+			{Name: "lte", Type: "field", Doc: "Must be less than or equal", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
+			{Name: "oneof", Type: "field", Doc: "Must be one of the specified values", Params: &genkit.AnnotationParams{Type: "list", Placeholder: "values"}},
+			{Name: "email", Type: "field", Doc: "Must be a valid email address"},
+			{Name: "url", Type: "field", Doc: "Must be a valid URL"},
+			{Name: "uuid", Type: "field", Doc: "Must be a valid UUID"},
+			{Name: "ip", Type: "field", Doc: "Must be a valid IP address"},
+			{Name: "ipv4", Type: "field", Doc: "Must be a valid IPv4 address"},
+			{Name: "ipv6", Type: "field", Doc: "Must be a valid IPv6 address"},
+			{Name: "alpha", Type: "field", Doc: "Must contain only letters"},
+			{Name: "alphanum", Type: "field", Doc: "Must contain only letters and numbers"},
+			{Name: "numeric", Type: "field", Doc: "Must contain only numbers"},
+			{Name: "contains", Type: "field", Doc: "Must contain the specified substring", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "substring"}},
+			{Name: "excludes", Type: "field", Doc: "Must not contain the specified substring", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "substring"}},
+			{Name: "startswith", Type: "field", Doc: "Must start with the specified prefix", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "prefix"}},
+			{Name: "endswith", Type: "field", Doc: "Must end with the specified suffix", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "suffix"}},
+			{
+				Name: "method",
+				Type: "field",
+				Doc:  "Call specified method for validation (for struct fields)",
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "MethodName"},
+				LSP: &genkit.LSPConfig{
+					Enabled:     true,
+					Provider:    "gopls",
+					Feature:     "method",
+					Signature:   "func() error",
+					ResolveFrom: "fieldType",
+				},
+			},
+			{Name: "regex", Type: "field", Doc: "Must match the specified regular expression", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "pattern"}},
+			{
+				Name: "format",
+				Type: "field",
+				Doc:  "Must be valid format (json, yaml, toml, csv)",
+				Params: &genkit.AnnotationParams{
+					Values:  []string{"json", "yaml", "toml", "csv"},
+					MaxArgs: 1,
+					Docs: map[string]string{
+						"json": "Validate JSON format",
+						"yaml": "Validate YAML format",
+						"toml": "Validate TOML format",
+						"csv":  "Validate CSV format",
+					},
+				},
+			},
+		},
+	}
+}
+
 // Run processes all packages and generates validation methods.
 func (vg *Generator) Run(gen *genkit.Generator, log *genkit.Logger) error {
 	var totalCount int

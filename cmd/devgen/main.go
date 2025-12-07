@@ -3,8 +3,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
@@ -20,8 +23,8 @@ var (
 	date    = "unknown"
 )
 
-// tools is the list of all available code generation tools.
-var tools = []genkit.Tool{
+// builtinTools is the list of built-in code generation tools.
+var builtinTools = []genkit.Tool{
 	enumgen.New(),
 	validategen.New(),
 }
@@ -42,7 +45,13 @@ func rootCmd() *cobra.Command {
 		Short: "Unified code generator for Go",
 		Long: `devgen is a unified code generator that runs all devgen tools:
   - enumgen: Generate enum helper methods (String, JSON, SQL, etc.)
-  - validategen: Generate Validate() methods for structs`,
+  - validategen: Generate Validate() methods for structs
+
+External plugins can be configured in devgen.toml:
+  [[plugins]]
+  name = "customgen"
+  path = "./tools/customgen"
+  type = "source"  # source | plugin`,
 		Version: fmt.Sprintf("%s (%s) %s", ver, commit, date),
 		Example: `  devgen ./...              # all packages
   devgen ./pkg/model        # specific package
@@ -52,16 +61,206 @@ func rootCmd() *cobra.Command {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
-			return run(cmd, args)
+			return run(cmd.Context(), args)
 		},
 	}
 	cmd.SetVersionTemplate(fmt.Sprintf("devgen %s (%s) %s\n", ver, commit, date))
 
+	// Add config subcommand
+	cmd.AddCommand(configCmd())
+
 	return cmd
 }
 
-func run(_ *cobra.Command, args []string) error {
+func configCmd() *cobra.Command {
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Output tools configuration",
+		Long: `Output the configuration of all tools (built-in and plugins).
+This is used by the VSCode extension to get annotation metadata.`,
+		Example: `  devgen config          # output config in TOML format
+  devgen config --json   # output config in JSON format`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runConfig(cmd.Context(), jsonOutput)
+		},
+	}
+
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
+
+	return cmd
+}
+
+func runConfig(ctx context.Context, jsonOutput bool) error {
+	// Load config to get plugins
+	configSearchDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	cfg, err := genkit.LoadConfig(configSearchDir)
+	if err != nil {
+		cfg = &genkit.Config{}
+	}
+
+	// Collect all tools
+	tools := make([]genkit.Tool, 0, len(builtinTools)+len(cfg.Plugins))
+	toolNames := make(map[string]bool)
+
+	// Load external plugins first
+	if len(cfg.Plugins) > 0 {
+		loader := genkit.NewPluginLoader("")
+		pluginTools, err := loader.LoadPlugins(ctx, cfg)
+		if err != nil {
+			return fmt.Errorf("load plugins: %w", err)
+		}
+		for _, tool := range pluginTools {
+			tools = append(tools, tool)
+			toolNames[tool.Name()] = true
+		}
+	}
+
+	// Add built-in tools
+	for _, tool := range builtinTools {
+		if !toolNames[tool.Name()] {
+			tools = append(tools, tool)
+		}
+	}
+
+	// Collect configs from tools
+	toolConfigs := genkit.CollectToolConfigs(tools)
+
+	// Merge with config file (config file takes precedence)
+	if cfg.Tools != nil {
+		toolConfigs = genkit.MergeToolConfigs(toolConfigs, cfg.Tools)
+	}
+
+	// Output
+	if jsonOutput {
+		return outputConfigJSON(toolConfigs)
+	}
+	return outputConfigTOML(toolConfigs)
+}
+
+func outputConfigJSON(configs map[string]genkit.ToolConfig) error {
+	// Convert to VSCode extension format
+	result := make(map[string]interface{})
+
+	for name, cfg := range configs {
+		result[name] = cfg.ToVSCodeConfig()
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(result)
+}
+
+func outputConfigTOML(configs map[string]genkit.ToolConfig) error {
+	for name, cfg := range configs {
+		fmt.Printf("[tools.%s]\n", name)
+		if cfg.OutputSuffix != "" {
+			fmt.Printf("output_suffix = %q\n", cfg.OutputSuffix)
+		}
+		fmt.Println()
+
+		for _, ann := range cfg.Annotations {
+			fmt.Printf("[[tools.%s.annotations]]\n", name)
+			fmt.Printf("name = %q\n", ann.Name)
+			fmt.Printf("type = %q\n", ann.Type)
+			if ann.Doc != "" {
+				fmt.Printf("doc = %q\n", ann.Doc)
+			}
+			if ann.Params != nil {
+				fmt.Println()
+				fmt.Printf("[tools.%s.annotations.params]\n", name)
+				if ann.Params.Type != nil {
+					fmt.Printf("type = %q\n", ann.Params.Type)
+				}
+				if len(ann.Params.Values) > 0 {
+					fmt.Printf("values = %v\n", formatStringSlice(ann.Params.Values))
+				}
+				if ann.Params.Placeholder != "" {
+					fmt.Printf("placeholder = %q\n", ann.Params.Placeholder)
+				}
+				if ann.Params.MaxArgs > 0 {
+					fmt.Printf("maxArgs = %d\n", ann.Params.MaxArgs)
+				}
+			}
+			fmt.Println()
+		}
+	}
+	return nil
+}
+
+func formatStringSlice(ss []string) string {
+	quoted := make([]string, len(ss))
+	for i, s := range ss {
+		quoted[i] = fmt.Sprintf("%q", s)
+	}
+	return "[" + strings.Join(quoted, ", ") + "]"
+}
+
+func run(ctx context.Context, args []string) error {
 	log := genkit.NewLogger()
+
+	// Determine config search directory from first argument
+	configSearchDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	// If first arg is a relative path, use it as the starting point for config search
+	if len(args) > 0 {
+		arg := args[0]
+		// Handle patterns like "./...", "./pkg/...", "./pkg"
+		arg = strings.TrimSuffix(arg, "/...")
+		arg = strings.TrimSuffix(arg, "...")
+		if arg == "." || arg == "" {
+			// Use current directory
+		} else if strings.HasPrefix(arg, "./") || strings.HasPrefix(arg, "../") || !strings.HasPrefix(arg, "/") {
+			// Relative path - resolve it
+			absPath, err := filepath.Abs(arg)
+			if err == nil {
+				if info, err := os.Stat(absPath); err == nil && info.IsDir() {
+					configSearchDir = absPath
+				}
+			}
+		}
+	}
+
+	cfg, err := genkit.LoadConfig(configSearchDir)
+	if err != nil {
+		log.Warn("Failed to load devgen.toml: %v", err)
+		// Continue with built-in tools only
+		cfg = &genkit.Config{}
+	}
+
+	// Collect all tools: built-in + plugins
+	tools := make([]genkit.Tool, 0, len(builtinTools)+len(cfg.Plugins))
+	toolNames := make(map[string]bool)
+
+	// Load external plugins first (they can override built-in tools)
+	if len(cfg.Plugins) > 0 {
+		loader := genkit.NewPluginLoader("")
+		pluginTools, err := loader.LoadPlugins(ctx, cfg)
+		if err != nil {
+			return fmt.Errorf("load plugins: %w", err)
+		}
+		for _, tool := range pluginTools {
+			tools = append(tools, tool)
+			toolNames[tool.Name()] = true
+			log.Item("Loaded plugin: %s", tool.Name())
+		}
+	}
+
+	// Add built-in tools (skip if overridden by plugin)
+	for _, tool := range builtinTools {
+		if !toolNames[tool.Name()] {
+			tools = append(tools, tool)
+			toolNames[tool.Name()] = true
+		}
+	}
 
 	gen := genkit.New(genkit.Options{
 		IgnoreGeneratedFiles: true,
