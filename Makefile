@@ -6,8 +6,8 @@ COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE ?= $(shell date -u '+%Y-%m-%dT%H:%M:%SZ')
 LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DATE)
 
-# VSCode extension version (strip 'v' prefix and remove git suffix for semver)
-VSCODE_VERSION := $(shell git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "0.0.0")
+# VSCode extension version (strip 'v' prefix, use latest tag on HEAD or fallback to describe)
+VSCODE_VERSION := $(shell (git tag --points-at HEAD 2>/dev/null | sort -V | tail -1 || git describe --tags --abbrev=0 2>/dev/null) | sed 's/^v//' || echo "0.0.0")
 
 # Default target
 all: tidy lint test build
