@@ -363,46 +363,89 @@ async function getMethodsForType(
     const methods: MethodInfo[] = [];
 
     try {
-        // Use workspace symbol to find methods
-        // Search pattern: "(TypeName)" to find methods with this receiver
-        const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
-            'vscode.executeWorkspaceSymbolProvider',
-            `(${typeName})`
+        // Method 1: Parse current document directly for method definitions
+        // This is the most reliable way for local types
+        const text = document.getText();
+        // Match: func (x Type) MethodName() or func (x *Type) MethodName()
+        const methodRegex = new RegExp(
+            `func\\s*\\(\\s*\\w+\\s+\\*?${typeName}\\s*\\)\\s*(\\w+)\\s*\\(([^)]*)\\)\\s*([^{]*)`,
+            'g'
         );
-
-        if (symbols) {
-            for (const symbol of symbols) {
-                if (symbol.kind === vscode.SymbolKind.Method) {
-                    // Parse method name from symbol name
-                    // Format: "(receiver Type) MethodName" or "(*Type).MethodName"
-                    const methodMatch = symbol.name.match(/(?:\([\w\s*]*\))?\s*\.?(\w+)/);
-                    if (methodMatch) {
-                        methods.push({
-                            name: methodMatch[1],
-                            signature: '', // Will be filled by hover
-                            receiverType: typeName,
-                            location: symbol.location
-                        });
-                    }
-                }
+        
+        let match;
+        while ((match = methodRegex.exec(text)) !== null) {
+            const methodName = match[1];
+            const params = match[2] || '';
+            const returnType = match[3]?.trim() || '';
+            
+            if (!methods.some(m => m.name === methodName)) {
+                const pos = document.positionAt(match.index);
+                methods.push({
+                    name: methodName,
+                    signature: `func(${params}) ${returnType}`.trim(),
+                    receiverType: typeName,
+                    location: new vscode.Location(document.uri, pos)
+                });
             }
         }
 
-        // Also search in current document for local methods
-        const documentSymbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
-            'vscode.executeDocumentSymbolProvider',
-            document.uri
-        );
+        // Method 2: Use document symbols from gopls as fallback
+        if (methods.length === 0) {
+            const documentSymbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+                'vscode.executeDocumentSymbolProvider',
+                document.uri
+            );
 
-        if (documentSymbols) {
-            findMethodsInSymbols(documentSymbols, typeName, document.uri, methods);
+            if (documentSymbols) {
+                findMethodsInSymbols(documentSymbols, typeName, document.uri, methods);
+            }
         }
 
-        // Get method signatures using hover
+        // Method 3: Try workspace symbol search for cross-package types
+        if (methods.length === 0) {
+            const searchPatterns = [
+                `${typeName}.`,
+                `(*${typeName}).`,
+                `(${typeName}).`,
+            ];
+
+            for (const pattern of searchPatterns) {
+                const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+                    'vscode.executeWorkspaceSymbolProvider',
+                    pattern
+                );
+
+                if (symbols && symbols.length > 0) {
+                    for (const symbol of symbols) {
+                        if (symbol.kind === vscode.SymbolKind.Method || 
+                            symbol.kind === vscode.SymbolKind.Function) {
+                            const methodMatch = symbol.name.match(/\(\*?(\w+)\)\.(\w+)/);
+                            if (methodMatch && methodMatch[1] === typeName) {
+                                const methodName = methodMatch[2];
+                                if (!methods.some(m => m.name === methodName)) {
+                                    methods.push({
+                                        name: methodName,
+                                        signature: '',
+                                        receiverType: typeName,
+                                        location: symbol.location
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                if (methods.length > 0) break;
+            }
+        }
+
+        // Get method signatures using hover for methods without signatures
         for (const method of methods) {
-            const signature = await getMethodSignature(method.location.uri, method.location.range.start, method.name);
-            if (signature) {
-                method.signature = signature;
+            if (!method.signature || method.signature === '') {
+                const signature = await getMethodSignature(method.location.uri, method.location.range.start, method.name);
+                if (signature) {
+                    method.signature = signature;
+                }
             }
         }
 
@@ -411,7 +454,7 @@ async function getMethodsForType(
         methodCache.timestamp = now;
 
     } catch (error) {
-        console.error('Error getting methods for type:', error);
+        console.error('Error getting methods for type:', typeName, error);
     }
 
     return methods;
@@ -424,22 +467,42 @@ function findMethodsInSymbols(
     methods: MethodInfo[]
 ): void {
     for (const symbol of symbols) {
-        if (symbol.kind === vscode.SymbolKind.Method) {
-            // Check if method belongs to the target type
-            // Symbol name format varies, try to match receiver type
-            const nameMatch = symbol.name.match(/^\((\w+)\s+\*?(\w+)\)\s+(\w+)|^(\w+)$/);
-            if (nameMatch) {
-                const receiverType = nameMatch[2] || '';
-                const methodName = nameMatch[3] || nameMatch[4] || symbol.name;
+        // gopls returns methods as Function kind with name like "(*Type).Method" or "(Type).Method"
+        if (symbol.kind === vscode.SymbolKind.Method || 
+            symbol.kind === vscode.SymbolKind.Function) {
+            
+            // Try to match gopls format: "(*Type).MethodName" or "(Type).MethodName"
+            const goplsMatch = symbol.name.match(/^\(\*?(\w+)\)\.(\w+)$/);
+            if (goplsMatch) {
+                const receiverType = goplsMatch[1];
+                const methodName = goplsMatch[2];
                 
-                if (receiverType === typeName || receiverType === '') {
-                    // Check if already added
+                if (receiverType === typeName) {
                     if (!methods.some(m => m.name === methodName)) {
                         methods.push({
                             name: methodName,
                             signature: symbol.detail || '',
                             receiverType: typeName,
-                            location: new vscode.Location(uri, symbol.range)
+                            location: new vscode.Location(uri, symbol.selectionRange || symbol.range)
+                        });
+                    }
+                }
+                continue;
+            }
+            
+            // Fallback: try other formats
+            const nameMatch = symbol.name.match(/^\((\w+)\s+\*?(\w+)\)\s+(\w+)|^(\w+)$/);
+            if (nameMatch) {
+                const receiverType = nameMatch[2] || '';
+                const methodName = nameMatch[3] || nameMatch[4] || symbol.name;
+                
+                if (receiverType === typeName) {
+                    if (!methods.some(m => m.name === methodName)) {
+                        methods.push({
+                            name: methodName,
+                            signature: symbol.detail || '',
+                            receiverType: typeName,
+                            location: new vscode.Location(uri, symbol.selectionRange || symbol.range)
                         });
                     }
                 }
@@ -477,19 +540,36 @@ async function getMethodSignature(
                         text = content.value;
                     }
                     
-                    // Extract function signature from hover
-                    // Look for patterns like "func (t Type) MethodName() error"
-                    const sigMatch = text.match(/func\s*\([^)]*\)\s*\w+\s*(\([^)]*\))\s*(\w+)?/);
-                    if (sigMatch) {
-                        const params = sigMatch[1];
-                        const returnType = sigMatch[2] || '';
-                        return `func${params} ${returnType}`.trim();
+                    // gopls hover format for methods:
+                    // ```go
+                    // func (s Status) Validate() error
+                    // ```
+                    // or just: func (s Status) Validate() error
+                    
+                    // Extract function signature - look for the method definition
+                    const lines = text.split('\n');
+                    for (const line of lines) {
+                        // Match: func (receiver) MethodName(params) returnType
+                        const sigMatch = line.match(/func\s*\([^)]*\)\s*(\w+)\s*(\([^)]*\))\s*(.*)/);
+                        if (sigMatch && sigMatch[1] === methodName) {
+                            const params = sigMatch[2];
+                            const returnType = sigMatch[3]?.trim() || '';
+                            return `func${params} ${returnType}`.trim();
+                        }
+                        
+                        // Also try simpler pattern
+                        const simpleMatch = line.match(/func\s*\([^)]*\)\s*\w+(\([^)]*\))\s*(\w+)?/);
+                        if (simpleMatch) {
+                            const params = simpleMatch[1];
+                            const returnType = simpleMatch[2] || '';
+                            return `func${params} ${returnType}`.trim();
+                        }
                     }
                 }
             }
         }
     } catch (error) {
-        console.error('Error getting method signature:', error);
+        console.error('Error getting method signature:', methodName, error);
     }
     return undefined;
 }
