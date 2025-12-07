@@ -158,6 +158,58 @@ csv = "Validate CSV format"
 
 使用：`// validategen:@format(json)` （只能选一个）
 
+#### 6. LSP 集成参数（高级）
+
+支持与 gopls 等语言服务器集成，实现跨包类型方法查找：
+
+```toml
+[[annotations]]
+name = "method"
+type = "field"
+doc = "Call specified method for validation (for struct fields)"
+
+[annotations.params]
+type = "string"
+placeholder = "MethodName"
+
+[annotations.lsp]
+enabled = true                    # 启用 LSP 集成
+provider = "gopls"                # LSP 提供者
+feature = "method"                # 功能类型: "method", "type", "symbol"
+signature = "func() error"        # 要求的方法签名
+resolveFrom = "fieldType"         # 从哪里解析类型: "fieldType", "receiverType"
+```
+
+**LSP 配置字段说明：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `enabled` | bool | 是否启用 LSP 集成 |
+| `provider` | string | LSP 提供者，目前支持 `"gopls"` |
+| `feature` | string | 功能类型：`"method"` 方法查找、`"type"` 类型查找、`"symbol"` 符号查找 |
+| `signature` | string | 要求的方法签名模式，如 `"func() error"` |
+| `resolveFrom` | string | 类型解析来源：`"fieldType"` 从字段类型、`"receiverType"` 从接收者类型 |
+
+**LSP 集成功能：**
+
+1. **方法补全** - 输入 `@method(` 时自动补全符合签名的方法
+2. **方法验证** - 检测方法是否存在、签名是否匹配
+3. **跨包查找** - 通过 gopls workspace symbol 查找其他包的类型方法
+4. **悬停提示** - 显示方法是否存在及其实际签名
+
+使用示例：
+
+```go
+// validategen:@validate
+type User struct {
+    // validategen:@method(Validate)  // 自动补全 Address 的方法
+    Address Address                   // 验证 Address.Validate() error 是否存在
+    
+    // validategen:@method(Validate)
+    Status Status                     // 验证 Status.Validate() error 是否存在
+}
+```
+
 ### 完整示例：enumgen
 
 ```toml
@@ -277,6 +329,23 @@ json = "Validate JSON format"
 yaml = "Validate YAML format"
 toml = "Validate TOML format"
 csv = "Validate CSV format"
+
+# LSP 集成参数（跨包方法查找）
+[[annotations]]
+name = "method"
+type = "field"
+doc = "Call specified method for validation (for struct fields)"
+
+[annotations.params]
+type = "string"
+placeholder = "MethodName"
+
+[annotations.lsp]
+enabled = true
+provider = "gopls"
+feature = "method"
+signature = "func() error"
+resolveFrom = "fieldType"
 ```
 
 ## 生成的 tools-config.json

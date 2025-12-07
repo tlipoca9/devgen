@@ -158,7 +158,14 @@
       "method": {
         "doc": "Call specified method for validation (for struct fields)",
         "paramType": "string",
-        "placeholder": "MethodName"
+        "placeholder": "MethodName",
+        "lsp": {
+          "enabled": true,
+          "provider": "gopls",
+          "feature": "method",
+          "signature": "func() error",
+          "resolveFrom": "fieldType"
+        }
       },
       "min": {
         "doc": "Minimum value or length",

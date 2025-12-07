@@ -29,6 +29,16 @@ type Annotation struct {
 	Type   string           `toml:"type"` // "type" or "field"
 	Doc    string           `toml:"doc"`
 	Params *AnnotationParam `toml:"params"`
+	LSP    *AnnotationLSP   `toml:"lsp"` // LSP integration config
+}
+
+// AnnotationLSP represents LSP integration configuration.
+type AnnotationLSP struct {
+	Enabled     bool   `toml:"enabled"`     // Enable LSP integration
+	Provider    string `toml:"provider"`    // LSP provider: "gopls"
+	Feature     string `toml:"feature"`     // Feature type: "method", "type", "symbol"
+	Signature   string `toml:"signature"`   // Required signature pattern
+	ResolveFrom string `toml:"resolveFrom"` // Where to resolve: "fieldType", "receiverType"
 }
 
 // AnnotationParam represents annotation parameters.
@@ -76,6 +86,16 @@ type VSCodeAnnotation struct {
 	Values      []string          `json:"values,omitempty"`      // for enum params
 	MaxArgs     int               `json:"maxArgs,omitempty"`     // maximum number of arguments allowed
 	ValueDocs   map[string]string `json:"valueDocs,omitempty"`   // docs for each value
+	LSP         *VSCodeLSPConfig  `json:"lsp,omitempty"`         // LSP integration config
+}
+
+// VSCodeLSPConfig contains LSP integration configuration for VSCode.
+type VSCodeLSPConfig struct {
+	Enabled     bool   `json:"enabled"`
+	Provider    string `json:"provider"`
+	Feature     string `json:"feature"`
+	Signature   string `json:"signature,omitempty"`
+	ResolveFrom string `json:"resolveFrom,omitempty"`
 }
 
 func main() {
@@ -167,6 +187,17 @@ func convertToVSCode(cfg *ToolConfig) VSCodeToolConfig {
 					vsAnn.ParamType = types
 				}
 				vsAnn.Placeholder = ann.Params.Placeholder
+			}
+		}
+
+		// Add LSP config if enabled
+		if ann.LSP != nil && ann.LSP.Enabled {
+			vsAnn.LSP = &VSCodeLSPConfig{
+				Enabled:     ann.LSP.Enabled,
+				Provider:    ann.LSP.Provider,
+				Feature:     ann.LSP.Feature,
+				Signature:   ann.LSP.Signature,
+				ResolveFrom: ann.LSP.ResolveFrom,
 			}
 		}
 

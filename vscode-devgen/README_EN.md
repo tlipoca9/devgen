@@ -11,6 +11,7 @@ VSCode extension providing editor support for devgen annotations: syntax highlig
 - **Parameter Validation** - Real-time detection of invalid parameters, missing parameters, and unknown annotations
 - **Diagnostics** - Detection of missing generated files, field annotations without type annotations, etc.
 - **Hover Documentation** - Hover to view annotation documentation and available options
+- **LSP Integration** - Integration with gopls for cross-package type method lookup and validation
 
 ## Installation
 
@@ -52,7 +53,58 @@ Field-level annotations:
 - `@contains(s)` / `@excludes(s)` / `@startswith(s)` / `@endswith(s)` - String matching
 - `@regex(pattern)` - Regex matching
 - `@format(json|yaml|toml|csv)` - Data format validation
-- `@method(MethodName)` - Call custom method
+- `@method(MethodName)` - Call custom method (with LSP completion and validation)
+
+## LSP Integration
+
+The extension deeply integrates with gopls to provide intelligent support for `@method` annotation:
+
+### Method Completion
+
+When typing `// validategen:@method(`, auto-complete methods on the field type that match `func() error` signature:
+
+```go
+type Address struct {
+    Street string
+    City   string
+}
+
+func (a Address) Validate() error { ... }
+
+// validategen:@validate
+type User struct {
+    // validategen:@method(|)  // <- cursor position, auto-completes "Validate"
+    Address Address
+}
+```
+
+### Method Validation
+
+Real-time detection:
+- ❌ Method does not exist
+- ⚠️ Method signature mismatch (requires `func() error`)
+- ✅ Method exists with correct signature
+
+### Cross-Package Lookup
+
+Find methods on types defined in other packages via gopls workspace symbol:
+
+```go
+import "github.com/example/models"
+
+// validategen:@validate
+type Request struct {
+    // validategen:@method(Validate)  // Finds Validate method on models.User
+    User models.User
+}
+```
+
+### Hover Information
+
+Hover over `@method(Validate)` to see:
+- Whether method exists
+- Actual method signature
+- Whether signature matches requirements
 
 ## Usage Example
 

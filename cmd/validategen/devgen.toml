@@ -197,6 +197,13 @@ doc = "Call specified method for validation (for struct fields)"
 type = "string"
 placeholder = "MethodName"
 
+[annotations.lsp]
+enabled = true
+provider = "gopls"
+feature = "method"                    # LSP feature type: "method", "type", "symbol"
+signature = "func() error"            # Required method signature
+resolveFrom = "fieldType"             # Where to find the type: "fieldType", "receiverType"
+
 [[annotations]]
 name = "regex"
 type = "field"
