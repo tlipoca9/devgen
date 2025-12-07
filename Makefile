@@ -41,6 +41,7 @@ clean:
 # Generate VSCode extension configuration from devgen.toml files
 vscode:
 	go run ./cmd/vscgen
+	@cd vscode-devgen && sed -i '' 's/"version": "[^"]*"/"version": "$(VERSION)"/' package.json
 	cd vscode-devgen && npm run compile && npm run package
 
 # Install development tools
