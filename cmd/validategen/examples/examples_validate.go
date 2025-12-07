@@ -102,6 +102,16 @@ func (x User) Validate() error {
 	if err := x.Status.Validate(); err != nil {
 		errs = append(errs, fmt.Sprintf("Status: %v", err))
 	}
+	for _i, _v := range x.Addresses {
+		if err := _v.Validate(); err != nil {
+			errs = append(errs, fmt.Sprintf("Addresses[%d]: %v", _i, err))
+		}
+	}
+	for _k, _v := range x.AddressMap {
+		if err := _v.Validate(); err != nil {
+			errs = append(errs, fmt.Sprintf("AddressMap[%v]: %v", _k, err))
+		}
+	}
 
 	return x.postValidate(errs)
 }

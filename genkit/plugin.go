@@ -106,6 +106,12 @@ func (pl *PluginLoader) loadSourcePlugin(ctx context.Context, cfg PluginConfig) 
 		modTime = info.ModTime()
 	}
 
+	// Also consider genkit package modification time for cache invalidation
+	genkitModTime := getGenkitModTime()
+	if genkitModTime.After(modTime) {
+		modTime = genkitModTime
+	}
+
 	soName := fmt.Sprintf("%s_%d.so", cfg.Name, modTime.Unix())
 	soPath := filepath.Join(pl.cacheDir, soName)
 
@@ -118,7 +124,69 @@ func (pl *PluginLoader) loadSourcePlugin(ctx context.Context, cfg PluginConfig) 
 	}
 
 	// Load the compiled plugin
-	return pl.loadGoPluginFile(soPath, cfg.Name)
+	tool, err := pl.loadGoPluginFile(soPath, cfg.Name)
+	if err != nil {
+		// If plugin version mismatch, remove all cached versions of this plugin and recompile
+		if strings.Contains(err.Error(), "different version") {
+			pl.cleanPluginCache(cfg.Name)
+			// Use current time to ensure unique cache path
+			soName = fmt.Sprintf("%s_%d.so", cfg.Name, time.Now().Unix())
+			soPath = filepath.Join(pl.cacheDir, soName)
+			if err := pl.compilePlugin(ctx, srcPath, soPath); err != nil {
+				return nil, fmt.Errorf("recompile plugin: %w", err)
+			}
+			return pl.loadGoPluginFile(soPath, cfg.Name)
+		}
+		return nil, err
+	}
+	return tool, nil
+}
+
+// cleanPluginCache removes all cached versions of a plugin.
+func (pl *PluginLoader) cleanPluginCache(pluginName string) {
+	entries, err := os.ReadDir(pl.cacheDir)
+	if err != nil {
+		return
+	}
+	prefix := pluginName + "_"
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), prefix) && strings.HasSuffix(entry.Name(), ".so") {
+			_ = os.Remove(filepath.Join(pl.cacheDir, entry.Name()))
+		}
+	}
+}
+
+// getGenkitModTime returns the modification time of the genkit package.
+// This helps invalidate plugin cache when genkit is modified.
+func getGenkitModTime() time.Time {
+	// Try to find genkit package in the module cache or local directory
+	// First, check if we're in development mode (genkit directory exists nearby)
+	execPath, err := os.Executable()
+	if err != nil {
+		return time.Time{}
+	}
+
+	// Check common development paths
+	devPaths := []string{
+		filepath.Join(filepath.Dir(execPath), "..", "genkit"),
+		filepath.Join(filepath.Dir(execPath), "genkit"),
+	}
+
+	// Also check GOPATH/pkg/mod for installed packages
+	if gopath := os.Getenv("GOPATH"); gopath != "" {
+		// This won't catch all cases but helps with some
+		devPaths = append(devPaths, filepath.Join(gopath, "pkg", "mod", "github.com", "tlipoca9", "devgen"))
+	}
+
+	var latest time.Time
+	for _, path := range devPaths {
+		if modTime, err := getLatestModTime(path); err == nil {
+			if modTime.After(latest) {
+				latest = modTime
+			}
+		}
+	}
+	return latest
 }
 
 // compilePlugin compiles Go source to a plugin .so file.

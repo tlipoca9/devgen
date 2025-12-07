@@ -82,6 +82,12 @@ type User struct {
 
 	// validategen:@method(Validate)
 	Status Status
+
+	// validategen:@method(Validate)
+	Addresses []Address
+
+	// validategen:@method(Validate)
+	AddressMap map[string]Address
 }
 
 // postValidate performs custom validation after field validation.

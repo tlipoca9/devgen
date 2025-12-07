@@ -1183,17 +1183,51 @@ func (vg *Generator) genMethod(g *genkit.GeneratedFile, field *genkit.Field, met
 	}
 	fieldName := field.Name
 	fieldType := field.Type
-	if isPointerType(fieldType) {
+	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
+
+	if isSliceType(fieldType) {
+		// For slice types, iterate over elements and call method on each
+		g.P("for _i, _v := range x.", fieldName, " {")
+		elemType := strings.TrimPrefix(fieldType, "[]")
+		if isPointerType(elemType) {
+			g.P("if _v != nil {")
+			g.P("if err := _v.", methodName, "(); err != nil {")
+			g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, "[%d]: %v\", _i, err))")
+			g.P("}")
+			g.P("}")
+		} else {
+			g.P("if err := _v.", methodName, "(); err != nil {")
+			g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, "[%d]: %v\", _i, err))")
+			g.P("}")
+		}
+		g.P("}")
+	} else if isMapType(fieldType) {
+		// For map types, iterate over values and call method on each
+		g.P("for _k, _v := range x.", fieldName, " {")
+		valueType := extractMapValueType(fieldType)
+		if isPointerType(valueType) {
+			g.P("if _v != nil {")
+			g.P("if err := _v.", methodName, "(); err != nil {")
+			g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, "[%v]: %v\", _k, err))")
+			g.P("}")
+			g.P("}")
+		} else {
+			g.P("if err := _v.", methodName, "(); err != nil {")
+			g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, "[%v]: %v\", _k, err))")
+			g.P("}")
+		}
+		g.P("}")
+	} else if isPointerType(fieldType) {
 		// For pointer types, check nil first
 		g.P("if x.", fieldName, " != nil {")
 		g.P("if err := x.", fieldName, ".", methodName, "(); err != nil {")
-		g.P("errs = append(errs, ", genkit.GoImportPath("fmt").Ident("Sprintf"), "(\"", fieldName, ": %v\", err))")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, ": %v\", err))")
 		g.P("}")
 		g.P("}")
 	} else {
 		// For value types (struct, etc.), call directly
 		g.P("if err := x.", fieldName, ".", methodName, "(); err != nil {")
-		g.P("errs = append(errs, ", genkit.GoImportPath("fmt").Ident("Sprintf"), "(\"", fieldName, ": %v\", err))")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, ": %v\", err))")
 		g.P("}")
 	}
 }
@@ -1330,6 +1364,37 @@ func isSliceOrMapType(t string) bool {
 	return strings.HasPrefix(t, "[]") || strings.HasPrefix(t, "map[")
 }
 
+func isSliceType(t string) bool {
+	return strings.HasPrefix(t, "[]")
+}
+
+func isMapType(t string) bool {
+	return strings.HasPrefix(t, "map[")
+}
+
+// extractMapValueType extracts the value type from a map type string.
+// e.g., "map[string]Address" -> "Address", "map[int]*User" -> "*User"
+func extractMapValueType(t string) string {
+	// Find the closing bracket of the key type
+	if !strings.HasPrefix(t, "map[") {
+		return ""
+	}
+	depth := 0
+	for i := 4; i < len(t); i++ {
+		switch t[i] {
+		case '[':
+			depth++
+		case ']':
+			if depth == 0 {
+				// Found the closing bracket, value type starts after it
+				return t[i+1:]
+			}
+			depth--
+		}
+	}
+	return ""
+}
+
 func isPointerType(t string) bool {
 	return strings.HasPrefix(t, "*")
 }
@@ -1356,9 +1421,17 @@ func isBuiltinType(t string) bool {
 	if strings.HasPrefix(t, "*") {
 		return isBuiltinType(strings.TrimPrefix(t, "*"))
 	}
-	// Check slice/map of builtin (these are still builtin)
-	if strings.HasPrefix(t, "[]") || strings.HasPrefix(t, "map[") {
-		return true
+	// Check slice - recurse to check element type
+	if strings.HasPrefix(t, "[]") {
+		return isBuiltinType(strings.TrimPrefix(t, "[]"))
+	}
+	// Check map - recurse to check value type
+	if strings.HasPrefix(t, "map[") {
+		valueType := extractMapValueType(t)
+		if valueType == "" {
+			return true // malformed map type
+		}
+		return isBuiltinType(valueType)
 	}
 	// Builtin primitive types
 	switch t {

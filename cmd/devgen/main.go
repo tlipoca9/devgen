@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -214,7 +215,13 @@ func formatStringSlice(ss []string) string {
 }
 
 func runDryRun(ctx context.Context, args []string, jsonOutput bool) error {
-	log := genkit.NewLogger()
+	// Use silent logger for JSON output to avoid polluting stdout
+	var log *genkit.Logger
+	if jsonOutput {
+		log = genkit.NewLoggerWithWriter(io.Discard)
+	} else {
+		log = genkit.NewLogger()
+	}
 	result := &genkit.DryRunResult{
 		Success: true,
 		Files:   make(map[string]string),

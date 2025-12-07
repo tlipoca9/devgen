@@ -12,6 +12,7 @@ VSCode 扩展，为 devgen 注解提供编辑器支持：语法高亮、自动�
 - **诊断提示** - 检测缺失的生成文件、字段注解缺少类型注解等问题
 - **悬停文档** - 鼠标悬停显示注解文档和可用选项
 - **LSP 集成** - 与 gopls 联动，支持跨包类型方法查找和验证
+- **Dry-run 验证** - 保存时自动运行 `devgen --dry-run` 进行静态验证
 
 ## 安装
 
@@ -25,6 +26,13 @@ VSCode 扩展，为 devgen 注解提供编辑器支持：语法高亮、自动�
 |--------|------|--------|------|
 | `devgen.enableDiagnostics` | boolean | `true` | 启用/禁用诊断功能 |
 | `devgen.executablePath` | string | `devgen` | devgen 可执行文件路径 |
+| `devgen.validateOnSave` | boolean | `true` | 保存和打开文件时运行 dry-run 验证 |
+
+## 命令
+
+| 命令 | 说明 |
+|------|------|
+| `DevGen: Validate Annotations` | 手动触发 dry-run 验证 |
 
 ## 支持的工具
 
@@ -148,6 +156,16 @@ type User struct {
 3. **自动安装** - 如果 devgen 未安装，扩展会自动通过 `go install` 安装
 
 插件可以实现 `ConfigurableTool` 接口来自描述配置，无需手动编写 `[tools.xxx]` 配置。
+
+### Dry-run 验证
+
+扩展在保存和打开 Go 文件时自动运行 `devgen --dry-run --json` 进行静态验证：
+
+- 检测注解参数错误（如 `@min` 参数不是数字）
+- 检测字段类型与注解不兼容（如 `@method` 用于内置类型）
+- 检测 `@oneof` 缺少值等问题
+
+验证结果显示在 Problems 面板中，可通过 `devgen.validateOnSave` 配置项禁用。
 
 详见 [插件开发文档](../docs/plugin.md)。
 

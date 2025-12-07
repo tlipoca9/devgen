@@ -18,9 +18,11 @@ go install github.com/tlipoca9/devgen/cmd/validategen@latest
 ## Usage
 
 ```bash
-devgen ./...        # Run all generators
-enumgen ./...       # Run enum generator only
-validategen ./...   # Run validation generator only
+devgen ./...                    # Run all generators
+devgen --dry-run ./...          # Validate annotations without writing files
+devgen --dry-run --json ./...   # JSON format output for IDE integration
+enumgen ./...                   # Run enum generator only
+validategen ./...               # Run validation generator only
 ```
 
 ## Tools
@@ -137,6 +139,7 @@ make vscode   # Build VSCode extension
 
 ## Release Notes
 
+- [v0.2.1](docs/release/v0.2.1_EN.md) - 2025-12-07
 - [v0.2.0](docs/release/v0.2.0_EN.md) - 2025-12-07
 - [v0.1.3](docs/release/v0.1.3_EN.md) - 2025-12-07
 - [v0.1.2](docs/release/v0.1.2_EN.md) - 2025-12-07
