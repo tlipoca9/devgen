@@ -119,10 +119,11 @@ Install from [VS Code Marketplace](https://marketplace.visualstudio.com/items?it
 
 devgen supports extending functionality through a plugin mechanism, allowing users to develop custom code generation tools using the genkit framework.
 
-Three plugin types are supported:
+Two plugin types are supported:
 - **source** - Go source code, compiled at runtime (recommended)
-- **executable** - Standalone executable, JSON stdin/stdout communication
 - **plugin** - Pre-compiled Go plugin (.so)
+
+Plugins can implement the `ConfigurableTool` interface for self-describing configuration, and the VSCode extension will automatically retrieve annotation metadata via `devgen config --json`.
 
 See [Plugin Development Guide](docs/plugin_EN.md) and [Examples](examples/plugin/).
 

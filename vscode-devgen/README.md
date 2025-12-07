@@ -24,10 +24,13 @@ VSCode 扩展，为 devgen 注解提供编辑器支持：语法高亮、自动�
 | 配置项 | 类型 | 默认值 | 说明 |
 |--------|------|--------|------|
 | `devgen.enableDiagnostics` | boolean | `true` | 启用/禁用诊断功能 |
+| `devgen.executablePath` | string | `devgen` | devgen 可执行文件路径 |
 
 ## 支持的工具
 
-扩展通过读取 `devgen.toml` 配置文件自动识别支持的工具和注解。当前支持：
+扩展通过运行 `devgen config --json` 命令自动获取工具和注解配置。如果 devgen 未安装，扩展会自动尝试通过 `go install` 安装。
+
+当前内置支持：
 
 ### enumgen
 
@@ -138,9 +141,15 @@ type User struct {
 
 ## 工作原理
 
-扩展的配置来源于 `tools-config.json`，该文件由 `vscgen` 工具从各生成器的 `devgen.toml` 文件自动生成。
+扩展通过以下方式获取工具配置：
 
-详见 [vscgen README](../cmd/vscgen/README.md) 了解配置生成机制。
+1. **devgen CLI** - 运行 `devgen config --json` 获取所有工具（内置 + 插件）的注解配置
+2. **devgen.toml** - 读取项目配置文件中的 `[tools.xxx]` 手动覆盖配置
+3. **自动安装** - 如果 devgen 未安装，扩展会自动通过 `go install` 安装
+
+插件可以实现 `ConfigurableTool` 接口来自描述配置，无需手动编写 `[tools.xxx]` 配置。
+
+详见 [插件开发文档](../docs/plugin.md)。
 
 ## 开发
 

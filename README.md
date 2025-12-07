@@ -119,10 +119,11 @@ type User struct {
 
 devgen 支持通过插件机制扩展功能，允许用户使用 genkit 框架开发自定义代码生成工具。
 
-支持三种插件类型：
+支持两种插件类型：
 - **source** - Go 源码，运行时编译（推荐）
-- **executable** - 独立可执行文件，JSON stdin/stdout 通信
 - **plugin** - 预编译 Go plugin (.so)
+
+插件可以实现 `ConfigurableTool` 接口来自描述配置，VSCode 扩展会通过 `devgen config --json` 自动获取注解元数据。
 
 详见 [插件开发文档](docs/plugin.md) 和 [示例](examples/plugin/)。
 
