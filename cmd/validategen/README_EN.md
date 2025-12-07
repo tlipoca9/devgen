@@ -1,0 +1,566 @@
+# validategen
+
+[中文](README.md) | English
+
+`validategen` is a Go struct validation code generation tool that generates `Validate()` methods for structs annotated with `validategen:@validate`.
+
+## Installation
+
+```bash
+go install github.com/tlipoca9/devgen/cmd/validategen@latest
+```
+
+## Usage
+
+```bash
+validategen ./...              # All packages
+validategen ./pkg/models       # Specific package
+```
+
+## Annotations
+
+### @validate - Mark Struct for Validation
+
+Add annotation above struct definition to indicate that a `Validate()` method should be generated:
+
+```go
+// User model
+// validategen:@validate
+type User struct {
+    // validategen:@required
+    Name string
+}
+```
+
+### Field-Level Validation Annotations
+
+Add validation rules in field comments. Multiple rules can be combined.
+
+---
+
+## Validation Rules
+
+### 1. @required - Required Validation
+
+Validates that field is not empty/zero value.
+
+| Field Type | Validation Logic |
+|------------|------------------|
+| `string` | Cannot be empty string `""` |
+| `int/float/...` | Cannot be `0` |
+| `bool` | Must be `true` |
+| `slice/map` | Length cannot be `0` |
+| `pointer` | Cannot be `nil` |
+
+```go
+// validategen:@validate
+type User struct {
+    // validategen:@required
+    Name string  // Required string
+
+    // validategen:@required
+    Age int  // Required number (cannot be 0)
+
+    // validategen:@required
+    IsActive bool  // Must be true
+
+    // validategen:@required
+    Tags []string  // Slice cannot be empty
+
+    // validategen:@required
+    Profile *Profile  // Pointer cannot be nil
+}
+```
+
+---
+
+### 2. @min(n) - Minimum Value/Length
+
+| Field Type | Validation Logic |
+|------------|------------------|
+| `string` | String length >= n |
+| `slice/map` | Element count >= n |
+| `int/float/...` | Value >= n |
+
+---
+
+### 3. @max(n) - Maximum Value/Length
+
+| Field Type | Validation Logic |
+|------------|------------------|
+| `string` | String length <= n |
+| `slice/map` | Element count <= n |
+| `int/float/...` | Value <= n |
+
+---
+
+### 4. @len(n) - Exact Length
+
+| Field Type | Validation Logic |
+|------------|------------------|
+| `string` | String length == n |
+| `slice/map` | Element count == n |
+
+---
+
+### 5. @gt(n) - Greater Than
+
+| Field Type | Validation Logic |
+|------------|------------------|
+| `string` | String length > n |
+| `slice/map` | Element count > n |
+| `int/float/...` | Value > n |
+
+---
+
+### 6. @gte(n) - Greater Than or Equal
+
+| Field Type | Validation Logic |
+|------------|------------------|
+| `string` | String length >= n |
+| `slice/map` | Element count >= n |
+| `int/float/...` | Value >= n |
+
+---
+
+### 7. @lt(n) - Less Than
+
+| Field Type | Validation Logic |
+|------------|------------------|
+| `string` | String length < n |
+| `slice/map` | Element count < n |
+| `int/float/...` | Value < n |
+
+---
+
+### 8. @lte(n) - Less Than or Equal
+
+| Field Type | Validation Logic |
+|------------|------------------|
+| `string` | String length <= n |
+| `slice/map` | Element count <= n |
+| `int/float/...` | Value <= n |
+
+---
+
+### 9. @eq(value) - Equal
+
+Validates that field value equals specified value. Supports `string`, `int/float`, `bool` types.
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@eq(1)
+    Version int  // Version must equal 1
+
+    // validategen:@eq(active)
+    Status string  // Status must equal "active"
+
+    // validategen:@eq(true)
+    Enabled bool  // Must be true
+}
+```
+
+---
+
+### 10. @ne(value) - Not Equal
+
+Validates that field value does not equal specified value. Supports `string`, `int/float`, `bool` types.
+
+---
+
+### 11. @oneof(a, b, c) - Enum Values
+
+Validates that field value is one of specified values. Supports `string` and numeric types.
+
+```go
+// validategen:@validate
+type User struct {
+    // validategen:@oneof(admin, user, guest)
+    Role string  // Role must be admin, user, or guest
+
+    // validategen:@oneof(1, 2, 3)
+    Level int  // Level must be 1, 2, or 3
+}
+```
+
+---
+
+### 12. @email - Email Format
+
+Validates string is a valid email address. Empty strings skip validation.
+
+---
+
+### 13. @url - URL Format
+
+Validates string is a valid URL. Empty strings skip validation.
+
+---
+
+### 14. @uuid - UUID Format
+
+Validates string is a valid UUID (8-4-4-4-12 format). Empty strings skip validation.
+
+---
+
+### 15. @ip - IP Address
+
+Validates string is a valid IP address (IPv4 or IPv6). Empty strings skip validation.
+
+---
+
+### 16. @ipv4 - IPv4 Address
+
+Validates string is a valid IPv4 address. Empty strings skip validation.
+
+---
+
+### 17. @ipv6 - IPv6 Address
+
+Validates string is a valid IPv6 address. Empty strings skip validation.
+
+---
+
+### 18. @alpha - Letters Only
+
+Validates string contains only letters (a-zA-Z). Empty strings skip validation.
+
+---
+
+### 19. @alphanum - Alphanumeric
+
+Validates string contains only letters and numbers (a-zA-Z0-9). Empty strings skip validation.
+
+---
+
+### 20. @numeric - Numbers Only
+
+Validates string contains only digits (0-9). Empty strings skip validation.
+
+---
+
+### 21. @contains(substring) - Contains Substring
+
+Validates string contains specified substring.
+
+---
+
+### 22. @excludes(substring) - Excludes Substring
+
+Validates string does not contain specified substring.
+
+---
+
+### 23. @startswith(prefix) - Prefix Match
+
+Validates string starts with specified prefix.
+
+---
+
+### 24. @endswith(suffix) - Suffix Match
+
+Validates string ends with specified suffix.
+
+---
+
+### 25. @regex(pattern) - Regular Expression
+
+Validates string matches specified regex pattern. Empty strings skip validation.
+
+```go
+// validategen:@validate
+type Product struct {
+    // validategen:@regex(^[A-Z]{2}-\d{4}$)
+    ProductCode string  // Format: XX-0000 (two uppercase letters-four digits)
+
+    // validategen:@regex(^\d{4}-\d{2}-\d{2}$)
+    Date string  // Format: YYYY-MM-DD
+}
+```
+
+---
+
+### 26. @format(type) - Format Validation
+
+Validates string is valid specified format. Supports `json`, `yaml`, `toml`, `csv`. Empty strings skip validation.
+
+| Format | Description |
+|--------|-------------|
+| `json` | Validated using `encoding/json.Valid` |
+| `yaml` | Validated by parsing with `gopkg.in/yaml.v3` |
+| `toml` | Validated by parsing with `github.com/BurntSushi/toml` |
+| `csv` | Validated by parsing with `encoding/csv` |
+
+---
+
+### 27. @method(MethodName) - Call Validation Method
+
+Calls validation method on nested struct or custom type. For pointer types, nil check is performed first.
+
+```go
+// Address
+type Address struct {
+    Street string
+    City   string
+}
+
+// Validate validates address
+func (a Address) Validate() error {
+    if a.Street == "" {
+        return fmt.Errorf("street is required")
+    }
+    if a.City == "" {
+        return fmt.Errorf("city is required")
+    }
+    return nil
+}
+
+// validategen:@validate
+type User struct {
+    // validategen:@method(Validate)
+    Address Address  // Calls Address.Validate()
+
+    // validategen:@method(Validate)
+    OptionalAddress *Address  // Calls Validate() when not nil
+}
+```
+
+---
+
+## Advanced Features
+
+### postValidate Hook
+
+If struct defines a `postValidate(errs []string) error` method, the generated `Validate()` method will call it after all field validations, passing the collected error list.
+
+```go
+// validategen:@validate
+type User struct {
+    // validategen:@required
+    Role string
+
+    // validategen:@gte(0)
+    Age int
+}
+
+// postValidate custom validation logic
+func (x User) postValidate(errs []string) error {
+    if x.Role == "admin" && x.Age < 18 {
+        errs = append(errs, "admin must be at least 18 years old")
+    }
+    if len(errs) > 0 {
+        return fmt.Errorf("%s", strings.Join(errs, "; "))
+    }
+    return nil
+}
+```
+
+### Multiple Rules
+
+A field can use multiple validation rules simultaneously:
+
+```go
+// validategen:@validate
+type User struct {
+    // validategen:@required
+    // validategen:@min(2)
+    // validategen:@max(50)
+    // validategen:@alpha
+    Name string  // Required, 2-50 characters, letters only
+
+    // validategen:@required
+    // validategen:@email
+    Email string  // Required and valid email format
+
+    // validategen:@required
+    // validategen:@min(1)
+    // validategen:@max(65535)
+    Port int  // Required, range 1-65535
+}
+```
+
+---
+
+## Complete Example
+
+### Definition
+
+```go
+package models
+
+import "fmt"
+
+// Address
+type Address struct {
+    Street string
+    City   string
+}
+
+// Validate validates address
+func (a Address) Validate() error {
+    if a.Street == "" {
+        return fmt.Errorf("street is required")
+    }
+    if a.City == "" {
+        return fmt.Errorf("city is required")
+    }
+    return nil
+}
+
+// User model
+// validategen:@validate
+type User struct {
+    // validategen:@required
+    // validategen:@gt(0)
+    ID int64
+
+    // validategen:@required
+    // validategen:@min(2)
+    // validategen:@max(50)
+    Name string
+
+    // validategen:@required
+    // validategen:@email
+    Email string
+
+    // validategen:@gte(0)
+    // validategen:@lte(150)
+    Age int
+
+    // validategen:@required
+    // validategen:@min(8)
+    Password string
+
+    // validategen:@oneof(admin, user, guest)
+    Role string
+
+    // validategen:@url
+    Website string
+
+    // validategen:@uuid
+    UUID string
+
+    // validategen:@ip
+    IP string
+
+    // validategen:@alphanum
+    // validategen:@len(6)
+    Code string
+
+    // validategen:@method(Validate)
+    Address Address
+
+    // validategen:@method(Validate)
+    OptionalAddress *Address
+}
+
+// postValidate custom validation
+func (x User) postValidate(errs []string) error {
+    if x.Role == "admin" && x.Age < 18 {
+        errs = append(errs, "admin must be at least 18 years old")
+    }
+    if len(errs) > 0 {
+        return fmt.Errorf("%s", strings.Join(errs, "; "))
+    }
+    return nil
+}
+```
+
+Run code generation:
+
+```bash
+validategen ./...
+```
+
+### Usage
+
+```go
+package main
+
+import (
+    "fmt"
+    
+    "example.com/models"
+)
+
+func main() {
+    // Valid user
+    user := models.User{
+        ID:       1,
+        Name:     "John Doe",
+        Email:    "john@example.com",
+        Age:      25,
+        Password: "password123",
+        Role:     "user",
+        Code:     "ABC123",
+        Address:  models.Address{Street: "123 Main St", City: "New York"},
+    }
+    
+    if err := user.Validate(); err != nil {
+        fmt.Println("Validation failed:", err)
+    } else {
+        fmt.Println("Validation passed!")
+    }
+    
+    // Invalid user
+    invalidUser := models.User{
+        ID:       0,  // Invalid: required and gt(0)
+        Name:     "",  // Invalid: required
+        Email:    "invalid-email",  // Invalid: email format
+        Password: "short",  // Invalid: min(8)
+        Role:     "invalid",  // Invalid: oneof
+    }
+    
+    if err := invalidUser.Validate(); err != nil {
+        fmt.Println("Validation failed:", err)
+        // Output: ID is required; ID must be greater than 0, got 0; Name is required; ...
+    }
+}
+```
+
+---
+
+## Annotation Quick Reference
+
+| Annotation | Parameter | Applicable Types | Description |
+|------------|-----------|------------------|-------------|
+| `@validate` | - | struct | Mark struct to generate Validate method |
+| `@required` | - | string, number, bool, slice, map, pointer | Required validation |
+| `@min(n)` | number | string, slice, map, number | Minimum value/length |
+| `@max(n)` | number | string, slice, map, number | Maximum value/length |
+| `@len(n)` | number | string, slice, map | Exact length |
+| `@gt(n)` | number | string, slice, map, number | Greater than |
+| `@gte(n)` | number | string, slice, map, number | Greater than or equal |
+| `@lt(n)` | number | string, slice, map, number | Less than |
+| `@lte(n)` | number | string, slice, map, number | Less than or equal |
+| `@eq(v)` | string/number/bool | string, number, bool | Equal |
+| `@ne(v)` | string/number/bool | string, number, bool | Not equal |
+| `@oneof(a, b, c)` | comma-separated values | string, number | Enum values |
+| `@email` | - | string | Email format |
+| `@url` | - | string | URL format |
+| `@uuid` | - | string | UUID format |
+| `@ip` | - | string | IP address (v4 or v6) |
+| `@ipv4` | - | string | IPv4 address |
+| `@ipv6` | - | string | IPv6 address |
+| `@alpha` | - | string | Letters only |
+| `@alphanum` | - | string | Alphanumeric |
+| `@numeric` | - | string | Numbers only |
+| `@contains(s)` | string | string | Contains substring |
+| `@excludes(s)` | string | string | Excludes substring |
+| `@startswith(s)` | string | string | Prefix match |
+| `@endswith(s)` | string | string | Suffix match |
+| `@regex(pattern)` | regex | string | Regex match |
+| `@format(type)` | json, yaml, toml, csv | string | Format validation |
+| `@method(name)` | method name | struct, pointer, custom type | Call validation method |
+
+---
+
+## Supported Numeric Types
+
+validategen supports all Go built-in numeric types:
+
+- Signed integers: `int`, `int8`, `int16`, `int32`, `int64`
+- Unsigned integers: `uint`, `uint8`, `uint16`, `uint32`, `uint64`
+- Floating point: `float32`, `float64`
+- Alias types: `byte` (uint8), `rune` (int32), `uintptr`

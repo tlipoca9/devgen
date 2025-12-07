@@ -1,0 +1,54 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "comment.devgen.injection",
+  "injectionSelector": "L:comment.line.double-slash.go, L:comment.block.go",
+  "patterns": [
+    {
+      "comment": "devgen annotation pattern: prefix:@annotation(params)",
+      "name": "meta.annotation.devgen",
+      "match": "(\\w+)(:@)([\\w.]+)(?:(\\()([^)]*)(\\)))?",
+      "captures": {
+        "1": {
+          "comment": "Tool/namespace prefix (enum, validate, etc.)",
+          "name": "entity.name.namespace.devgen"
+        },
+        "2": {
+          "comment": "Annotation marker :@",
+          "name": "punctuation.definition.annotation.devgen"
+        },
+        "3": {
+          "comment": "Annotation name (enum.name, required, min, etc.)",
+          "name": "entity.name.tag.devgen"
+        },
+        "4": {
+          "comment": "Opening parenthesis",
+          "name": "punctuation.definition.parameters.begin.devgen"
+        },
+        "5": {
+          "comment": "Parameter values",
+          "patterns": [
+            {
+              "comment": "Numeric parameter value",
+              "match": "-?\\d+(\\.\\d+)?",
+              "name": "constant.numeric.devgen"
+            },
+            {
+              "comment": "Comma separator",
+              "match": ",",
+              "name": "punctuation.separator.comma.devgen"
+            },
+            {
+              "comment": "String/identifier parameter value",
+              "match": "[^,\\s]+",
+              "name": "string.unquoted.devgen"
+            }
+          ]
+        },
+        "6": {
+          "comment": "Closing parenthesis",
+          "name": "punctuation.definition.parameters.end.devgen"
+        }
+      }
+    }
+  ]
+}
