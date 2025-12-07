@@ -109,6 +109,10 @@ See [validategen README](cmd/validategen/README_EN.md) for details.
 
 Provides editor support for devgen annotations: syntax highlighting, auto-completion, parameter validation hints.
 
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/tlipoca9.devgen)](https://marketplace.visualstudio.com/items?itemName=tlipoca9.devgen)
+
+Install from [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=tlipoca9.devgen).
+
 ## Build
 
 ```bash
