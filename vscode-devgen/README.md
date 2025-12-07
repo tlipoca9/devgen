@@ -167,6 +167,16 @@ npm run package
 npm run install-local
 ```
 
+### 注意事项
+
+**避免使用外部运行时依赖**
+
+VSCode 扩展打包使用 `--no-dependencies` 参数，不会包含 `node_modules`。因此：
+
+1. 尽量避免使用外部运行时依赖（如 `smol-toml`）
+2. 如果必须使用，需要用 webpack/esbuild 将依赖打包到 bundle 中
+3. 当前扩展已移除所有外部依赖，配置完全通过 `devgen config --json` 获取
+
 ## License
 
 MIT

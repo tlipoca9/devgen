@@ -185,6 +185,9 @@ func (tc *ToolConfig) ToVSCodeConfig() map[string]interface{} {
 		if ann.Params != nil {
 			if ann.Params.Type != nil {
 				annConfig["paramType"] = ann.Params.Type
+			} else if len(ann.Params.Values) > 0 {
+				// If values are provided but no type, default to "enum"
+				annConfig["paramType"] = "enum"
 			}
 			if len(ann.Params.Values) > 0 {
 				annConfig["values"] = ann.Params.Values
