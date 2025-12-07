@@ -119,18 +119,18 @@ func (e _GenerateOptionEnums) Contains(v GenerateOption) bool {
 	return ok
 }
 
-// ContainsName reports whether name is a valid GenerateOption name.
-func (e _GenerateOptionEnums) ContainsName(name string) bool {
-	_, ok := e.byName[name]
-	return ok
-}
-
 // Parse parses a string into GenerateOption.
 func (e _GenerateOptionEnums) Parse(s string) (GenerateOption, error) {
 	if v, ok := e.byName[s]; ok {
 		return v, nil
 	}
 	return 0, fmt.Errorf("invalid GenerateOption: %q", s)
+}
+
+// ContainsName reports whether name is a valid GenerateOption name.
+func (e _GenerateOptionEnums) ContainsName(name string) bool {
+	_, ok := e.byName[name]
+	return ok
 }
 
 // Name returns the string name of v.
@@ -148,4 +148,70 @@ func (e _GenerateOptionEnums) Names() []string {
 		names[i] = e.names[v]
 	}
 	return names
+}
+
+// IsValid reports whether x is a valid UnderlyingType.
+func (x UnderlyingType) IsValid() bool {
+	return UnderlyingTypeEnums.Contains(string(x))
+}
+
+// String returns the string representation of UnderlyingType.
+func (x UnderlyingType) String() string {
+	return string(x)
+}
+
+// UnderlyingTypeEnums is the enum helper for UnderlyingType.
+var UnderlyingTypeEnums = _UnderlyingTypeEnums{
+	values: []UnderlyingType{
+		UnderlyingTypeInt,
+		UnderlyingTypeInt8,
+		UnderlyingTypeInt16,
+		UnderlyingTypeInt32,
+		UnderlyingTypeInt64,
+		UnderlyingTypeUint,
+		UnderlyingTypeUint8,
+		UnderlyingTypeUint16,
+		UnderlyingTypeUint32,
+		UnderlyingTypeUint64,
+		UnderlyingTypeString,
+	},
+	set: map[UnderlyingType]struct{}{
+		UnderlyingTypeInt:    {},
+		UnderlyingTypeInt8:   {},
+		UnderlyingTypeInt16:  {},
+		UnderlyingTypeInt32:  {},
+		UnderlyingTypeInt64:  {},
+		UnderlyingTypeUint:   {},
+		UnderlyingTypeUint8:  {},
+		UnderlyingTypeUint16: {},
+		UnderlyingTypeUint32: {},
+		UnderlyingTypeUint64: {},
+		UnderlyingTypeString: {},
+	},
+}
+
+// _UnderlyingTypeEnums provides enum metadata and validation for UnderlyingType.
+type _UnderlyingTypeEnums struct {
+	values []UnderlyingType
+	set    map[UnderlyingType]struct{}
+}
+
+// List returns all valid UnderlyingType values.
+func (e _UnderlyingTypeEnums) List() []UnderlyingType {
+	return e.values
+}
+
+// Contains reports whether v is a valid UnderlyingType.
+func (e _UnderlyingTypeEnums) Contains(v string) bool {
+	_, ok := e.set[UnderlyingType(v)]
+	return ok
+}
+
+// Parse parses a string into UnderlyingType.
+func (e _UnderlyingTypeEnums) Parse(s string) (UnderlyingType, error) {
+	v := UnderlyingType(s)
+	if _, ok := e.set[v]; ok {
+		return v, nil
+	}
+	return "", fmt.Errorf("invalid UnderlyingType: %q", s)
 }

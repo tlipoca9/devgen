@@ -26,6 +26,24 @@ const (
 	GenerateOptionSQL
 )
 
+// UnderlyingType represents supported underlying types for enums.
+// enumgen:@enum(string)
+type UnderlyingType string
+
+const (
+	UnderlyingTypeInt    UnderlyingType = "int"
+	UnderlyingTypeInt8   UnderlyingType = "int8"
+	UnderlyingTypeInt16  UnderlyingType = "int16"
+	UnderlyingTypeInt32  UnderlyingType = "int32"
+	UnderlyingTypeInt64  UnderlyingType = "int64"
+	UnderlyingTypeUint   UnderlyingType = "uint"
+	UnderlyingTypeUint8  UnderlyingType = "uint8"
+	UnderlyingTypeUint16 UnderlyingType = "uint16"
+	UnderlyingTypeUint32 UnderlyingType = "uint32"
+	UnderlyingTypeUint64 UnderlyingType = "uint64"
+	UnderlyingTypeString UnderlyingType = "string"
+)
+
 // Generator generates enum helper methods.
 type Generator struct{}
 
@@ -136,6 +154,12 @@ func (eg *Generator) WriteHeader(g *genkit.GeneratedFile, pkgName string) {
 
 // GenerateEnum generates helper code for a single enum.
 func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) error {
+	// Validate underlying type
+	if !UnderlyingTypeEnums.Contains(enum.UnderlyingType) {
+		return fmt.Errorf("%s: unsupported underlying type %q, must be one of: %v",
+			enum.Name, enum.UnderlyingType, UnderlyingTypeEnums.List())
+	}
+
 	ann := genkit.GetAnnotation(enum.Doc, ToolName, "enum")
 
 	// Options from annotation
@@ -148,14 +172,26 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 	enumsType := "_" + typeName + "Enums" // e.g., _StatusEnums
 	enumsVar := typeName + "Enums"        // e.g., StatusEnums
 
-	// Collect names and check for duplicates
-	nameSet := make(map[string]string) // name -> value name (for error message)
-	for _, v := range enum.Values {
-		name := GetValueName(v, typeName)
-		if existing, ok := nameSet[name]; ok {
-			return fmt.Errorf("%s: duplicate @name %q on %s and %s", typeName, name, existing, v.Name)
+	// Check if underlying type is string
+	isStringType := enum.UnderlyingType == "string"
+
+	// For string types, @name annotation is not supported
+	if isStringType {
+		for _, v := range enum.Values {
+			if genkit.HasAnnotation(v.Doc, ToolName, "name") {
+				return fmt.Errorf("%s: @name annotation is not supported for string underlying type (on %s)", typeName, v.Name)
+			}
 		}
-		nameSet[name] = v.Name
+	} else {
+		// For non-string types, collect names and check for duplicates
+		nameSet := make(map[string]string) // name -> value name (for error message)
+		for _, v := range enum.Values {
+			name := GetValueName(v, typeName)
+			if existing, ok := nameSet[name]; ok {
+				return fmt.Errorf("%s: duplicate @name %q on %s and %s", typeName, name, existing, v.Name)
+			}
+			nameSet[name] = v.Name
+		}
 	}
 
 	// 1. Enum type methods (IsValid, String, MarshalJSON, etc.) - at the top
@@ -168,7 +204,11 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 		Name:    "IsValid",
 		Results: genkit.GoResults{{Type: "bool"}},
 	}, " {")
-	g.P("return ", enumsVar, ".Contains(x)")
+	if isStringType {
+		g.P("return ", enumsVar, ".Contains(string(x))")
+	} else {
+		g.P("return ", enumsVar, ".Contains(x)")
+	}
 	g.P("}")
 
 	if genString {
@@ -179,7 +219,11 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 			Name:    "String",
 			Results: genkit.GoResults{{Type: "string"}},
 		}, " {")
-		g.P("return ", enumsVar, ".Name(x)")
+		if isStringType {
+			g.P("return string(x)")
+		} else {
+			g.P("return ", enumsVar, ".Name(x)")
+		}
 		g.P("}")
 	}
 
@@ -191,7 +235,11 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 			Name:    "MarshalJSON",
 			Results: genkit.GoResults{{Type: "[]byte"}, {Type: "error"}},
 		}, " {")
-		g.P("return ", genkit.GoImportPath("encoding/json").Ident("Marshal"), "(", enumsVar, ".Name(x))")
+		if isStringType {
+			g.P("return ", genkit.GoImportPath("encoding/json").Ident("Marshal"), "(string(x))")
+		} else {
+			g.P("return ", genkit.GoImportPath("encoding/json").Ident("Marshal"), "(", enumsVar, ".Name(x))")
+		}
 		g.P("}")
 
 		g.P()
@@ -223,7 +271,11 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 			Name:    "MarshalText",
 			Results: genkit.GoResults{{Type: "[]byte"}, {Type: "error"}},
 		}, " {")
-		g.P("return []byte(", enumsVar, ".Name(x)), nil")
+		if isStringType {
+			g.P("return []byte(x), nil")
+		} else {
+			g.P("return []byte(", enumsVar, ".Name(x)), nil")
+		}
 		g.P("}")
 
 		g.P()
@@ -254,7 +306,11 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 				{Type: "error"},
 			},
 		}, " {")
-		g.P("return ", enumsVar, ".Name(x), nil")
+		if isStringType {
+			g.P("return string(x), nil")
+		} else {
+			g.P("return ", enumsVar, ".Name(x), nil")
+		}
 		g.P("}")
 
 		g.P()
@@ -298,21 +354,30 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 	}
 	g.P("},")
 
-	// names map
-	g.P("names: map[", typeName, "]string{")
-	for _, v := range enum.Values {
-		name := GetValueName(v, typeName)
-		g.P(v.Name, ": ", fmt.Sprintf("%q", name), ",")
-	}
-	g.P("},")
+	if isStringType {
+		// For string type, use a set for fast lookup
+		g.P("set: map[", typeName, "]struct{}{")
+		for _, v := range enum.Values {
+			g.P(v.Name, ": {},")
+		}
+		g.P("},")
+	} else {
+		// names map (only for non-string types)
+		g.P("names: map[", typeName, "]string{")
+		for _, v := range enum.Values {
+			name := GetValueName(v, typeName)
+			g.P(v.Name, ": ", fmt.Sprintf("%q", name), ",")
+		}
+		g.P("},")
 
-	// byName map (case-sensitive)
-	g.P("byName: map[string]", typeName, "{")
-	for _, v := range enum.Values {
-		name := GetValueName(v, typeName)
-		g.P(fmt.Sprintf("%q", name), ": ", v.Name, ",")
+		// byName map (case-sensitive, only for non-string types)
+		g.P("byName: map[string]", typeName, "{")
+		for _, v := range enum.Values {
+			name := GetValueName(v, typeName)
+			g.P(fmt.Sprintf("%q", name), ": ", v.Name, ",")
+		}
+		g.P("},")
 	}
-	g.P("},")
 	g.P("}")
 
 	// 3. _XxxEnums type definition
@@ -320,8 +385,12 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 	g.P("// ", enumsType, " provides enum metadata and validation for ", typeName, ".")
 	g.P("type ", enumsType, " struct {")
 	g.P("values []", typeName)
-	g.P("names  map[", typeName, "]string")
-	g.P("byName map[string]", typeName)
+	if isStringType {
+		g.P("set map[", typeName, "]struct{}")
+	} else {
+		g.P("names  map[", typeName, "]string")
+		g.P("byName map[string]", typeName)
+	}
 	g.P("}")
 
 	// 4. _XxxEnums methods
@@ -336,26 +405,25 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 	g.P("}")
 
 	g.P()
-	g.P(genkit.GoMethod{
-		Doc:     genkit.GoDoc("Contains reports whether v is a valid " + typeName + "."),
-		Recv:    genkit.GoReceiver{Name: "e", Type: enumsType},
-		Name:    "Contains",
-		Params:  genkit.GoParams{List: []genkit.GoParam{{Name: "v", Type: typeName}}},
-		Results: genkit.GoResults{{Type: "bool"}},
-	}, " {")
-	g.P("_, ok := e.names[v]")
-	g.P("return ok")
-	g.P("}")
-
-	g.P()
-	g.P(genkit.GoMethod{
-		Doc:     genkit.GoDoc("ContainsName reports whether name is a valid " + typeName + " name."),
-		Recv:    genkit.GoReceiver{Name: "e", Type: enumsType},
-		Name:    "ContainsName",
-		Params:  genkit.GoParams{List: []genkit.GoParam{{Name: "name", Type: "string"}}},
-		Results: genkit.GoResults{{Type: "bool"}},
-	}, " {")
-	g.P("_, ok := e.byName[name]")
+	if isStringType {
+		g.P(genkit.GoMethod{
+			Doc:     genkit.GoDoc("Contains reports whether v is a valid " + typeName + "."),
+			Recv:    genkit.GoReceiver{Name: "e", Type: enumsType},
+			Name:    "Contains",
+			Params:  genkit.GoParams{List: []genkit.GoParam{{Name: "v", Type: "string"}}},
+			Results: genkit.GoResults{{Type: "bool"}},
+		}, " {")
+		g.P("_, ok := e.set[", typeName, "(v)]")
+	} else {
+		g.P(genkit.GoMethod{
+			Doc:     genkit.GoDoc("Contains reports whether v is a valid " + typeName + "."),
+			Recv:    genkit.GoReceiver{Name: "e", Type: enumsType},
+			Name:    "Contains",
+			Params:  genkit.GoParams{List: []genkit.GoParam{{Name: "v", Type: typeName}}},
+			Results: genkit.GoResults{{Type: "bool"}},
+		}, " {")
+		g.P("_, ok := e.names[v]")
+	}
 	g.P("return ok")
 	g.P("}")
 
@@ -367,39 +435,62 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 		Params:  genkit.GoParams{List: []genkit.GoParam{{Name: "s", Type: "string"}}},
 		Results: genkit.GoResults{{Type: typeName}, {Type: "error"}},
 	}, " {")
-	g.P("if v, ok := e.byName[s]; ok {")
-	g.P("return v, nil")
-	g.P("}")
-	g.P("return 0, ", genkit.GoImportPath("fmt").Ident("Errorf"), "(\"invalid ", typeName, ": %q\", s)")
-	g.P("}")
-
-	g.P()
-	g.P(genkit.GoMethod{
-		Doc:     genkit.GoDoc("Name returns the string name of v."),
-		Recv:    genkit.GoReceiver{Name: "e", Type: enumsType},
-		Name:    "Name",
-		Params:  genkit.GoParams{List: []genkit.GoParam{{Name: "v", Type: typeName}}},
-		Results: genkit.GoResults{{Type: "string"}},
-	}, " {")
-	g.P("if name, ok := e.names[v]; ok {")
-	g.P("return name")
-	g.P("}")
-	g.P("return ", genkit.GoImportPath("fmt").Ident("Sprintf"), "(\"", typeName, "(%d)\", v)")
+	if isStringType {
+		g.P("v := ", typeName, "(s)")
+		g.P("if _, ok := e.set[v]; ok {")
+		g.P("return v, nil")
+		g.P("}")
+		g.P("return \"\", ", genkit.GoImportPath("fmt").Ident("Errorf"), "(\"invalid ", typeName, ": %q\", s)")
+	} else {
+		g.P("if v, ok := e.byName[s]; ok {")
+		g.P("return v, nil")
+		g.P("}")
+		g.P("return 0, ", genkit.GoImportPath("fmt").Ident("Errorf"), "(\"invalid ", typeName, ": %q\", s)")
+	}
 	g.P("}")
 
-	g.P()
-	g.P(genkit.GoMethod{
-		Doc:     genkit.GoDoc("Names returns all valid " + typeName + " names."),
-		Recv:    genkit.GoReceiver{Name: "e", Type: enumsType},
-		Name:    "Names",
-		Results: genkit.GoResults{{Type: "[]string"}},
-	}, " {")
-	g.P("names := make([]string, len(e.values))")
-	g.P("for i, v := range e.values {")
-	g.P("names[i] = e.names[v]")
-	g.P("}")
-	g.P("return names")
-	g.P("}")
+	// Only generate Name/Names/ContainsName for non-string types
+	if !isStringType {
+		g.P()
+		g.P(genkit.GoMethod{
+			Doc:     genkit.GoDoc("ContainsName reports whether name is a valid " + typeName + " name."),
+			Recv:    genkit.GoReceiver{Name: "e", Type: enumsType},
+			Name:    "ContainsName",
+			Params:  genkit.GoParams{List: []genkit.GoParam{{Name: "name", Type: "string"}}},
+			Results: genkit.GoResults{{Type: "bool"}},
+		}, " {")
+		g.P("_, ok := e.byName[name]")
+		g.P("return ok")
+		g.P("}")
+
+		g.P()
+		g.P(genkit.GoMethod{
+			Doc:     genkit.GoDoc("Name returns the string name of v."),
+			Recv:    genkit.GoReceiver{Name: "e", Type: enumsType},
+			Name:    "Name",
+			Params:  genkit.GoParams{List: []genkit.GoParam{{Name: "v", Type: typeName}}},
+			Results: genkit.GoResults{{Type: "string"}},
+		}, " {")
+		g.P("if name, ok := e.names[v]; ok {")
+		g.P("return name")
+		g.P("}")
+		g.P("return ", genkit.GoImportPath("fmt").Ident("Sprintf"), "(\"", typeName, "(%d)\", v)")
+		g.P("}")
+
+		g.P()
+		g.P(genkit.GoMethod{
+			Doc:     genkit.GoDoc("Names returns all valid " + typeName + " names."),
+			Recv:    genkit.GoReceiver{Name: "e", Type: enumsType},
+			Name:    "Names",
+			Results: genkit.GoResults{{Type: "[]string"}},
+		}, " {")
+		g.P("names := make([]string, len(e.values))")
+		g.P("for i, v := range e.values {")
+		g.P("names[i] = e.names[v]")
+		g.P("}")
+		g.P("return names")
+		g.P("}")
+	}
 
 	return nil
 }
