@@ -332,7 +332,7 @@ func (g *Generator) extractTypes(pkg *Package, file *ast.File, typesByName map[s
 
 			// Extract struct fields
 			if st, ok := ts.Type.(*ast.StructType); ok {
-				typ.Fields = extractFields(g.Fset, st)
+				typ.Fields = extractFields(g.Fset, st, pkg.TypesInfo)
 			}
 
 			pkg.Types = append(pkg.Types, typ)
@@ -741,12 +741,13 @@ func (t *Type) GoIdent() GoIdent {
 
 // Field represents a struct field.
 type Field struct {
-	Name    string
-	Type    string
-	Tag     string
-	Doc     string
-	Comment string
-	Pos     token.Position // source position
+	Name           string
+	Type           string // declared type (e.g., "Email", "*User", "[]string")
+	UnderlyingType string // underlying type (e.g., "string", "*struct", "[]string")
+	Tag            string
+	Doc            string
+	Comment        string
+	Pos            token.Position // source position
 }
 
 // Enum represents a Go enum (type with const values).
@@ -824,7 +825,7 @@ func exprString(expr ast.Expr) string {
 	}
 }
 
-func extractFields(fset *token.FileSet, st *ast.StructType) []*Field {
+func extractFields(fset *token.FileSet, st *ast.StructType, info *types.Info) []*Field {
 	var fields []*Field
 	for _, f := range st.Fields.List {
 		for _, name := range f.Names {
@@ -835,6 +836,15 @@ func extractFields(fset *token.FileSet, st *ast.StructType) []*Field {
 				Comment: commentText(f.Comment),
 				Pos:     fset.Position(name.Pos()),
 			}
+			// Resolve underlying type using type info
+			if info != nil {
+				if tv, ok := info.Types[f.Type]; ok {
+					field.UnderlyingType = underlyingTypeString(tv.Type)
+				}
+			}
+			if field.UnderlyingType == "" {
+				field.UnderlyingType = field.Type // fallback to declared type
+			}
 			if f.Tag != nil {
 				field.Tag = f.Tag.Value
 			}
@@ -842,6 +852,32 @@ func extractFields(fset *token.FileSet, st *ast.StructType) []*Field {
 		}
 	}
 	return fields
+}
+
+// underlyingTypeString returns a string representation of the underlying type.
+func underlyingTypeString(t types.Type) string {
+	switch ut := t.Underlying().(type) {
+	case *types.Basic:
+		return ut.Name()
+	case *types.Pointer:
+		return "*" + underlyingTypeString(ut.Elem())
+	case *types.Slice:
+		return "[]" + underlyingTypeString(ut.Elem())
+	case *types.Map:
+		return "map[" + underlyingTypeString(ut.Key()) + "]" + underlyingTypeString(ut.Elem())
+	case *types.Struct:
+		return "struct"
+	case *types.Interface:
+		return "interface"
+	case *types.Chan:
+		return "chan"
+	case *types.Array:
+		return fmt.Sprintf("[%d]%s", ut.Len(), underlyingTypeString(ut.Elem()))
+	case *types.Signature:
+		return "func"
+	default:
+		return t.String()
+	}
 }
 
 // OutputPath joins directory and filename.

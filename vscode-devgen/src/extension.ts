@@ -3,7 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 
 // Import config loader for dynamic configuration
-import { ConfigLoader, getConfigLoader, ToolsConfig, ToolConfig, AnnotationMeta } from './config-loader';
+import { ConfigLoader, getConfigLoader, ToolsConfig, ToolConfig, AnnotationMeta, execAsync, getEnvWithGoPath } from './config-loader';
 
 // Annotation pattern: toolname:@annotation or toolname:@annotation(params)
 const ANNOTATION_PATTERN = /(\w+):@([\w.]+)(?:\(([^)]*)\))?/g;
@@ -15,6 +15,31 @@ interface LSPConfig {
     feature: string;       // "method", "type", "symbol"
     signature?: string;    // Required signature pattern, e.g., "func() error"
     resolveFrom?: string;  // "fieldType", "receiverType"
+}
+
+// Dry-run result types from devgen CLI
+interface DryRunDiagnostic {
+    severity: 'error' | 'warning' | 'info';
+    message: string;
+    file: string;
+    line: number;
+    column: number;
+    endLine?: number;
+    endColumn?: number;
+    tool: string;
+    code?: string;
+}
+
+interface DryRunResult {
+    success: boolean;
+    files?: { [filename: string]: string };
+    diagnostics?: DryRunDiagnostic[];
+    stats: {
+        packagesLoaded: number;
+        filesGenerated: number;
+        errorCount: number;
+        warningCount: number;
+    };
 }
 
 // Dynamic tools configuration - updated when devgen.toml changes
@@ -133,13 +158,29 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // Update diagnostics on document save (trigger LSP validation)
+    // Update diagnostics on document save (trigger LSP validation and dry-run)
     context.subscriptions.push(
         vscode.workspace.onDidSaveTextDocument(doc => {
             if (doc.languageId === 'go') {
                 // Clear cache on save to get fresh LSP data
                 methodCache = { methods: new Map(), timestamp: 0 };
                 updateDiagnostics(doc);
+                // Run dry-run validation if enabled
+                if (isDryRunEnabled()) {
+                    runDryRunValidation(doc);
+                }
+            }
+        })
+    );
+
+    // Register dry-run validation command
+    context.subscriptions.push(
+        vscode.commands.registerCommand('devgen.validate', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (editor && editor.document.languageId === 'go') {
+                await runDryRunValidation(editor.document);
+            } else {
+                vscode.window.showWarningMessage('DevGen: Please open a Go file to validate');
             }
         })
     );
@@ -161,6 +202,108 @@ export function deactivate() {
 function isDiagnosticsEnabled(): boolean {
     const config = vscode.workspace.getConfiguration('devgen');
     return config.get<boolean>('enableDiagnostics') ?? true;
+}
+
+function isDryRunEnabled(): boolean {
+    const config = vscode.workspace.getConfiguration('devgen');
+    return config.get<boolean>('validateOnSave') ?? false;
+}
+
+function getDevgenPath(): string {
+    const config = vscode.workspace.getConfiguration('devgen');
+    return config.get<string>('executablePath') || 'devgen';
+}
+
+// Dry-run validation using devgen CLI
+let dryRunDiagnosticCollection: vscode.DiagnosticCollection | undefined;
+
+async function runDryRunValidation(document: vscode.TextDocument): Promise<void> {
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+    if (!workspaceFolder) {
+        return;
+    }
+
+    const workspaceDir = workspaceFolder.uri.fsPath;
+    const devgenPath = getDevgenPath();
+    const fileDir = path.dirname(document.uri.fsPath);
+    
+    // Use relative path from workspace
+    const relativeDir = path.relative(workspaceDir, fileDir) || '.';
+
+    try {
+        outputChannel.appendLine(`[DryRun] Running: ${devgenPath} --dry-run --json ./${relativeDir}`);
+        
+        const { stdout, stderr } = await execAsync(
+            `${devgenPath} --dry-run --json ./${relativeDir}`,
+            { 
+                cwd: workspaceDir, 
+                timeout: 30000,
+                env: getEnvWithGoPath()
+            }
+        );
+
+        if (stderr) {
+            outputChannel.appendLine(`[DryRun] stderr: ${stderr}`);
+        }
+
+        const result: DryRunResult = JSON.parse(stdout);
+        outputChannel.appendLine(`[DryRun] Result: success=${result.success}, errors=${result.stats.errorCount}, warnings=${result.stats.warningCount}`);
+
+        // Initialize dry-run diagnostic collection if needed
+        if (!dryRunDiagnosticCollection) {
+            dryRunDiagnosticCollection = vscode.languages.createDiagnosticCollection('devgen-dryrun');
+        }
+
+        // Clear previous dry-run diagnostics for this file
+        dryRunDiagnosticCollection.delete(document.uri);
+
+        if (!result.diagnostics || result.diagnostics.length === 0) {
+            return;
+        }
+
+        // Group diagnostics by file
+        const diagnosticsByFile = new Map<string, vscode.Diagnostic[]>();
+
+        for (const d of result.diagnostics) {
+            if (!d.file) continue;
+
+            const filePath = path.isAbsolute(d.file) ? d.file : path.join(workspaceDir, d.file);
+            const fileUri = vscode.Uri.file(filePath);
+
+            const range = new vscode.Range(
+                Math.max(0, d.line - 1), Math.max(0, d.column - 1),
+                Math.max(0, (d.endLine || d.line) - 1), Math.max(0, (d.endColumn || d.column) - 1)
+            );
+
+            const severity = d.severity === 'error'
+                ? vscode.DiagnosticSeverity.Error
+                : d.severity === 'warning'
+                ? vscode.DiagnosticSeverity.Warning
+                : vscode.DiagnosticSeverity.Information;
+
+            const diagnostic = new vscode.Diagnostic(range, d.message, severity);
+            diagnostic.source = `devgen/${d.tool}`;
+            if (d.code) {
+                diagnostic.code = d.code;
+            }
+
+            const key = fileUri.toString();
+            if (!diagnosticsByFile.has(key)) {
+                diagnosticsByFile.set(key, []);
+            }
+            diagnosticsByFile.get(key)!.push(diagnostic);
+        }
+
+        // Set diagnostics for each file
+        for (const [uriString, diagnostics] of diagnosticsByFile) {
+            dryRunDiagnosticCollection.set(vscode.Uri.parse(uriString), diagnostics);
+        }
+
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        outputChannel.appendLine(`[DryRun] Error: ${errorMsg}`);
+        // Don't show error to user for dry-run failures - it's optional
+    }
 }
 
 // Validate parameter value against allowed types

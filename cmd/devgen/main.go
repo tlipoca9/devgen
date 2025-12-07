@@ -36,6 +36,9 @@ func main() {
 }
 
 func rootCmd() *cobra.Command {
+	var dryRun bool
+	var jsonOutput bool
+
 	ver := version
 	if ver == commit {
 		ver = "dev"
@@ -55,16 +58,25 @@ External plugins can be configured in devgen.toml:
 		Version: fmt.Sprintf("%s (%s) %s", ver, commit, date),
 		Example: `  devgen ./...              # all packages
   devgen ./pkg/model        # specific package
-  devgen ./pkg/...          # all packages under pkg/`,
+  devgen ./pkg/...          # all packages under pkg/
+  devgen --dry-run ./...    # validate without writing files
+  devgen --dry-run --json ./...  # JSON output for IDE integration`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
 				return cmd.Help()
 			}
+			if dryRun {
+				return runDryRun(cmd.Context(), args, jsonOutput)
+			}
 			return run(cmd.Context(), args)
 		},
 	}
 	cmd.SetVersionTemplate(fmt.Sprintf("devgen %s (%s) %s\n", ver, commit, date))
+
+	// Add flags
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and preview without writing files")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format (for IDE integration, requires --dry-run)")
 
 	// Add config subcommand
 	cmd.AddCommand(configCmd())
@@ -145,7 +157,7 @@ func runConfig(ctx context.Context, jsonOutput bool) error {
 
 func outputConfigJSON(configs map[string]genkit.ToolConfig) error {
 	// Convert to VSCode extension format
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 
 	for name, cfg := range configs {
 		result[name] = cfg.ToVSCodeConfig()
@@ -199,6 +211,172 @@ func formatStringSlice(ss []string) string {
 		quoted[i] = fmt.Sprintf("%q", s)
 	}
 	return "[" + strings.Join(quoted, ", ") + "]"
+}
+
+func runDryRun(ctx context.Context, args []string, jsonOutput bool) error {
+	log := genkit.NewLogger()
+	result := &genkit.DryRunResult{
+		Success: true,
+		Files:   make(map[string]string),
+	}
+
+	// Determine config search directory from first argument
+	configSearchDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	// If first arg is a relative path, use it as the starting point for config search
+	if len(args) > 0 {
+		arg := args[0]
+		arg = strings.TrimSuffix(arg, "/...")
+		arg = strings.TrimSuffix(arg, "...")
+		if arg == "." || arg == "" {
+			// Use current directory
+		} else if strings.HasPrefix(arg, "./") || strings.HasPrefix(arg, "../") || !strings.HasPrefix(arg, "/") {
+			absPath, err := filepath.Abs(arg)
+			if err == nil {
+				if info, err := os.Stat(absPath); err == nil && info.IsDir() {
+					configSearchDir = absPath
+				}
+			}
+		}
+	}
+
+	cfg, err := genkit.LoadConfig(configSearchDir)
+	if err != nil {
+		cfg = &genkit.Config{}
+	}
+
+	// Collect all tools: built-in + plugins
+	tools := make([]genkit.Tool, 0, len(builtinTools)+len(cfg.Plugins))
+	toolNames := make(map[string]bool)
+
+	// Load external plugins first
+	if len(cfg.Plugins) > 0 {
+		loader := genkit.NewPluginLoader("")
+		pluginTools, err := loader.LoadPlugins(ctx, cfg)
+		if err != nil {
+			return fmt.Errorf("load plugins: %w", err)
+		}
+		for _, tool := range pluginTools {
+			tools = append(tools, tool)
+			toolNames[tool.Name()] = true
+		}
+	}
+
+	// Add built-in tools
+	for _, tool := range builtinTools {
+		if !toolNames[tool.Name()] {
+			tools = append(tools, tool)
+			toolNames[tool.Name()] = true
+		}
+	}
+
+	gen := genkit.New(genkit.Options{
+		IgnoreGeneratedFiles: true,
+	})
+	if err := gen.Load(args...); err != nil {
+		return fmt.Errorf("load: %w", err)
+	}
+	result.Stats.PackagesLoaded = len(gen.Packages)
+
+	// Run validation for tools that support it
+	for _, tool := range tools {
+		if vt, ok := tool.(genkit.ValidatableTool); ok {
+			diagnostics := vt.Validate(gen, log)
+			for _, d := range diagnostics {
+				result.AddDiagnostic(d)
+			}
+		}
+	}
+
+	// If no validation errors, try to generate (dry-run)
+	if result.Success {
+		for _, tool := range tools {
+			if err := tool.Run(gen, log); err != nil {
+				// Convert run error to diagnostic if possible
+				result.Success = false
+				result.AddDiagnostic(genkit.Diagnostic{
+					Severity: genkit.DiagnosticError,
+					Message:  err.Error(),
+					Tool:     tool.Name(),
+				})
+			}
+		}
+	}
+
+	// Get generated files preview
+	if result.Success {
+		files, err := gen.DryRun()
+		if err != nil {
+			result.Success = false
+			result.AddDiagnostic(genkit.Diagnostic{
+				Severity: genkit.DiagnosticError,
+				Message:  fmt.Sprintf("generate: %v", err),
+				Tool:     "devgen",
+			})
+		} else {
+			result.Stats.FilesGenerated = len(files)
+			for path, content := range files {
+				// Store first 500 bytes as preview
+				preview := string(content)
+				if len(preview) > 500 {
+					preview = preview[:500] + "\n... (truncated)"
+				}
+				result.Files[path] = preview
+			}
+		}
+	}
+
+	// Output result
+	if jsonOutput {
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	}
+
+	return printDryRunResult(result, log)
+}
+
+func printDryRunResult(result *genkit.DryRunResult, log *genkit.Logger) error {
+	if result.Success {
+		log.Done("Dry-run successful")
+		log.Item("Packages: %v", result.Stats.PackagesLoaded)
+		log.Item("Files to generate: %v", result.Stats.FilesGenerated)
+		for path := range result.Files {
+			log.Item("  %s", path)
+		}
+	} else {
+		log.Warn("Dry-run found issues")
+	}
+
+	if result.Stats.ErrorCount > 0 {
+		log.Warn("Errors: %v", result.Stats.ErrorCount)
+	}
+	if result.Stats.WarningCount > 0 {
+		log.Warn("Warnings: %v", result.Stats.WarningCount)
+	}
+
+	for _, d := range result.Diagnostics {
+		loc := ""
+		if d.File != "" {
+			loc = fmt.Sprintf("%s:%d:%d: ", d.File, d.Line, d.Column)
+		}
+		switch d.Severity {
+		case genkit.DiagnosticError:
+			log.Warn("%s[%s] %s%s", d.Tool, d.Code, loc, d.Message)
+		case genkit.DiagnosticWarning:
+			log.Warn("%s[%s] %s%s", d.Tool, d.Code, loc, d.Message)
+		default:
+			log.Item("%s[%s] %s%s", d.Tool, d.Code, loc, d.Message)
+		}
+	}
+
+	if !result.Success {
+		return fmt.Errorf("dry-run failed with %d error(s)", result.Stats.ErrorCount)
+	}
+	return nil
 }
 
 func run(ctx context.Context, args []string) error {

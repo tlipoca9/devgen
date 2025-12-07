@@ -22,3 +22,15 @@ type ConfigurableTool interface {
 	// and by CLI for validation.
 	Config() ToolConfig
 }
+
+// ValidatableTool extends Tool with validation capability for dry-run mode.
+// Implement this interface to provide detailed diagnostics (errors/warnings)
+// that can be displayed in IDEs without generating files.
+type ValidatableTool interface {
+	Tool
+
+	// Validate checks for errors without generating files.
+	// Returns diagnostics (errors/warnings) found during validation.
+	// This is called in dry-run mode to provide IDE integration.
+	Validate(gen *Generator, log *Logger) []Diagnostic
+}

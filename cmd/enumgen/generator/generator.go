@@ -11,6 +11,14 @@ import (
 // ToolName is the name of this tool, used in annotations.
 const ToolName = "enumgen"
 
+// Error codes for diagnostics.
+const (
+	ErrCodeUnsupportedType  = "E001"
+	ErrCodeNameOnStringType = "E002"
+	ErrCodeDuplicateName    = "E003"
+	ErrCodeNameMissingParam = "E004"
+)
+
 // GenerateOption represents an enum generation option.
 // enumgen:@enum(string, json, text, sql)
 type GenerateOption int
@@ -89,6 +97,66 @@ func (eg *Generator) Config() genkit.ToolConfig {
 	}
 }
 
+// Validate implements genkit.ValidatableTool.
+// It checks for errors without generating files, returning diagnostics for IDE integration.
+func (eg *Generator) Validate(gen *genkit.Generator, _ *genkit.Logger) []genkit.Diagnostic {
+	c := genkit.NewDiagnosticCollector(ToolName)
+
+	for _, pkg := range gen.Packages {
+		for _, enum := range pkg.Enums {
+			if !genkit.HasAnnotation(enum.Doc, ToolName, "enum") {
+				continue
+			}
+			eg.validateEnum(c, enum)
+		}
+	}
+
+	return c.Collect()
+}
+
+// validateEnum validates a single enum and collects diagnostics.
+func (eg *Generator) validateEnum(c *genkit.DiagnosticCollector, enum *genkit.Enum) {
+	typeName := enum.Name
+
+	// Check underlying type
+	if !UnderlyingTypeEnums.Contains(enum.UnderlyingType) {
+		c.Errorf(ErrCodeUnsupportedType, enum.Values[0].Pos,
+			"unsupported underlying type %q, must be one of: %v",
+			enum.UnderlyingType, UnderlyingTypeEnums.List())
+		return // Can't continue validation without valid type
+	}
+
+	isStringType := enum.UnderlyingType == "string"
+
+	// For string types, @name annotation is not supported
+	if isStringType {
+		for _, v := range enum.Values {
+			if genkit.HasAnnotation(v.Doc, ToolName, "name") {
+				c.Errorf(ErrCodeNameOnStringType, v.Pos,
+					"@name annotation is not supported for string underlying type (on %s)", v.Name)
+			}
+		}
+		return
+	}
+
+	// For non-string types, check for @name issues
+	nameSet := make(map[string]string) // name -> value name
+	for _, v := range enum.Values {
+		ann := genkit.GetAnnotation(v.Doc, ToolName, "name")
+		if ann != nil && len(ann.Flags) == 0 {
+			c.Error(ErrCodeNameMissingParam, "@name annotation requires a name parameter", v.Pos)
+			continue
+		}
+
+		name := getValueNameFromAnnotation(ann, v.Name, typeName)
+		if existing, ok := nameSet[name]; ok {
+			c.Errorf(ErrCodeDuplicateName, v.Pos,
+				"duplicate @name %q, already used by %s", name, existing)
+		}
+		nameSet[name] = v.Name
+	}
+}
+
 // Run processes all packages and generates enum helpers.
 func (eg *Generator) Run(gen *genkit.Generator, log *genkit.Logger) error {
 	var totalCount int
@@ -154,10 +222,16 @@ func (eg *Generator) WriteHeader(g *genkit.GeneratedFile, pkgName string) {
 
 // GenerateEnum generates helper code for a single enum.
 func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) error {
-	// Validate underlying type
-	if !UnderlyingTypeEnums.Contains(enum.UnderlyingType) {
-		return fmt.Errorf("%s: unsupported underlying type %q, must be one of: %v",
-			enum.Name, enum.UnderlyingType, UnderlyingTypeEnums.List())
+	// Validate first using collector
+	c := genkit.NewDiagnosticCollector(ToolName)
+	eg.validateEnum(c, enum)
+	if c.HasErrors() {
+		// Return first error message
+		for _, d := range c.Collect() {
+			if d.Severity == genkit.DiagnosticError {
+				return fmt.Errorf("%s: %s", enum.Name, d.Message)
+			}
+		}
 	}
 
 	ann := genkit.GetAnnotation(enum.Doc, ToolName, "enum")
@@ -174,25 +248,6 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 
 	// Check if underlying type is string
 	isStringType := enum.UnderlyingType == "string"
-
-	// For string types, @name annotation is not supported
-	if isStringType {
-		for _, v := range enum.Values {
-			if genkit.HasAnnotation(v.Doc, ToolName, "name") {
-				return fmt.Errorf("%s: @name annotation is not supported for string underlying type (on %s)", typeName, v.Name)
-			}
-		}
-	} else {
-		// For non-string types, collect names and check for duplicates
-		nameSet := make(map[string]string) // name -> value name (for error message)
-		for _, v := range enum.Values {
-			name := GetValueName(v, typeName)
-			if existing, ok := nameSet[name]; ok {
-				return fmt.Errorf("%s: duplicate @name %q on %s and %s", typeName, name, existing, v.Name)
-			}
-			nameSet[name] = v.Name
-		}
-	}
 
 	// 1. Enum type methods (IsValid, String, MarshalJSON, etc.) - at the top
 
@@ -496,6 +551,10 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 }
 
 // TrimPrefix removes the type name prefix from an enum value name.
+// Unlike strings.TrimPrefix, it returns the original name if the result would be empty.
+// Example: TrimPrefix("StatusActive", "Status") -> "Active"
+//
+//	TrimPrefix("Status", "Status") -> "Status" (not "")
 func TrimPrefix(name, prefix string) string {
 	if s, found := strings.CutPrefix(name, prefix); found && s != "" {
 		return s
@@ -503,14 +562,18 @@ func TrimPrefix(name, prefix string) string {
 	return name
 }
 
-// GetValueName returns the display name for an enum value.
+// GetValueName returns the display name for an enum value (exported for testing).
 // It checks for enumgen:@name annotation first, otherwise uses TrimPrefix.
 func GetValueName(v *genkit.EnumValue, typeName string) string {
-	if ann := genkit.GetAnnotation(v.Doc, ToolName, "name"); ann != nil {
-		if len(ann.Flags) == 0 {
-			panic(fmt.Sprintf("enumgen: @name requires a name for enum value %s at %s", v.Name, v.Pos))
-		}
+	ann := genkit.GetAnnotation(v.Doc, ToolName, "name")
+	return getValueNameFromAnnotation(ann, v.Name, typeName)
+}
+
+// getValueNameFromAnnotation extracts the name from annotation or falls back to TrimPrefix.
+// This is the core logic shared by validation and generation.
+func getValueNameFromAnnotation(ann *genkit.Annotation, valueName, typeName string) string {
+	if ann != nil && len(ann.Flags) > 0 {
 		return ann.Flags[0]
 	}
-	return TrimPrefix(v.Name, typeName)
+	return TrimPrefix(valueName, typeName)
 }

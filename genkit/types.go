@@ -1,9 +1,153 @@
 package genkit
 
 import (
+	"fmt"
+	"go/token"
 	"regexp"
 	"strings"
 )
+
+// DiagnosticSeverity represents the severity of a diagnostic.
+type DiagnosticSeverity string
+
+const (
+	DiagnosticError   DiagnosticSeverity = "error"
+	DiagnosticWarning DiagnosticSeverity = "warning"
+	DiagnosticInfo    DiagnosticSeverity = "info"
+)
+
+// Diagnostic represents a single error or warning with source location.
+// Used for reporting validation errors that can be displayed in IDEs.
+type Diagnostic struct {
+	Severity DiagnosticSeverity `json:"severity"`
+	Message  string             `json:"message"`
+	File     string             `json:"file"`
+	Line     int                `json:"line"`
+	Column   int                `json:"column"`
+	EndLine  int                `json:"endLine,omitempty"`
+	EndCol   int                `json:"endColumn,omitempty"`
+	Tool     string             `json:"tool"`
+	Code     string             `json:"code,omitempty"` // e.g., "E001"
+}
+
+// NewDiagnostic creates a new diagnostic from a token.Position.
+func NewDiagnostic(severity DiagnosticSeverity, tool, code, message string, pos token.Position) Diagnostic {
+	return Diagnostic{
+		Severity: severity,
+		Message:  message,
+		File:     pos.Filename,
+		Line:     pos.Line,
+		Column:   pos.Column,
+		Tool:     tool,
+		Code:     code,
+	}
+}
+
+// DryRunResult contains the result of a dry-run execution.
+type DryRunResult struct {
+	Success     bool              `json:"success"`
+	Files       map[string]string `json:"files,omitempty"` // filename -> content preview
+	Diagnostics []Diagnostic      `json:"diagnostics,omitempty"`
+	Stats       DryRunStats       `json:"stats"`
+}
+
+// DryRunStats contains statistics from a dry-run execution.
+type DryRunStats struct {
+	PackagesLoaded int `json:"packagesLoaded"`
+	FilesGenerated int `json:"filesGenerated"`
+	ErrorCount     int `json:"errorCount"`
+	WarningCount   int `json:"warningCount"`
+}
+
+// AddDiagnostic adds a diagnostic to the result and updates stats.
+func (r *DryRunResult) AddDiagnostic(d Diagnostic) {
+	r.Diagnostics = append(r.Diagnostics, d)
+	switch d.Severity {
+	case DiagnosticError:
+		r.Stats.ErrorCount++
+		r.Success = false
+	case DiagnosticWarning:
+		r.Stats.WarningCount++
+	}
+}
+
+// AddError is a convenience method to add an error diagnostic.
+func (r *DryRunResult) AddError(tool, code, message string, pos token.Position) {
+	r.AddDiagnostic(NewDiagnostic(DiagnosticError, tool, code, message, pos))
+}
+
+// AddWarning is a convenience method to add a warning diagnostic.
+func (r *DryRunResult) AddWarning(tool, code, message string, pos token.Position) {
+	r.AddDiagnostic(NewDiagnostic(DiagnosticWarning, tool, code, message, pos))
+}
+
+// DiagnosticCollector provides a fluent API for collecting diagnostics.
+// It simplifies validation code by providing chainable methods.
+type DiagnosticCollector struct {
+	tool        string
+	diagnostics []Diagnostic
+}
+
+// NewDiagnosticCollector creates a new collector for the given tool.
+func NewDiagnosticCollector(tool string) *DiagnosticCollector {
+	return &DiagnosticCollector{tool: tool}
+}
+
+// Error adds an error diagnostic.
+func (c *DiagnosticCollector) Error(code, message string, pos token.Position) *DiagnosticCollector {
+	c.diagnostics = append(c.diagnostics, NewDiagnostic(DiagnosticError, c.tool, code, message, pos))
+	return c
+}
+
+// Errorf adds an error diagnostic with formatted message.
+func (c *DiagnosticCollector) Errorf(code string, pos token.Position, format string, args ...any) *DiagnosticCollector {
+	return c.Error(code, fmt.Sprintf(format, args...), pos)
+}
+
+// Warning adds a warning diagnostic.
+func (c *DiagnosticCollector) Warning(code, message string, pos token.Position) *DiagnosticCollector {
+	c.diagnostics = append(c.diagnostics, NewDiagnostic(DiagnosticWarning, c.tool, code, message, pos))
+	return c
+}
+
+// Warningf adds a warning diagnostic with formatted message.
+func (c *DiagnosticCollector) Warningf(
+	code string,
+	pos token.Position,
+	format string,
+	args ...any,
+) *DiagnosticCollector {
+	return c.Warning(code, fmt.Sprintf(format, args...), pos)
+}
+
+// Collect returns all collected diagnostics.
+func (c *DiagnosticCollector) Collect() []Diagnostic {
+	return c.diagnostics
+}
+
+// HasErrors returns true if any error diagnostics were collected.
+func (c *DiagnosticCollector) HasErrors() bool {
+	for _, d := range c.diagnostics {
+		if d.Severity == DiagnosticError {
+			return true
+		}
+	}
+	return false
+}
+
+// Merge adds diagnostics from another collector.
+func (c *DiagnosticCollector) Merge(other *DiagnosticCollector) *DiagnosticCollector {
+	if other != nil {
+		c.diagnostics = append(c.diagnostics, other.diagnostics...)
+	}
+	return c
+}
+
+// MergeSlice adds diagnostics from a slice.
+func (c *DiagnosticCollector) MergeSlice(diagnostics []Diagnostic) *DiagnosticCollector {
+	c.diagnostics = append(c.diagnostics, diagnostics...)
+	return c
+}
 
 // Annotation represents a parsed annotation from comments.
 // Annotations follow the format: tool:@name or tool:@name(arg1, arg2, key=value)
