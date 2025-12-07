@@ -109,6 +109,10 @@ type User struct {
 
 提供 devgen 注解的编辑器支持：语法高亮、自动补全、参数验证提示。
 
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/tlipoca9.devgen)](https://marketplace.visualstudio.com/items?itemName=tlipoca9.devgen)
+
+从 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=tlipoca9.devgen) 安装。
+
 ## 构建
 
 ```bash
