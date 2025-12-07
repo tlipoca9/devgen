@@ -63,7 +63,9 @@ func rootCmd() *cobra.Command {
 func run(_ *cobra.Command, args []string) error {
 	log := genkit.NewLogger()
 
-	gen := genkit.New()
+	gen := genkit.New(genkit.Options{
+		IgnoreGeneratedFiles: true,
+	})
 	if err := gen.Load(args...); err != nil {
 		return fmt.Errorf("load: %w", err)
 	}

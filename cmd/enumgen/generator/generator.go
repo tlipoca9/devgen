@@ -383,7 +383,10 @@ func TrimPrefix(name, prefix string) string {
 // GetValueName returns the display name for an enum value.
 // It checks for enumgen:@name annotation first, otherwise uses TrimPrefix.
 func GetValueName(v *genkit.EnumValue, typeName string) string {
-	if ann := genkit.GetAnnotation(v.Doc, ToolName, "name"); ann != nil && len(ann.Flags) > 0 {
+	if ann := genkit.GetAnnotation(v.Doc, ToolName, "name"); ann != nil {
+		if len(ann.Flags) == 0 {
+			panic(fmt.Sprintf("enumgen: @name requires a name for enum value %s at %s", v.Name, v.Pos))
+		}
 		return ann.Flags[0]
 	}
 	return TrimPrefix(v.Name, typeName)
