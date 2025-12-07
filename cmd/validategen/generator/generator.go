@@ -460,7 +460,7 @@ func (vg *Generator) generateFieldValidation(g *genkit.GeneratedFile, fv *fieldV
 		case "lte":
 			vg.genLte(g, fieldName, fieldType, rule.Param)
 		case "oneof":
-			vg.genOneof(g, fieldName, fieldType, rule.Param)
+			vg.genOneof(g, fv.Field, rule.Param)
 		case "email":
 			vg.genEmail(g, fieldName)
 		case "url":
@@ -488,11 +488,11 @@ func (vg *Generator) generateFieldValidation(g *genkit.GeneratedFile, fv *fieldV
 		case "ipv6":
 			vg.genIPv6(g, fieldName)
 		case "method":
-			vg.genMethod(g, fieldName, fieldType, rule.Param)
+			vg.genMethod(g, fv.Field, rule.Param)
 		case "regex":
-			vg.genRegex(g, fieldName, rule.Param, customRegex)
+			vg.genRegex(g, fv.Field, rule.Param, customRegex)
 		case "format":
-			vg.genFormat(g, fieldName, rule.Param)
+			vg.genFormat(g, fv.Field, rule.Param)
 		}
 	}
 }
@@ -746,12 +746,12 @@ func (vg *Generator) genLte(g *genkit.GeneratedFile, fieldName, fieldType, param
 	}
 }
 
-func (vg *Generator) genOneof(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
-	values := strings.Split(param, " ")
-	if len(values) == 0 {
-		return
+func (vg *Generator) genOneof(g *genkit.GeneratedFile, field *genkit.Field, param string) {
+	if param == "" {
+		panic(fmt.Sprintf("validategen: @oneof requires at least one value for field %s at %s", field.Name, field.Pos))
 	}
 
+	values := strings.Split(param, " ")
 	// Clean up values
 	var cleanValues []string
 	for _, v := range values {
@@ -761,9 +761,11 @@ func (vg *Generator) genOneof(g *genkit.GeneratedFile, fieldName, fieldType, par
 		}
 	}
 	if len(cleanValues) == 0 {
-		return
+		panic(fmt.Sprintf("validategen: @oneof requires at least one value for field %s at %s", field.Name, field.Pos))
 	}
 
+	fieldName := field.Name
+	fieldType := field.Type
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	if isStringType(fieldType) {
 		var quoted []string
@@ -995,10 +997,12 @@ func (vg *Generator) genIPv6(g *genkit.GeneratedFile, fieldName string) {
 	g.P("}")
 }
 
-func (vg *Generator) genMethod(g *genkit.GeneratedFile, fieldName, fieldType, methodName string) {
+func (vg *Generator) genMethod(g *genkit.GeneratedFile, field *genkit.Field, methodName string) {
 	if methodName == "" {
-		return
+		panic(fmt.Sprintf("validategen: @method requires a method name for field %s at %s", field.Name, field.Pos))
 	}
+	fieldName := field.Name
+	fieldType := field.Type
 	if isPointerType(fieldType) {
 		// For pointer types, check nil first
 		g.P("if x.", fieldName, " != nil {")
@@ -1014,10 +1018,11 @@ func (vg *Generator) genMethod(g *genkit.GeneratedFile, fieldName, fieldType, me
 	}
 }
 
-func (vg *Generator) genRegex(g *genkit.GeneratedFile, fieldName, pattern string, customRegex *regexTracker) {
+func (vg *Generator) genRegex(g *genkit.GeneratedFile, field *genkit.Field, pattern string, customRegex *regexTracker) {
 	if pattern == "" {
-		return
+		panic(fmt.Sprintf("validategen: @regex requires a pattern for field %s at %s", field.Name, field.Pos))
 	}
+	fieldName := field.Name
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	varName := customRegex.getVarName(pattern)
 	g.P("if x.", fieldName, " != \"\" && !", varName, ".MatchString(x.", fieldName, ") {")
@@ -1043,19 +1048,34 @@ var supportedFormats = map[string]bool{
 	"csv":  true,
 }
 
-func (vg *Generator) genFormat(g *genkit.GeneratedFile, fieldName, format string) {
+func (vg *Generator) genFormat(g *genkit.GeneratedFile, field *genkit.Field, format string) {
 	if format == "" {
-		return
+		panic(fmt.Sprintf("validategen: @format requires a format type for field %s at %s", field.Name, field.Pos))
 	}
 	// format annotation only accepts one parameter
 	if strings.Contains(format, " ") {
-		return
+		panic(
+			fmt.Sprintf(
+				"validategen: @format only accepts one parameter for field %s at %s, got %q",
+				field.Name,
+				field.Pos,
+				format,
+			),
+		)
 	}
 	format = strings.ToLower(format)
 	if !supportedFormats[format] {
-		return
+		panic(
+			fmt.Sprintf(
+				"validategen: @format unsupported format %q for field %s at %s, supported: json, yaml, toml, csv",
+				format,
+				field.Name,
+				field.Pos,
+			),
+		)
 	}
 
+	fieldName := field.Name
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 
 	g.P("if x.", fieldName, " != \"\" {")

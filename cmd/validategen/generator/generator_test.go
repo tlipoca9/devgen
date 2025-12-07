@@ -1963,7 +1963,7 @@ type JSONUpper struct {
 				}
 			})
 
-			It("should skip unsupported format types", func() {
+			It("should panic on unsupported format types", func() {
 				testFile := filepath.Join(tempDir, "unknownformat.go")
 				content := `package testpkg
 
@@ -1981,19 +1981,9 @@ type UnknownFormat struct {
 				err = gk.Load(".")
 				Expect(err).NotTo(HaveOccurred())
 
-				err = gen.ProcessPackage(gk, gk.Packages[0])
-				Expect(err).NotTo(HaveOccurred())
-
-				files, err := gk.DryRun()
-				Expect(err).NotTo(HaveOccurred())
-
-				for _, content := range files {
-					code := string(content)
-					// Should not contain any format validation for xml
-					Expect(code).NotTo(ContainSubstring("xml"))
-					// But should still have required validation
-					Expect(code).To(ContainSubstring("Config is required"))
-				}
+				Expect(func() {
+					_ = gen.ProcessPackage(gk, gk.Packages[0])
+				}).To(PanicWith(ContainSubstring("unsupported format")))
 			})
 		})
 	})

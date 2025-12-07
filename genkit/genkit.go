@@ -59,6 +59,11 @@ type Options struct {
 
 	// Dir is the working directory. If empty, uses current directory.
 	Dir string
+
+	// IgnoreGeneratedFiles when true, ignores files that start with
+	// "// Code generated" comment. This is useful for ignoring generated
+	// files that may have syntax errors.
+	IgnoreGeneratedFiles bool
 }
 
 // New creates a new Generator.
@@ -96,10 +101,13 @@ func (g *Generator) Load(patterns ...string) error {
 		return fmt.Errorf("load packages: %w", err)
 	}
 
-	// Check for package errors
+	// Check for package errors, but ignore errors from files matching IgnoreFiles
 	var errs []error
 	for _, pkg := range pkgs {
 		for _, e := range pkg.Errors {
+			if g.shouldIgnoreError(e) {
+				continue
+			}
 			errs = append(errs, e)
 		}
 	}
@@ -113,6 +121,66 @@ func (g *Generator) Load(patterns ...string) error {
 	}
 
 	return nil
+}
+
+// shouldIgnoreError checks if the error should be ignored based on IgnoreGeneratedFiles.
+func (g *Generator) shouldIgnoreError(e packages.Error) bool {
+	if !g.opts.IgnoreGeneratedFiles {
+		return false
+	}
+
+	// Try to extract filename from Pos first (format: "/path/to/file.go:line:col")
+	if filename := extractFilename(e.Pos); filename != "" && isGeneratedFile(g.resolveFilename(filename)) {
+		return true
+	}
+
+	// Also check Msg which may contain relative path (format: "path/to/file.go:line:col: error")
+	if filename := extractFilenameFromMsg(e.Msg); filename != "" && isGeneratedFile(g.resolveFilename(filename)) {
+		return true
+	}
+
+	return false
+}
+
+// resolveFilename resolves a potentially relative filename to absolute path.
+func (g *Generator) resolveFilename(filename string) string {
+	if filepath.IsAbs(filename) {
+		return filename
+	}
+	if g.opts.Dir != "" {
+		return filepath.Join(g.opts.Dir, filename)
+	}
+	// Try current working directory
+	if abs, err := filepath.Abs(filename); err == nil {
+		return abs
+	}
+	return filename
+}
+
+// extractFilename extracts filename from position string (format: "file.go:line:col")
+func extractFilename(pos string) string {
+	if pos == "" {
+		return ""
+	}
+	if idx := strings.Index(pos, ":"); idx > 0 {
+		return pos[:idx]
+	}
+	return pos
+}
+
+// extractFilenameFromMsg extracts filename from error message.
+// Message format may be: "# pkg\npath/to/file.go:line:col: error"
+func extractFilenameFromMsg(msg string) string {
+	lines := strings.Split(msg, "\n")
+	for _, line := range lines {
+		// Look for pattern "file.go:line:col:"
+		if strings.Contains(line, ".go:") {
+			if idx := strings.Index(line, ".go:"); idx >= 0 {
+				return line[:idx+3] // include ".go"
+			}
+		}
+	}
+	return ""
 }
 
 // NewGeneratedFile creates a new file to be generated.
@@ -173,29 +241,77 @@ func (g *Generator) DryRun() (map[string][]byte, error) {
 }
 
 func (g *Generator) buildPackage(pkg *packages.Package) *Package {
+	// Filter out ignored files from GoFiles
+	var goFiles []string
+	for _, f := range pkg.GoFiles {
+		if !g.shouldIgnoreFile(f) {
+			goFiles = append(goFiles, f)
+		}
+	}
+
+	// Filter out ignored files from Syntax
+	var syntax []*ast.File
+	for _, file := range pkg.Syntax {
+		if file == nil {
+			continue
+		}
+		pos := g.Fset.Position(file.Pos())
+		if !g.shouldIgnoreFile(pos.Filename) {
+			syntax = append(syntax, file)
+		}
+	}
+
 	p := &Package{
 		Name:      pkg.Name,
 		PkgPath:   pkg.PkgPath,
 		Dir:       pkgDir(pkg),
-		GoFiles:   pkg.GoFiles,
+		GoFiles:   goFiles,
 		Fset:      g.Fset,
 		TypesPkg:  pkg.Types,
 		TypesInfo: pkg.TypesInfo,
-		Syntax:    pkg.Syntax,
+		Syntax:    syntax,
 	}
 
 	// First pass: collect all type declarations
 	typesByName := make(map[string]*Type)
-	for _, file := range pkg.Syntax {
+	for _, file := range syntax {
 		g.extractTypes(p, file, typesByName)
 	}
 
 	// Second pass: extract enum constants and link to types
-	for _, file := range pkg.Syntax {
+	for _, file := range syntax {
 		g.extractEnums(p, file, typesByName)
 	}
 
 	return p
+}
+
+// shouldIgnoreFile checks if the file should be ignored based on IgnoreGeneratedFiles.
+func (g *Generator) shouldIgnoreFile(filename string) bool {
+	if !g.opts.IgnoreGeneratedFiles {
+		return false
+	}
+	return isGeneratedFile(filename)
+}
+
+// isGeneratedFile checks if a file starts with "// Code generated" comment.
+func isGeneratedFile(filename string) bool {
+	f, err := os.Open(filename)
+	if err != nil {
+		return false
+	}
+	defer f.Close() //nolint:errcheck
+
+	// Read first 256 bytes - enough to check for generated file header
+	buf := make([]byte, 256)
+	n, err := f.Read(buf)
+	if err != nil || n == 0 {
+		return false
+	}
+
+	content := string(buf[:n])
+	// Check if file starts with "// Code generated" (standard Go convention)
+	return strings.HasPrefix(content, "// Code generated")
 }
 
 func (g *Generator) extractTypes(pkg *Package, file *ast.File, typesByName map[string]*Type) {
@@ -216,7 +332,7 @@ func (g *Generator) extractTypes(pkg *Package, file *ast.File, typesByName map[s
 
 			// Extract struct fields
 			if st, ok := ts.Type.(*ast.StructType); ok {
-				typ.Fields = extractFields(st)
+				typ.Fields = extractFields(g.Fset, st)
 			}
 
 			pkg.Types = append(pkg.Types, typ)
@@ -267,6 +383,7 @@ func (g *Generator) extractEnums(pkg *Package, file *ast.File, typesByName map[s
 					Name:    name.Name,
 					Doc:     docText(vs.Doc),
 					Comment: commentText(vs.Comment),
+					Pos:     g.Fset.Position(name.Pos()),
 				}
 				if i < len(vs.Values) {
 					ev.Value = exprString(vs.Values[i])
@@ -623,6 +740,7 @@ type Field struct {
 	Tag     string
 	Doc     string
 	Comment string
+	Pos     token.Position // source position
 }
 
 // Enum represents a Go enum (type with const values).
@@ -644,6 +762,7 @@ type EnumValue struct {
 	Value   string
 	Doc     string
 	Comment string
+	Pos     token.Position // source position
 }
 
 // Helper functions
@@ -698,7 +817,7 @@ func exprString(expr ast.Expr) string {
 	}
 }
 
-func extractFields(st *ast.StructType) []*Field {
+func extractFields(fset *token.FileSet, st *ast.StructType) []*Field {
 	var fields []*Field
 	for _, f := range st.Fields.List {
 		for _, name := range f.Names {
@@ -707,6 +826,7 @@ func extractFields(st *ast.StructType) []*Field {
 				Type:    exprString(f.Type),
 				Doc:     docText(f.Doc),
 				Comment: commentText(f.Comment),
+				Pos:     fset.Position(name.Pos()),
 			}
 			if f.Tag != nil {
 				field.Tag = f.Tag.Value
