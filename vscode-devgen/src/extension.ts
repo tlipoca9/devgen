@@ -9,6 +9,14 @@ import toolsConfigData from './tools-config.json';
 const ANNOTATION_PATTERN = /(\w+):@([\w.]+)(?:\(([^)]*)\))?/g;
 
 // Types from tools-config.json
+interface LSPConfig {
+    enabled: boolean;
+    provider: string;      // "gopls"
+    feature: string;       // "method", "type", "symbol"
+    signature?: string;    // Required signature pattern, e.g., "func() error"
+    resolveFrom?: string;  // "fieldType", "receiverType"
+}
+
 interface AnnotationMeta {
     doc: string;
     paramType?: string | string[]; // 'string' | 'number' | 'list' | 'enum' | 'bool' or array of types
@@ -16,6 +24,7 @@ interface AnnotationMeta {
     values?: string[];
     valueDocs?: { [key: string]: string };
     maxArgs?: number; // Maximum number of arguments allowed (for enum types)
+    lsp?: LSPConfig;  // LSP integration config
 }
 
 interface ToolConfig {
@@ -48,11 +57,29 @@ interface TypeInfo {
 
 interface FieldInfo {
     name: string;
+    typeName: string;      // Field type name (e.g., "Address", "*Address", "Status")
+    isPointer: boolean;
     range: vscode.Range;
     annotations: ParsedAnnotation[];
 }
 
+// Method info from LSP
+interface MethodInfo {
+    name: string;
+    signature: string;
+    receiverType: string;
+    location: vscode.Location;
+}
+
+// Cache for method lookups
+interface MethodCache {
+    methods: Map<string, MethodInfo[]>;  // typeName -> methods
+    timestamp: number;
+}
+
 let diagnosticCollection: vscode.DiagnosticCollection;
+let methodCache: MethodCache = { methods: new Map(), timestamp: 0 };
+const CACHE_TTL = 5000; // 5 seconds
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('DevGen extension activated');
@@ -75,11 +102,17 @@ export function activate(context: vscode.ExtensionContext) {
     );
     context.subscriptions.push(hoverProvider);
 
-    // Update diagnostics on document change
+    // Update diagnostics on document change (debounced)
+    let diagnosticTimeout: NodeJS.Timeout | undefined;
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(e => {
             if (e.document.languageId === 'go') {
-                updateDiagnostics(e.document);
+                if (diagnosticTimeout) {
+                    clearTimeout(diagnosticTimeout);
+                }
+                diagnosticTimeout = setTimeout(() => {
+                    updateDiagnostics(e.document);
+                }, 500);
             }
         })
     );
@@ -88,6 +121,17 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.workspace.onDidOpenTextDocument(doc => {
             if (doc.languageId === 'go') {
+                updateDiagnostics(doc);
+            }
+        })
+    );
+
+    // Update diagnostics on document save (trigger LSP validation)
+    context.subscriptions.push(
+        vscode.workspace.onDidSaveTextDocument(doc => {
+            if (doc.languageId === 'go') {
+                // Clear cache on save to get fresh LSP data
+                methodCache = { methods: new Map(), timestamp: 0 };
                 updateDiagnostics(doc);
             }
         })
@@ -214,7 +258,8 @@ function parseTypes(document: vscode.TextDocument): TypeInfo[] {
             }
 
             if (braceCount > 0 && !line.match(typePattern)) {
-                const fieldMatch = line.match(/^\s+(\w+)\s+\S+/);
+                // Parse field with type: FieldName TypeName or FieldName *TypeName
+                const fieldMatch = line.match(/^\s+(\w+)\s+(\*?)(\w+)/);
                 if (fieldMatch) {
                     const fieldAnnotations: ParsedAnnotation[] = [];
 
@@ -241,13 +286,13 @@ function parseTypes(document: vscode.TextDocument): TypeInfo[] {
                         j--;
                     }
 
-                    if (fieldAnnotations.length > 0) {
-                        currentType.fields.push({
-                            name: fieldMatch[1],
-                            range: new vscode.Range(i, 0, i, line.length),
-                            annotations: fieldAnnotations
-                        });
-                    }
+                    currentType.fields.push({
+                        name: fieldMatch[1],
+                        typeName: fieldMatch[3],
+                        isPointer: fieldMatch[2] === '*',
+                        range: new vscode.Range(i, 0, i, line.length),
+                        annotations: fieldAnnotations
+                    });
                 }
             }
 
@@ -295,7 +340,253 @@ function parseAnnotationsFromLines(
     return annotations;
 }
 
-function updateDiagnostics(document: vscode.TextDocument) {
+// ============================================================================
+// LSP Integration: Method lookup using gopls
+// ============================================================================
+
+/**
+ * Get methods for a type using gopls workspace symbol search
+ */
+async function getMethodsForType(
+    document: vscode.TextDocument,
+    typeName: string
+): Promise<MethodInfo[]> {
+    // Check cache
+    const now = Date.now();
+    if (now - methodCache.timestamp < CACHE_TTL) {
+        const cached = methodCache.methods.get(typeName);
+        if (cached) {
+            return cached;
+        }
+    }
+
+    const methods: MethodInfo[] = [];
+
+    try {
+        // Use workspace symbol to find methods
+        // Search pattern: "(TypeName)" to find methods with this receiver
+        const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+            'vscode.executeWorkspaceSymbolProvider',
+            `(${typeName})`
+        );
+
+        if (symbols) {
+            for (const symbol of symbols) {
+                if (symbol.kind === vscode.SymbolKind.Method) {
+                    // Parse method name from symbol name
+                    // Format: "(receiver Type) MethodName" or "(*Type).MethodName"
+                    const methodMatch = symbol.name.match(/(?:\([\w\s*]*\))?\s*\.?(\w+)/);
+                    if (methodMatch) {
+                        methods.push({
+                            name: methodMatch[1],
+                            signature: '', // Will be filled by hover
+                            receiverType: typeName,
+                            location: symbol.location
+                        });
+                    }
+                }
+            }
+        }
+
+        // Also search in current document for local methods
+        const documentSymbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+            'vscode.executeDocumentSymbolProvider',
+            document.uri
+        );
+
+        if (documentSymbols) {
+            findMethodsInSymbols(documentSymbols, typeName, document.uri, methods);
+        }
+
+        // Get method signatures using hover
+        for (const method of methods) {
+            const signature = await getMethodSignature(method.location.uri, method.location.range.start, method.name);
+            if (signature) {
+                method.signature = signature;
+            }
+        }
+
+        // Update cache
+        methodCache.methods.set(typeName, methods);
+        methodCache.timestamp = now;
+
+    } catch (error) {
+        console.error('Error getting methods for type:', error);
+    }
+
+    return methods;
+}
+
+function findMethodsInSymbols(
+    symbols: vscode.DocumentSymbol[],
+    typeName: string,
+    uri: vscode.Uri,
+    methods: MethodInfo[]
+): void {
+    for (const symbol of symbols) {
+        if (symbol.kind === vscode.SymbolKind.Method) {
+            // Check if method belongs to the target type
+            // Symbol name format varies, try to match receiver type
+            const nameMatch = symbol.name.match(/^\((\w+)\s+\*?(\w+)\)\s+(\w+)|^(\w+)$/);
+            if (nameMatch) {
+                const receiverType = nameMatch[2] || '';
+                const methodName = nameMatch[3] || nameMatch[4] || symbol.name;
+                
+                if (receiverType === typeName || receiverType === '') {
+                    // Check if already added
+                    if (!methods.some(m => m.name === methodName)) {
+                        methods.push({
+                            name: methodName,
+                            signature: symbol.detail || '',
+                            receiverType: typeName,
+                            location: new vscode.Location(uri, symbol.range)
+                        });
+                    }
+                }
+            }
+        }
+        
+        if (symbol.children) {
+            findMethodsInSymbols(symbol.children, typeName, uri, methods);
+        }
+    }
+}
+
+/**
+ * Get method signature using hover provider
+ */
+async function getMethodSignature(
+    uri: vscode.Uri,
+    position: vscode.Position,
+    methodName: string
+): Promise<string | undefined> {
+    try {
+        const hovers = await vscode.commands.executeCommand<vscode.Hover[]>(
+            'vscode.executeHoverProvider',
+            uri,
+            position
+        );
+
+        if (hovers && hovers.length > 0) {
+            for (const hover of hovers) {
+                for (const content of hover.contents) {
+                    let text = '';
+                    if (typeof content === 'string') {
+                        text = content;
+                    } else if ('value' in content) {
+                        text = content.value;
+                    }
+                    
+                    // Extract function signature from hover
+                    // Look for patterns like "func (t Type) MethodName() error"
+                    const sigMatch = text.match(/func\s*\([^)]*\)\s*\w+\s*(\([^)]*\))\s*(\w+)?/);
+                    if (sigMatch) {
+                        const params = sigMatch[1];
+                        const returnType = sigMatch[2] || '';
+                        return `func${params} ${returnType}`.trim();
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error getting method signature:', error);
+    }
+    return undefined;
+}
+
+/**
+ * Find type definition location using gopls
+ */
+async function findTypeDefinition(
+    document: vscode.TextDocument,
+    typeName: string
+): Promise<vscode.Location | undefined> {
+    try {
+        // Search for type definition in workspace
+        const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+            'vscode.executeWorkspaceSymbolProvider',
+            typeName
+        );
+
+        if (symbols) {
+            for (const symbol of symbols) {
+                if ((symbol.kind === vscode.SymbolKind.Struct ||
+                     symbol.kind === vscode.SymbolKind.Class ||
+                     symbol.kind === vscode.SymbolKind.Interface) &&
+                    symbol.name === typeName) {
+                    return symbol.location;
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error finding type definition:', error);
+    }
+    return undefined;
+}
+
+/**
+ * Validate if a method exists and matches required signature
+ */
+async function validateMethod(
+    document: vscode.TextDocument,
+    typeName: string,
+    methodName: string,
+    requiredSignature?: string
+): Promise<{ exists: boolean; valid: boolean; actualSignature?: string; message?: string }> {
+    const methods = await getMethodsForType(document, typeName);
+    
+    const method = methods.find(m => m.name === methodName);
+    
+    if (!method) {
+        return {
+            exists: false,
+            valid: false,
+            message: `Method '${methodName}' not found on type '${typeName}'`
+        };
+    }
+
+    if (requiredSignature && method.signature) {
+        // Normalize signatures for comparison
+        const normalizedRequired = normalizeSignature(requiredSignature);
+        const normalizedActual = normalizeSignature(method.signature);
+        
+        if (normalizedActual && !signatureMatches(normalizedActual, normalizedRequired)) {
+            return {
+                exists: true,
+                valid: false,
+                actualSignature: method.signature,
+                message: `Method '${methodName}' has signature '${method.signature}', expected '${requiredSignature}'`
+            };
+        }
+    }
+
+    return { exists: true, valid: true, actualSignature: method.signature };
+}
+
+function normalizeSignature(sig: string): string {
+    // Remove "func" prefix and whitespace
+    return sig.replace(/^func\s*/, '').replace(/\s+/g, ' ').trim();
+}
+
+function signatureMatches(actual: string, required: string): boolean {
+    // Simple matching: check if actual contains required pattern
+    // For "() error", we check if method takes no params and returns error
+    const normalizedActual = normalizeSignature(actual);
+    const normalizedRequired = normalizeSignature(required);
+    
+    // Handle "() error" pattern
+    if (normalizedRequired === '() error') {
+        return normalizedActual.includes('()') && normalizedActual.includes('error');
+    }
+    
+    return normalizedActual.includes(normalizedRequired);
+}
+
+// ============================================================================
+// Diagnostics
+// ============================================================================
+
+async function updateDiagnostics(document: vscode.TextDocument) {
     if (!isDiagnosticsEnabled()) {
         diagnosticCollection.delete(document.uri);
         return;
@@ -351,9 +642,9 @@ function updateDiagnostics(document: vscode.TextDocument) {
                 } else {
                     // Validate parameter value based on type
                     const paramValue = ann.params!.trim();
-                    const types = Array.isArray(paramType) ? paramType : [paramType];
+                    const paramTypes = Array.isArray(paramType) ? paramType : [paramType];
 
-                    if (types.includes('enum') && annMeta.values) {
+                    if (paramTypes.includes('enum') && annMeta.values) {
                         // Validate enum values (can be comma-separated)
                         const providedValues = paramValue.split(',').map(v => v.trim()).filter(v => v);
                         
@@ -374,15 +665,14 @@ function updateDiagnostics(document: vscode.TextDocument) {
                                 vscode.DiagnosticSeverity.Error
                             ));
                         }
-                    } else if (!validateParamValue(paramValue, types)) {
-                        const typeDesc = types.join(' or ');
+                    } else if (!validateParamValue(paramValue, paramTypes)) {
+                        const typeDesc = paramTypes.join(' or ');
                         diagnostics.push(new vscode.Diagnostic(
                             ann.range,
                             `Annotation '${ann.tool}:@${ann.name}' requires a ${typeDesc} parameter, got '${paramValue}'`,
                             vscode.DiagnosticSeverity.Error
                         ));
                     }
-                    // string and list types accept any non-empty value
                 }
             } else {
                 // Annotation does not accept parameters
@@ -441,16 +731,75 @@ function updateDiagnostics(document: vscode.TextDocument) {
         }
     }
 
+    // LSP-based validation for @method annotations
+    await validateMethodAnnotations(document, types, diagnostics);
+
     diagnosticCollection.set(document.uri, diagnostics);
 }
 
+/**
+ * Validate @method annotations using LSP
+ */
+async function validateMethodAnnotations(
+    document: vscode.TextDocument,
+    types: TypeInfo[],
+    diagnostics: vscode.Diagnostic[]
+): Promise<void> {
+    for (const type of types) {
+        for (const field of type.fields) {
+            for (const ann of field.annotations) {
+                const toolConfig = toolsConfig[ann.tool];
+                if (!toolConfig) continue;
+
+                const annMeta = toolConfig.annotations[ann.name];
+                if (!annMeta?.lsp?.enabled || annMeta.lsp.feature !== 'method') continue;
+
+                const methodName = ann.params?.trim();
+                if (!methodName) continue;
+
+                // Get the type to validate against
+                let targetType = field.typeName;
+                if (annMeta.lsp.resolveFrom === 'fieldType') {
+                    targetType = field.typeName;
+                }
+
+                // Validate method exists and has correct signature
+                const validation = await validateMethod(
+                    document,
+                    targetType,
+                    methodName,
+                    annMeta.lsp.signature
+                );
+
+                if (!validation.exists) {
+                    diagnostics.push(new vscode.Diagnostic(
+                        ann.range,
+                        validation.message || `Method '${methodName}' not found on type '${targetType}'`,
+                        vscode.DiagnosticSeverity.Error
+                    ));
+                } else if (!validation.valid) {
+                    diagnostics.push(new vscode.Diagnostic(
+                        ann.range,
+                        validation.message || `Method '${methodName}' has invalid signature`,
+                        vscode.DiagnosticSeverity.Warning
+                    ));
+                }
+            }
+        }
+    }
+}
+
+// ============================================================================
+// Completion Provider
+// ============================================================================
+
 class DevGenCompletionProvider implements vscode.CompletionItemProvider {
-    provideCompletionItems(
+    async provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken,
         _context: vscode.CompletionContext
-    ): vscode.CompletionList | vscode.CompletionItem[] | undefined {
+    ): Promise<vscode.CompletionList | vscode.CompletionItem[] | undefined> {
         const lineText = document.lineAt(position).text;
         const linePrefix = lineText.substring(0, position.character);
 
@@ -472,7 +821,15 @@ class DevGenCompletionProvider implements vscode.CompletionItemProvider {
             if (!toolConfig) return undefined;
 
             const annMeta = toolConfig.annotations[annName];
-            if (!annMeta || annMeta.paramType !== 'enum' || !annMeta.values) {
+            if (!annMeta) return undefined;
+
+            // LSP-based completion for @method
+            if (annMeta.lsp?.enabled && annMeta.lsp.feature === 'method') {
+                return await this.provideMethodCompletion(document, position, existingParams, annMeta);
+            }
+
+            // Enum completion
+            if (annMeta.paramType !== 'enum' || !annMeta.values) {
                 return undefined;
             }
 
@@ -562,14 +919,89 @@ class DevGenCompletionProvider implements vscode.CompletionItemProvider {
 
         return undefined;
     }
+
+    /**
+     * Provide method completion using LSP
+     */
+    private async provideMethodCompletion(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        existingParams: string,
+        annMeta: AnnotationMeta
+    ): Promise<vscode.CompletionList | undefined> {
+        const items: vscode.CompletionItem[] = [];
+
+        // Find the field type at current position
+        const fieldInfo = this.findFieldAtPosition(document, position);
+        if (!fieldInfo) return undefined;
+
+        // Get methods for the field type
+        const methods = await getMethodsForType(document, fieldInfo.typeName);
+
+        // Filter methods by required signature
+        const requiredSig = annMeta.lsp?.signature;
+        
+        for (const method of methods) {
+            // Filter by signature if required
+            if (requiredSig && method.signature) {
+                if (!signatureMatches(method.signature, requiredSig)) {
+                    continue;
+                }
+            }
+
+            // Skip if already in params
+            if (existingParams.includes(method.name)) {
+                continue;
+            }
+
+            const item = new vscode.CompletionItem(method.name, vscode.CompletionItemKind.Method);
+            item.detail = `${fieldInfo.typeName}.${method.name}`;
+            
+            const doc = new vscode.MarkdownString();
+            doc.appendCodeblock(`func (${fieldInfo.typeName}) ${method.name}${method.signature || '()'}`, 'go');
+            if (requiredSig) {
+                doc.appendMarkdown(`\n\nRequired signature: \`${requiredSig}\``);
+            }
+            item.documentation = doc;
+            
+            item.sortText = '0' + method.name;
+            items.push(item);
+        }
+
+        return items.length > 0 ? new vscode.CompletionList(items, false) : undefined;
+    }
+
+    /**
+     * Find field info at the given position
+     */
+    private findFieldAtPosition(document: vscode.TextDocument, position: vscode.Position): FieldInfo | undefined {
+        const types = parseTypes(document);
+        
+        for (const type of types) {
+            for (const field of type.fields) {
+                // Check if position is in the field's annotation comments
+                // Look at lines above the field
+                const fieldLine = field.range.start.line;
+                if (position.line < fieldLine && position.line >= fieldLine - 10) {
+                    return field;
+                }
+            }
+        }
+        
+        return undefined;
+    }
 }
 
+// ============================================================================
+// Hover Provider
+// ============================================================================
+
 class DevGenHoverProvider implements vscode.HoverProvider {
-    provideHover(
+    async provideHover(
         document: vscode.TextDocument,
         position: vscode.Position,
         _token: vscode.CancellationToken
-    ): vscode.Hover | undefined {
+    ): Promise<vscode.Hover | undefined> {
         const wordRange = document.getWordRangeAtPosition(position, /\w+:@[\w.]+(?:\([^)]*\))?/);
         if (!wordRange) {
             return undefined;
@@ -617,6 +1049,54 @@ class DevGenHoverProvider implements vscode.HoverProvider {
             markdown.appendMarkdown(`\n\n**Options:** ${annMeta.values.join(', ')}`);
         }
 
+        // Show LSP info for @method
+        if (annMeta?.lsp?.enabled && params) {
+            markdown.appendMarkdown(`\n\n---\n`);
+            markdown.appendMarkdown(`**LSP Integration:** ${annMeta.lsp.provider}\n\n`);
+            
+            if (annMeta.lsp.signature) {
+                markdown.appendMarkdown(`Required signature: \`${annMeta.lsp.signature}\`\n`);
+            }
+
+            // Try to get method info
+            const fieldInfo = this.findFieldAtPosition(document, position);
+            if (fieldInfo && params) {
+                const validation = await validateMethod(
+                    document,
+                    fieldInfo.typeName,
+                    params.trim(),
+                    annMeta.lsp.signature
+                );
+
+                if (validation.exists) {
+                    markdown.appendMarkdown(`\n✅ Method found`);
+                    if (validation.actualSignature) {
+                        markdown.appendMarkdown(`: \`${validation.actualSignature}\``);
+                    }
+                    if (!validation.valid) {
+                        markdown.appendMarkdown(`\n⚠️ ${validation.message}`);
+                    }
+                } else {
+                    markdown.appendMarkdown(`\n❌ ${validation.message}`);
+                }
+            }
+        }
+
         return new vscode.Hover(markdown, wordRange);
+    }
+
+    private findFieldAtPosition(document: vscode.TextDocument, position: vscode.Position): FieldInfo | undefined {
+        const types = parseTypes(document);
+        
+        for (const type of types) {
+            for (const field of type.fields) {
+                const fieldLine = field.range.start.line;
+                if (position.line < fieldLine && position.line >= fieldLine - 10) {
+                    return field;
+                }
+            }
+        }
+        
+        return undefined;
     }
 }

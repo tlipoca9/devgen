@@ -158,6 +158,58 @@ csv = "Validate CSV format"
 
 Usage: `// validategen:@format(json)` (only one option allowed)
 
+#### 6. LSP Integration Parameters (Advanced)
+
+Support integration with language servers like gopls for cross-package type method lookup:
+
+```toml
+[[annotations]]
+name = "method"
+type = "field"
+doc = "Call specified method for validation (for struct fields)"
+
+[annotations.params]
+type = "string"
+placeholder = "MethodName"
+
+[annotations.lsp]
+enabled = true                    # Enable LSP integration
+provider = "gopls"                # LSP provider
+feature = "method"                # Feature type: "method", "type", "symbol"
+signature = "func() error"        # Required method signature
+resolveFrom = "fieldType"         # Where to resolve type: "fieldType", "receiverType"
+```
+
+**LSP Configuration Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `enabled` | bool | Enable LSP integration |
+| `provider` | string | LSP provider, currently supports `"gopls"` |
+| `feature` | string | Feature type: `"method"` method lookup, `"type"` type lookup, `"symbol"` symbol lookup |
+| `signature` | string | Required method signature pattern, e.g., `"func() error"` |
+| `resolveFrom` | string | Type resolution source: `"fieldType"` from field type, `"receiverType"` from receiver type |
+
+**LSP Integration Features:**
+
+1. **Method Completion** - Auto-complete methods matching the signature when typing `@method(`
+2. **Method Validation** - Detect if method exists and signature matches
+3. **Cross-Package Lookup** - Find methods from other packages via gopls workspace symbol
+4. **Hover Information** - Display method existence and actual signature
+
+Usage example:
+
+```go
+// validategen:@validate
+type User struct {
+    // validategen:@method(Validate)  // Auto-complete Address methods
+    Address Address                   // Validates Address.Validate() error exists
+    
+    // validategen:@method(Validate)
+    Status Status                     // Validates Status.Validate() error exists
+}
+```
+
 ### Complete Example: enumgen
 
 ```toml
@@ -277,6 +329,23 @@ json = "Validate JSON format"
 yaml = "Validate YAML format"
 toml = "Validate TOML format"
 csv = "Validate CSV format"
+
+# LSP integration (cross-package method lookup)
+[[annotations]]
+name = "method"
+type = "field"
+doc = "Call specified method for validation (for struct fields)"
+
+[annotations.params]
+type = "string"
+placeholder = "MethodName"
+
+[annotations.lsp]
+enabled = true
+provider = "gopls"
+feature = "method"
+signature = "func() error"
+resolveFrom = "fieldType"
 ```
 
 ## Generated tools-config.json
