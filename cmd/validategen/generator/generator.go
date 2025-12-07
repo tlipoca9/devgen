@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go/types"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/tlipoca9/devgen/genkit"
@@ -81,16 +82,66 @@ func (vg *Generator) Config() genkit.ToolConfig {
 		Annotations: []genkit.AnnotationConfig{
 			{Name: "validate", Type: "type", Doc: "Generate Validate() method for struct"},
 			{Name: "required", Type: "field", Doc: "Field must not be empty/zero"},
-			{Name: "min", Type: "field", Doc: "Minimum value or length", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
-			{Name: "max", Type: "field", Doc: "Maximum value or length", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
-			{Name: "len", Type: "field", Doc: "Exact length", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
-			{Name: "eq", Type: "field", Doc: "Must equal specified value", Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"}},
-			{Name: "ne", Type: "field", Doc: "Must not equal specified value", Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"}},
-			{Name: "gt", Type: "field", Doc: "Must be greater than", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
-			{Name: "gte", Type: "field", Doc: "Must be greater than or equal", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
-			{Name: "lt", Type: "field", Doc: "Must be less than", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
-			{Name: "lte", Type: "field", Doc: "Must be less than or equal", Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"}},
-			{Name: "oneof", Type: "field", Doc: "Must be one of the specified values", Params: &genkit.AnnotationParams{Type: "list", Placeholder: "values"}},
+			{
+				Name:   "min",
+				Type:   "field",
+				Doc:    "Minimum value or length",
+				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
+			},
+			{
+				Name:   "max",
+				Type:   "field",
+				Doc:    "Maximum value or length",
+				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
+			},
+			{
+				Name:   "len",
+				Type:   "field",
+				Doc:    "Exact length",
+				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
+			},
+			{
+				Name:   "eq",
+				Type:   "field",
+				Doc:    "Must equal specified value",
+				Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"},
+			},
+			{
+				Name:   "ne",
+				Type:   "field",
+				Doc:    "Must not equal specified value",
+				Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"},
+			},
+			{
+				Name:   "gt",
+				Type:   "field",
+				Doc:    "Must be greater than",
+				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
+			},
+			{
+				Name:   "gte",
+				Type:   "field",
+				Doc:    "Must be greater than or equal",
+				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
+			},
+			{
+				Name:   "lt",
+				Type:   "field",
+				Doc:    "Must be less than",
+				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
+			},
+			{
+				Name:   "lte",
+				Type:   "field",
+				Doc:    "Must be less than or equal",
+				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
+			},
+			{
+				Name:   "oneof",
+				Type:   "field",
+				Doc:    "Must be one of the specified values",
+				Params: &genkit.AnnotationParams{Type: "list", Placeholder: "values"},
+			},
 			{Name: "email", Type: "field", Doc: "Must be a valid email address"},
 			{Name: "url", Type: "field", Doc: "Must be a valid URL"},
 			{Name: "uuid", Type: "field", Doc: "Must be a valid UUID"},
@@ -100,14 +151,34 @@ func (vg *Generator) Config() genkit.ToolConfig {
 			{Name: "alpha", Type: "field", Doc: "Must contain only letters"},
 			{Name: "alphanum", Type: "field", Doc: "Must contain only letters and numbers"},
 			{Name: "numeric", Type: "field", Doc: "Must contain only numbers"},
-			{Name: "contains", Type: "field", Doc: "Must contain the specified substring", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "substring"}},
-			{Name: "excludes", Type: "field", Doc: "Must not contain the specified substring", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "substring"}},
-			{Name: "startswith", Type: "field", Doc: "Must start with the specified prefix", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "prefix"}},
-			{Name: "endswith", Type: "field", Doc: "Must end with the specified suffix", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "suffix"}},
 			{
-				Name: "method",
-				Type: "field",
-				Doc:  "Call specified method for validation (for struct fields)",
+				Name:   "contains",
+				Type:   "field",
+				Doc:    "Must contain the specified substring",
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "substring"},
+			},
+			{
+				Name:   "excludes",
+				Type:   "field",
+				Doc:    "Must not contain the specified substring",
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "substring"},
+			},
+			{
+				Name:   "startswith",
+				Type:   "field",
+				Doc:    "Must start with the specified prefix",
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "prefix"},
+			},
+			{
+				Name:   "endswith",
+				Type:   "field",
+				Doc:    "Must end with the specified suffix",
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "suffix"},
+			},
+			{
+				Name:   "method",
+				Type:   "field",
+				Doc:    "Call specified method for validation (for struct fields)",
 				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "MethodName"},
 				LSP: &genkit.LSPConfig{
 					Enabled:     true,
@@ -117,7 +188,12 @@ func (vg *Generator) Config() genkit.ToolConfig {
 					ResolveFrom: "fieldType",
 				},
 			},
-			{Name: "regex", Type: "field", Doc: "Must match the specified regular expression", Params: &genkit.AnnotationParams{Type: "string", Placeholder: "pattern"}},
+			{
+				Name:   "regex",
+				Type:   "field",
+				Doc:    "Must match the specified regular expression",
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "pattern"},
+			},
 			{
 				Name: "format",
 				Type: "field",
@@ -588,6 +664,9 @@ func (vg *Generator) genRequired(g *genkit.GeneratedFile, fieldName, fieldType s
 }
 
 func (vg *Generator) genMin(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	if isStringType(fieldType) {
 		g.P("if len(x.", fieldName, ") < ", param, " {")
@@ -615,6 +694,9 @@ func (vg *Generator) genMin(g *genkit.GeneratedFile, fieldName, fieldType, param
 }
 
 func (vg *Generator) genMax(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	if isStringType(fieldType) {
 		g.P("if len(x.", fieldName, ") > ", param, " {")
@@ -642,6 +724,9 @@ func (vg *Generator) genMax(g *genkit.GeneratedFile, fieldName, fieldType, param
 }
 
 func (vg *Generator) genLen(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	if isStringType(fieldType) {
 		g.P("if len(x.", fieldName, ") != ", param, " {")
@@ -665,6 +750,9 @@ func (vg *Generator) genLen(g *genkit.GeneratedFile, fieldName, fieldType, param
 }
 
 func (vg *Generator) genEq(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	if isStringType(fieldType) {
 		g.P("if x.", fieldName, " != \"", param, "\" {")
@@ -689,6 +777,9 @@ func (vg *Generator) genEq(g *genkit.GeneratedFile, fieldName, fieldType, param 
 }
 
 func (vg *Generator) genNe(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
+	if param == "" {
+		return
+	}
 	if isStringType(fieldType) {
 		g.P("if x.", fieldName, " == \"", param, "\" {")
 		g.P("errs = append(errs, \"", fieldName, " must not equal ", param, "\")")
@@ -702,6 +793,9 @@ func (vg *Generator) genNe(g *genkit.GeneratedFile, fieldName, fieldType, param 
 }
 
 func (vg *Generator) genGt(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	if isStringType(fieldType) {
 		g.P("if len(x.", fieldName, ") <= ", param, " {")
@@ -729,6 +823,9 @@ func (vg *Generator) genGt(g *genkit.GeneratedFile, fieldName, fieldType, param 
 }
 
 func (vg *Generator) genGte(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	if isStringType(fieldType) {
 		g.P("if len(x.", fieldName, ") < ", param, " {")
@@ -756,6 +853,9 @@ func (vg *Generator) genGte(g *genkit.GeneratedFile, fieldName, fieldType, param
 }
 
 func (vg *Generator) genLt(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	if isStringType(fieldType) {
 		g.P("if len(x.", fieldName, ") >= ", param, " {")
@@ -783,6 +883,9 @@ func (vg *Generator) genLt(g *genkit.GeneratedFile, fieldName, fieldType, param 
 }
 
 func (vg *Generator) genLte(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	if isStringType(fieldType) {
 		g.P("if len(x.", fieldName, ") > ", param, " {")
@@ -810,8 +913,9 @@ func (vg *Generator) genLte(g *genkit.GeneratedFile, fieldName, fieldType, param
 }
 
 func (vg *Generator) genOneof(g *genkit.GeneratedFile, field *genkit.Field, param string) {
+	// Validation already done in validateRule, skip if invalid
 	if param == "" {
-		panic(fmt.Sprintf("validategen: @oneof requires at least one value for field %s at %s", field.Name, field.Pos))
+		return
 	}
 
 	values := strings.Split(param, " ")
@@ -824,7 +928,7 @@ func (vg *Generator) genOneof(g *genkit.GeneratedFile, field *genkit.Field, para
 		}
 	}
 	if len(cleanValues) == 0 {
-		panic(fmt.Sprintf("validategen: @oneof requires at least one value for field %s at %s", field.Name, field.Pos))
+		return // Validation already done in validateRule
 	}
 
 	fieldName := field.Name
@@ -942,6 +1046,9 @@ func (vg *Generator) genNumeric(g *genkit.GeneratedFile, fieldName string) {
 }
 
 func (vg *Generator) genContains(g *genkit.GeneratedFile, fieldName, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	g.P("if !", genkit.GoImportPath("strings").Ident("Contains"), "(x.", fieldName, ", \"", param, "\") {")
 	g.P(
@@ -959,6 +1066,9 @@ func (vg *Generator) genContains(g *genkit.GeneratedFile, fieldName, param strin
 }
 
 func (vg *Generator) genExcludes(g *genkit.GeneratedFile, fieldName, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	g.P("if ", genkit.GoImportPath("strings").Ident("Contains"), "(x.", fieldName, ", \"", param, "\") {")
 	g.P(
@@ -976,6 +1086,9 @@ func (vg *Generator) genExcludes(g *genkit.GeneratedFile, fieldName, param strin
 }
 
 func (vg *Generator) genStartsWith(g *genkit.GeneratedFile, fieldName, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	g.P("if !", genkit.GoImportPath("strings").Ident("HasPrefix"), "(x.", fieldName, ", \"", param, "\") {")
 	g.P(
@@ -993,6 +1106,9 @@ func (vg *Generator) genStartsWith(g *genkit.GeneratedFile, fieldName, param str
 }
 
 func (vg *Generator) genEndsWith(g *genkit.GeneratedFile, fieldName, param string) {
+	if param == "" {
+		return
+	}
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
 	g.P("if !", genkit.GoImportPath("strings").Ident("HasSuffix"), "(x.", fieldName, ", \"", param, "\") {")
 	g.P(
@@ -1061,8 +1177,9 @@ func (vg *Generator) genIPv6(g *genkit.GeneratedFile, fieldName string) {
 }
 
 func (vg *Generator) genMethod(g *genkit.GeneratedFile, field *genkit.Field, methodName string) {
+	// Validation already done in validateRule, skip if invalid
 	if methodName == "" {
-		panic(fmt.Sprintf("validategen: @method requires a method name for field %s at %s", field.Name, field.Pos))
+		return
 	}
 	fieldName := field.Name
 	fieldType := field.Type
@@ -1082,8 +1199,9 @@ func (vg *Generator) genMethod(g *genkit.GeneratedFile, field *genkit.Field, met
 }
 
 func (vg *Generator) genRegex(g *genkit.GeneratedFile, field *genkit.Field, pattern string, customRegex *regexTracker) {
+	// Validation already done in validateRule, skip if invalid
 	if pattern == "" {
-		panic(fmt.Sprintf("validategen: @regex requires a pattern for field %s at %s", field.Name, field.Pos))
+		return
 	}
 	fieldName := field.Name
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
@@ -1112,30 +1230,13 @@ var supportedFormats = map[string]bool{
 }
 
 func (vg *Generator) genFormat(g *genkit.GeneratedFile, field *genkit.Field, format string) {
-	if format == "" {
-		panic(fmt.Sprintf("validategen: @format requires a format type for field %s at %s", field.Name, field.Pos))
-	}
-	// format annotation only accepts one parameter
-	if strings.Contains(format, " ") {
-		panic(
-			fmt.Sprintf(
-				"validategen: @format only accepts one parameter for field %s at %s, got %q",
-				field.Name,
-				field.Pos,
-				format,
-			),
-		)
+	// Validation already done in validateRule, skip if invalid
+	if format == "" || strings.Contains(format, " ") {
+		return
 	}
 	format = strings.ToLower(format)
 	if !supportedFormats[format] {
-		panic(
-			fmt.Sprintf(
-				"validategen: @format unsupported format %q for field %s at %s, supported: json, yaml, toml, csv",
-				format,
-				field.Name,
-				field.Pos,
-			),
-		)
+		return
 	}
 
 	fieldName := field.Name
@@ -1246,5 +1347,253 @@ func isNumericType(t string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+// isBuiltinType checks if the type is a Go builtin type that cannot have methods.
+func isBuiltinType(t string) bool {
+	// Check pointer to builtin
+	if strings.HasPrefix(t, "*") {
+		return isBuiltinType(strings.TrimPrefix(t, "*"))
+	}
+	// Check slice/map of builtin (these are still builtin)
+	if strings.HasPrefix(t, "[]") || strings.HasPrefix(t, "map[") {
+		return true
+	}
+	// Builtin primitive types
+	switch t {
+	case "string", "bool", "error",
+		"int", "int8", "int16", "int32", "int64",
+		"uint", "uint8", "uint16", "uint32", "uint64",
+		"float32", "float64", "complex64", "complex128",
+		"byte", "rune", "uintptr", "any":
+		return true
+	}
+	// interface{} is builtin
+	if strings.HasPrefix(t, "interface") {
+		return true
+	}
+	return false
+}
+
+// isValidNumber checks if a string is a valid number (integer or float).
+func isValidNumber(s string) bool {
+	if s == "" {
+		return false
+	}
+	// Try parsing as integer first
+	if _, err := strconv.ParseInt(s, 10, 64); err == nil {
+		return true
+	}
+	// Try parsing as float
+	if _, err := strconv.ParseFloat(s, 64); err == nil {
+		return true
+	}
+	return false
+}
+
+// Error codes for diagnostics.
+const (
+	ErrCodeMethodMissingParam  = "E001"
+	ErrCodeRegexMissingPattern = "E002"
+	ErrCodeFormatMissingType   = "E003"
+	ErrCodeFormatMultipleArgs  = "E004"
+	ErrCodeFormatUnsupported   = "E005"
+	ErrCodeOneofMissingValues  = "E006"
+	ErrCodeMissingParam        = "E007" // Generic missing parameter error
+	ErrCodeInvalidParamType    = "E008" // Invalid parameter type
+	ErrCodeInvalidFieldType    = "E009" // Annotation not applicable to field type
+)
+
+// Validate implements genkit.ValidatableTool.
+// It checks for errors without generating files, returning diagnostics for IDE integration.
+func (vg *Generator) Validate(gen *genkit.Generator, _ *genkit.Logger) []genkit.Diagnostic {
+	c := genkit.NewDiagnosticCollector(ToolName)
+
+	for _, pkg := range gen.Packages {
+		for _, typ := range pkg.Types {
+			if !genkit.HasAnnotation(typ.Doc, ToolName, "validate") {
+				continue
+			}
+			vg.validateType(c, typ)
+		}
+	}
+
+	return c.Collect()
+}
+
+// validateType validates a single type and collects diagnostics.
+func (vg *Generator) validateType(c *genkit.DiagnosticCollector, typ *genkit.Type) {
+	for _, field := range typ.Fields {
+		rules := vg.parseFieldAnnotations(field)
+		for _, rule := range rules {
+			vg.validateRule(c, field, rule)
+		}
+	}
+}
+
+// validateRule validates a single rule and collects diagnostics.
+func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, field *genkit.Field, rule *validateRule) {
+	// Use UnderlyingType for validation (supports custom types like `type Email string`)
+	underlyingType := field.UnderlyingType
+
+	switch rule.Name {
+	// Annotations that require string underlying type
+	case "email", "url", "uuid", "alpha", "alphanum", "numeric", "regex", "format":
+		if !isStringType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@%s annotation requires string underlying type, got %s",
+				rule.Name,
+				underlyingType,
+			)
+		}
+		// Additional validation for specific annotations
+		switch rule.Name {
+		case "regex":
+			if rule.Param == "" {
+				c.Error(ErrCodeRegexMissingPattern, "@regex annotation requires a pattern parameter", field.Pos)
+			}
+		case "format":
+			if rule.Param == "" {
+				c.Error(ErrCodeFormatMissingType, "@format annotation requires a format type parameter", field.Pos)
+			} else if strings.Contains(rule.Param, " ") {
+				c.Error(ErrCodeFormatMultipleArgs, "@format annotation only accepts one parameter", field.Pos)
+			} else if !supportedFormats[strings.ToLower(rule.Param)] {
+				c.Errorf(ErrCodeFormatUnsupported, field.Pos,
+					"unsupported format %q, supported: json, yaml, toml, csv", rule.Param)
+			}
+		}
+
+	// Annotations that require string underlying type with parameter
+	case "contains", "excludes", "startswith", "endswith":
+		if !isStringType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@%s annotation requires string underlying type, got %s",
+				rule.Name,
+				underlyingType,
+			)
+		}
+		if rule.Param == "" {
+			c.Errorf(ErrCodeMissingParam, field.Pos, "@%s annotation requires a string parameter", rule.Name)
+		}
+
+	// IP validation annotations - require string underlying type
+	case "ip", "ipv4", "ipv6":
+		if !isStringType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@%s annotation requires string underlying type, got %s",
+				rule.Name,
+				underlyingType,
+			)
+		}
+
+	// Annotations that work on string/slice/map (length) or numeric (value)
+	case "min", "max", "gt", "gte", "lt", "lte":
+		if !isStringType(underlyingType) && !isSliceOrMapType(underlyingType) && !isNumericType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@%s annotation requires string, slice, map, or numeric underlying type, got %s",
+				rule.Name,
+				underlyingType,
+			)
+		}
+		if rule.Param == "" {
+			c.Errorf(ErrCodeMissingParam, field.Pos, "@%s annotation requires a value parameter", rule.Name)
+		} else if !isValidNumber(rule.Param) {
+			c.Errorf(ErrCodeInvalidParamType, field.Pos, "@%s parameter must be a number, got %q", rule.Name, rule.Param)
+		}
+
+	// len annotation - only for string/slice/map
+	case "len":
+		if !isStringType(underlyingType) && !isSliceOrMapType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@len annotation requires string, slice, or map underlying type, got %s",
+				underlyingType,
+			)
+		}
+		if rule.Param == "" {
+			c.Errorf(ErrCodeMissingParam, field.Pos, "@len annotation requires a value parameter")
+		} else if !isValidNumber(rule.Param) {
+			c.Errorf(ErrCodeInvalidParamType, field.Pos, "@len parameter must be a number, got %q", rule.Param)
+		}
+
+	// eq/ne - string, numeric, or bool
+	case "eq", "ne":
+		if !isStringType(underlyingType) && !isNumericType(underlyingType) && !isBoolType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@%s annotation requires string, numeric, or bool underlying type, got %s",
+				rule.Name,
+				underlyingType,
+			)
+		}
+		if rule.Param == "" {
+			c.Errorf(ErrCodeMissingParam, field.Pos, "@%s annotation requires a value parameter", rule.Name)
+		}
+
+	// required - string, slice, map, pointer, bool, numeric
+	case "required":
+		if !isStringType(underlyingType) && !isSliceOrMapType(underlyingType) && !isPointerType(underlyingType) &&
+			!isBoolType(underlyingType) && !isNumericType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@required annotation requires string, slice, map, pointer, bool, or numeric underlying type, got %s",
+				underlyingType,
+			)
+		}
+
+	// method - must be a custom type (not builtin types like string, int, bool, etc.)
+	case "method":
+		if rule.Param == "" {
+			c.Error(ErrCodeMethodMissingParam, "@method annotation requires a method name parameter", field.Pos)
+		}
+		// For method, check declared type (not underlying) - custom types can have methods
+		if isBuiltinType(field.Type) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@method annotation can only be applied to custom types, got builtin type %s",
+				field.Type,
+			)
+		}
+
+	// oneof - string or numeric
+	case "oneof":
+		if !isStringType(underlyingType) && !isNumericType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@oneof annotation requires string or numeric underlying type, got %s",
+				underlyingType,
+			)
+		}
+		if rule.Param == "" {
+			c.Errorf(ErrCodeOneofMissingValues, field.Pos,
+				"@oneof annotation requires at least one value")
+		} else {
+			// Check if all values are empty after cleanup
+			hasValue := false
+			for _, v := range strings.Split(rule.Param, " ") {
+				if strings.TrimSpace(v) != "" {
+					hasValue = true
+					break
+				}
+			}
+			if !hasValue {
+				c.Errorf(ErrCodeOneofMissingValues, field.Pos,
+					"@oneof annotation requires at least one value")
+			}
+		}
 	}
 }

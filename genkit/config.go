@@ -76,7 +76,7 @@ type AnnotationConfig struct {
 type AnnotationParams struct {
 	// Type is the parameter type: "string", "number", "bool", "list", or "enum".
 	// Can also be an array of types for multiple accepted types.
-	Type interface{} `toml:"type"`
+	Type any `toml:"type"`
 
 	// Values is the list of allowed values for enum type.
 	Values []string `toml:"values"`
@@ -172,13 +172,13 @@ func FindConfig(dir string) (string, error) {
 }
 
 // ToVSCodeConfig converts the tool configuration to VSCode extension format.
-func (tc *ToolConfig) ToVSCodeConfig() map[string]interface{} {
+func (tc *ToolConfig) ToVSCodeConfig() map[string]any {
 	typeAnnotations := []string{}
 	fieldAnnotations := []string{}
-	annotations := make(map[string]interface{})
+	annotations := make(map[string]any)
 
 	for _, ann := range tc.Annotations {
-		annConfig := map[string]interface{}{
+		annConfig := map[string]any{
 			"doc": ann.Doc,
 		}
 
@@ -204,7 +204,7 @@ func (tc *ToolConfig) ToVSCodeConfig() map[string]interface{} {
 		}
 
 		if ann.LSP != nil && ann.LSP.Enabled {
-			annConfig["lsp"] = map[string]interface{}{
+			annConfig["lsp"] = map[string]any{
 				"enabled":     ann.LSP.Enabled,
 				"provider":    ann.LSP.Provider,
 				"feature":     ann.LSP.Feature,
@@ -223,7 +223,7 @@ func (tc *ToolConfig) ToVSCodeConfig() map[string]interface{} {
 		}
 	}
 
-	return map[string]interface{}{
+	return map[string]any{
 		"typeAnnotations":  typeAnnotations,
 		"fieldAnnotations": fieldAnnotations,
 		"outputSuffix":     tc.OutputSuffix,

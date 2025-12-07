@@ -4,7 +4,7 @@ import * as os from 'os';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
-const execAsync = promisify(exec);
+export const execAsync = promisify(exec);
 
 // Output channel for logging
 let outputChannel: vscode.OutputChannel | undefined;
@@ -23,7 +23,7 @@ function logError(message: string, error?: unknown): void {
 /**
  * Get environment with GOPATH/bin added to PATH
  */
-function getEnvWithGoPath(): NodeJS.ProcessEnv {
+export function getEnvWithGoPath(): NodeJS.ProcessEnv {
     const env = { ...process.env };
     const homeDir = os.homedir();
     const goBin = path.join(homeDir, 'go', 'bin');

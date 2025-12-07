@@ -20,6 +20,12 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "devgen.validate",
+        "title": "DevGen: Validate Annotations"
+      }
+    ],
     "configuration": {
       "title": "DevGen",
       "properties": {
@@ -32,6 +38,11 @@
           "type": "string",
           "default": "devgen",
           "description": "Path to the devgen executable. Used to load tool configurations from plugins."
+        },
+        "devgen.validateOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run devgen dry-run validation on file save to check for annotation errors"
         }
       }
     },

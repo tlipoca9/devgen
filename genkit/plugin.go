@@ -161,7 +161,7 @@ func (pl *PluginLoader) loadGoPluginFile(path, name string) (Tool, error) {
 		switch newFn := newSym.(type) {
 		case func() Tool:
 			return newFn(), nil
-		case func() interface{}:
+		case func() any:
 			if tool, ok := newFn().(Tool); ok {
 				return tool, nil
 			}
@@ -227,7 +227,7 @@ func (pl *PluginLoader) CleanCache(maxAge time.Duration) error {
 			continue
 		}
 		if info.ModTime().Before(cutoff) {
-			os.Remove(filepath.Join(pl.cacheDir, entry.Name()))
+			_ = os.Remove(filepath.Join(pl.cacheDir, entry.Name()))
 		}
 	}
 	return nil

@@ -1,6 +1,7 @@
 package generator_test
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -1963,7 +1964,7 @@ type JSONUpper struct {
 				}
 			})
 
-			It("should panic on unsupported format types", func() {
+			It("should return diagnostic on unsupported format types", func() {
 				testFile := filepath.Join(tempDir, "unknownformat.go")
 				content := `package testpkg
 
@@ -1981,9 +1982,10 @@ type UnknownFormat struct {
 				err = gk.Load(".")
 				Expect(err).NotTo(HaveOccurred())
 
-				Expect(func() {
-					_ = gen.ProcessPackage(gk, gk.Packages[0])
-				}).To(PanicWith(ContainSubstring("unsupported format")))
+				diagnostics := gen.Validate(gk, genkit.NewLoggerWithWriter(io.Discard))
+				Expect(diagnostics).To(HaveLen(1))
+				Expect(diagnostics[0].Code).To(Equal(generator.ErrCodeFormatUnsupported))
+				Expect(diagnostics[0].Message).To(ContainSubstring("unsupported format"))
 			})
 		})
 	})
