@@ -1,0 +1,6 @@
+# DevGen configuration for testing VSCode extension
+
+[[plugins]]
+name = "markgen"
+path = "./examples/plugin/plugin-source"
+type = "source"

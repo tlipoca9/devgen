@@ -112,6 +112,5 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "smol-toml": "^1.5.2"
   }
 }

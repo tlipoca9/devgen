@@ -69,11 +69,15 @@ export async function activate(context: vscode.ExtensionContext) {
     // Create output channel for debugging
     outputChannel = vscode.window.createOutputChannel('DevGen');
     context.subscriptions.push(outputChannel);
+    outputChannel.appendLine('DevGen extension activating...');
 
     // Initialize config loader and load dynamic configuration
     configLoader = getConfigLoader();
-    await configLoader.initialize(context);
+    await configLoader.initialize(context, outputChannel);
     toolsConfig = configLoader.getToolsConfig();
+    
+    outputChannel.appendLine(`Loaded ${Object.keys(toolsConfig).length} tools: ${Object.keys(toolsConfig).join(', ') || '(none)'}`);
+    outputChannel.appendLine('DevGen extension activated');
     
     // Listen for config changes
     configLoader.onConfigChanged((newConfig) => {
