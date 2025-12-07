@@ -41,11 +41,11 @@ const (
 - `text` - 生成 `MarshalText()` / `UnmarshalText()` 方法
 - `sql` - 生成 `Value()` (driver.Valuer) / `Scan()` (sql.Scanner) 方法
 
-### @enum.name - 自定义值名称
+### @name - 自定义值名称
 
 默认情况下，枚举值的字符串名称会自动去除类型名前缀（如 `StatusPending` → `Pending`）。
 
-使用 `@enum.name` 可以自定义名称：
+使用 `@name` 可以自定义名称：
 
 ```go
 // Level 表示日志级别
@@ -53,18 +53,18 @@ const (
 type Level int
 
 const (
-    // enumgen:@enum.name(DEBUG)
+    // enumgen:@name(DEBUG)
     LevelDebug Level = iota + 1
-    // enumgen:@enum.name(INFO)
+    // enumgen:@name(INFO)
     LevelInfo
-    // enumgen:@enum.name(WARN)
+    // enumgen:@name(WARN)
     LevelWarn
-    // enumgen:@enum.name(ERROR)
+    // enumgen:@name(ERROR)
     LevelError
 )
 ```
 
-**注意**：`@enum.name` 的值不能重复，否则会报错。
+**注意**：`@name` 的值不能重复，否则会报错。
 
 ## 生成的代码
 
@@ -220,7 +220,7 @@ const (
     OrderStatusPending    OrderStatus = iota + 1 // 待处理
     OrderStatusProcessing                        // 处理中
     OrderStatusCompleted                         // 已完成
-    // enumgen:@enum.name(Cancelled)
+    // enumgen:@name(Cancelled)
     OrderStatusCanceled                          // 已取消（自定义名称）
 )
 ```

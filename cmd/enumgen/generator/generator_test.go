@@ -63,7 +63,7 @@ var _ = Describe("Generator", func() {
 		It("should return custom name from annotation", func() {
 			ev := &genkit.EnumValue{
 				Name: "StatusActive",
-				Doc:  "enumgen:@enum.name(active)",
+				Doc:  "enumgen:@name(active)",
 			}
 			Expect(generator.GetValueName(ev, "Status")).To(Equal("active"))
 		})
@@ -79,7 +79,7 @@ var _ = Describe("Generator", func() {
 		It("should handle comment annotation", func() {
 			ev := &genkit.EnumValue{
 				Name:    "StatusPending",
-				Doc:     "enumgen:@enum.name(pending)",
+				Doc:     "enumgen:@name(pending)",
 				Comment: "",
 			}
 			Expect(generator.GetValueName(ev, "Status")).To(Equal("pending"))
@@ -395,9 +395,9 @@ type NoEnum int
 type DupEnum int
 
 const (
-	// enumgen:@enum.name(same)
+	// enumgen:@name(same)
 	DupEnumFirst DupEnum = iota + 1
-	// enumgen:@enum.name(same)
+	// enumgen:@name(same)
 	DupEnumSecond
 )
 `
@@ -435,11 +435,11 @@ const (
 type Status int
 
 const (
-	// enumgen:@enum.name(active)
+	// enumgen:@name(active)
 	StatusActive Status = iota + 1
-	// enumgen:@enum.name(inactive)
+	// enumgen:@name(inactive)
 	StatusInactive
-	// enumgen:@enum.name(pending)
+	// enumgen:@name(pending)
 	StatusPending
 )
 `
@@ -496,9 +496,9 @@ const (
 type DupEnum int
 
 const (
-	// enumgen:@enum.name(same)
+	// enumgen:@name(same)
 	DupEnumFirst DupEnum = iota + 1
-	// enumgen:@enum.name(same)
+	// enumgen:@name(same)
 	DupEnumSecond
 )
 `
