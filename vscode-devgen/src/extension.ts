@@ -79,10 +79,15 @@ interface MethodCache {
 
 let diagnosticCollection: vscode.DiagnosticCollection;
 let methodCache: MethodCache = { methods: new Map(), timestamp: 0 };
+let outputChannel: vscode.OutputChannel;
 const CACHE_TTL = 5000; // 5 seconds
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('DevGen extension activated');
+    
+    // Create output channel for debugging
+    outputChannel = vscode.window.createOutputChannel('DevGen');
+    context.subscriptions.push(outputChannel);
 
     diagnosticCollection = vscode.languages.createDiagnosticCollection('devgen');
     context.subscriptions.push(diagnosticCollection);
@@ -242,7 +247,7 @@ function parseTypes(document: vscode.TextDocument): TypeInfo[] {
                     annotations: typeAnnotations,
                     fields: []
                 };
-                braceCount = 1;
+                braceCount = 0; // Will be set by the brace counting below
             }
 
             if (!trimmed.startsWith('//')) {
@@ -251,7 +256,7 @@ function parseTypes(document: vscode.TextDocument): TypeInfo[] {
             }
         }
 
-        if (currentType && braceCount > 0) {
+        if (currentType) {
             for (const char of line) {
                 if (char === '{') braceCount++;
                 if (char === '}') braceCount--;
@@ -265,13 +270,12 @@ function parseTypes(document: vscode.TextDocument): TypeInfo[] {
 
                     let j = i - 1;
                     while (j >= 0 && lines[j].trim().startsWith('//')) {
-                        const commentLine = lines[j].trim();
+                        const originalLine = lines[j];
                         ANNOTATION_PATTERN.lastIndex = 0;
                         let annMatch;
-                        while ((annMatch = ANNOTATION_PATTERN.exec(commentLine)) !== null) {
+                        while ((annMatch = ANNOTATION_PATTERN.exec(originalLine)) !== null) {
                             const lineStart = document.offsetAt(new vscode.Position(j, 0));
-                            const commentStart = lines[j].indexOf('//');
-                            const absoluteStart = lineStart + commentStart + annMatch.index;
+                            const absoluteStart = lineStart + annMatch.index;
                             const startPos = document.positionAt(absoluteStart);
                             const endPos = document.positionAt(absoluteStart + annMatch[0].length);
 

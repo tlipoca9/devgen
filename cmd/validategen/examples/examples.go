@@ -76,11 +76,11 @@ type User struct {
 	// validategen:@method(Validate)
 	Address Address
 
-	// validategen:@method(a)
+	// validategen:@method(Validate)
 	// validategen:@required
 	OptionalAddress *Address
 
-	// validategen:@method(Validte)
+	// validategen:@method(Validate)
 	Status Status
 }
 
