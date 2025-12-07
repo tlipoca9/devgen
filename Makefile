@@ -1,4 +1,4 @@
-.PHONY: all build test lint clean tidy help vscode
+.PHONY: all build test lint clean tidy help vscode publish
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -47,6 +47,25 @@ vscode:
 	@cd vscode-devgen && sed -i '' 's/"version": "[^"]*"/"version": "$(VSCODE_VERSION)"/' package.json
 	cd vscode-devgen && npm run compile && npm run package
 
+# Publish a new version: bump version, build vscode extension, amend commit, and re-tag
+# Usage: make publish RELEASE_VERSION=0.1.4
+publish:
+	@if [ -z "$(RELEASE_VERSION)" ]; then echo "Usage: make publish RELEASE_VERSION=x.y.z"; exit 1; fi
+	@echo "Publishing version $(RELEASE_VERSION)..."
+	@# Update package.json version
+	@cd vscode-devgen && sed -i '' 's/"version": "[^"]*"/"version": "$(RELEASE_VERSION)"/' package.json
+	@# Build vscode extension
+	go run ./cmd/vscgen
+	cd vscode-devgen && npm run compile && npm run package
+	@# Amend last commit with version bump
+	git add vscode-devgen/package.json
+	git commit --amend --no-edit
+	@# Delete old tag if exists and create new tag
+	-git tag -d v$(RELEASE_VERSION) 2>/dev/null || true
+	git tag -a v$(RELEASE_VERSION) -m "Release v$(RELEASE_VERSION)"
+	@echo "Done! Published v$(RELEASE_VERSION)"
+	@echo "To push: git push origin main --tags --force-with-lease"
+
 # Install development tools
 tools:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
@@ -55,11 +74,12 @@ tools:
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  all    - Run lint, test, and build (default)"
-	@echo "  build  - Build all packages"
-	@echo "  test   - Run tests with coverage (ginkgo or go test)"
-	@echo "  lint   - Run golangci-lint"
-	@echo "  tidy   - Tidy dependencies"
-	@echo "  clean  - Clean build artifacts"
-	@echo "  vscode - Generate and build VSCode extension"
-	@echo "  tools  - Install development tools"
+	@echo "  all     - Run lint, test, and build (default)"
+	@echo "  build   - Build all packages"
+	@echo "  test    - Run tests with coverage (ginkgo or go test)"
+	@echo "  lint    - Run golangci-lint"
+	@echo "  tidy    - Tidy dependencies"
+	@echo "  clean   - Clean build artifacts"
+	@echo "  vscode  - Generate and build VSCode extension"
+	@echo "  publish - Publish new version (Usage: make publish RELEASE_VERSION=x.y.z)"
+	@echo "  tools   - Install development tools"
