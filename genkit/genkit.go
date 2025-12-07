@@ -370,10 +370,16 @@ func (g *Generator) extractEnums(pkg *Package, file *ast.File, typesByName map[s
 				if typ, ok := typesByName[currentType]; ok {
 					doc = typ.Doc
 				}
+				// Get underlying type from type declaration
+				underlyingType := "int" // default
+				if typ, ok := typesByName[currentType]; ok && typ.TypeSpec != nil {
+					underlyingType = exprString(typ.TypeSpec.Type)
+				}
 				enum = &Enum{
-					Name: currentType,
-					Doc:  doc,
-					Pkg:  pkg,
+					Name:           currentType,
+					Doc:            doc,
+					Pkg:            pkg,
+					UnderlyingType: underlyingType,
 				}
 				enumsByType[currentType] = enum
 			}
@@ -745,10 +751,11 @@ type Field struct {
 
 // Enum represents a Go enum (type with const values).
 type Enum struct {
-	Name   string
-	Doc    string
-	Pkg    *Package
-	Values []*EnumValue
+	Name           string
+	Doc            string
+	Pkg            *Package
+	Values         []*EnumValue
+	UnderlyingType string // e.g., "int", "string", "int64"
 }
 
 // GoIdent returns the GoIdent for this enum.
