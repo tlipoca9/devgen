@@ -1,0 +1,17 @@
+# Test configuration for Go plugin (.so) type
+# Usage:
+#   1. go build -buildmode=plugin -o ../plugin-goplugin/goplugin.so ../plugin-goplugin
+#   2. cp devgen-goplugin.toml devgen.toml && devgen ./testdata
+
+[[plugins]]
+name = "goplugin"
+path = "../plugin-goplugin/goplugin.so"
+type = "plugin"
+
+[tools.goplugin]
+output_suffix = "_marked.go"
+
+[[tools.goplugin.annotations]]
+name = "mark"
+type = "type"
+doc = "Mark this type for code generation"

@@ -1,0 +1,15 @@
+# Test configuration for source-type plugin
+# Usage: cp devgen-source.toml devgen.toml && devgen ./testdata
+
+[[plugins]]
+name = "markgen"
+path = "../plugin-source"
+type = "source"
+
+[tools.markgen]
+output_suffix = "_marked.go"
+
+[[tools.markgen.annotations]]
+name = "mark"
+type = "type"
+doc = "Mark this type for code generation"

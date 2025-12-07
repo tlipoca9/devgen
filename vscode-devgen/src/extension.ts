@@ -2,13 +2,13 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// Import generated tools configuration
-import toolsConfigData from './tools-config.json';
+// Import config loader for dynamic configuration
+import { ConfigLoader, getConfigLoader, ToolsConfig, ToolConfig, AnnotationMeta } from './config-loader';
 
 // Annotation pattern: toolname:@annotation or toolname:@annotation(params)
 const ANNOTATION_PATTERN = /(\w+):@([\w.]+)(?:\(([^)]*)\))?/g;
 
-// Types from tools-config.json
+// Re-export types for compatibility
 interface LSPConfig {
     enabled: boolean;
     provider: string;      // "gopls"
@@ -17,28 +17,8 @@ interface LSPConfig {
     resolveFrom?: string;  // "fieldType", "receiverType"
 }
 
-interface AnnotationMeta {
-    doc: string;
-    paramType?: string | string[]; // 'string' | 'number' | 'list' | 'enum' | 'bool' or array of types
-    placeholder?: string;
-    values?: string[];
-    valueDocs?: { [key: string]: string };
-    maxArgs?: number; // Maximum number of arguments allowed (for enum types)
-    lsp?: LSPConfig;  // LSP integration config
-}
-
-interface ToolConfig {
-    typeAnnotations: string[];
-    fieldAnnotations: string[];
-    outputSuffix: string;
-    annotations: { [name: string]: AnnotationMeta };
-}
-
-interface ToolsConfig {
-    [toolName: string]: ToolConfig;
-}
-
-const toolsConfig: ToolsConfig = toolsConfigData as ToolsConfig;
+// Dynamic tools configuration - updated when devgen.toml changes
+let toolsConfig: ToolsConfig = {};
 
 interface ParsedAnnotation {
     tool: string;
@@ -80,14 +60,32 @@ interface MethodCache {
 let diagnosticCollection: vscode.DiagnosticCollection;
 let methodCache: MethodCache = { methods: new Map(), timestamp: 0 };
 let outputChannel: vscode.OutputChannel;
+let configLoader: ConfigLoader;
 const CACHE_TTL = 5000; // 5 seconds
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
     console.log('DevGen extension activated');
     
     // Create output channel for debugging
     outputChannel = vscode.window.createOutputChannel('DevGen');
     context.subscriptions.push(outputChannel);
+
+    // Initialize config loader and load dynamic configuration
+    configLoader = getConfigLoader();
+    await configLoader.initialize(context);
+    toolsConfig = configLoader.getToolsConfig();
+    
+    // Listen for config changes
+    configLoader.onConfigChanged((newConfig) => {
+        toolsConfig = newConfig;
+        outputChannel.appendLine('DevGen: Configuration reloaded');
+        // Refresh diagnostics for all open Go files
+        vscode.workspace.textDocuments.forEach(doc => {
+            if (doc.languageId === 'go') {
+                updateDiagnostics(doc);
+            }
+        });
+    });
 
     diagnosticCollection = vscode.languages.createDiagnosticCollection('devgen');
     context.subscriptions.push(diagnosticCollection);

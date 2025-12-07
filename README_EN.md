@@ -113,6 +113,19 @@ Provides editor support for devgen annotations: syntax highlighting, auto-comple
 
 Install from [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=tlipoca9.devgen).
 
+---
+
+### Plugin System
+
+devgen supports extending functionality through a plugin mechanism, allowing users to develop custom code generation tools using the genkit framework.
+
+Three plugin types are supported:
+- **source** - Go source code, compiled at runtime (recommended)
+- **executable** - Standalone executable, JSON stdin/stdout communication
+- **plugin** - Pre-compiled Go plugin (.so)
+
+See [Plugin Development Guide](docs/plugin_EN.md) and [Examples](examples/plugin/).
+
 ## Build
 
 ```bash
