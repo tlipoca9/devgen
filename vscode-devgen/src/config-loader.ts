@@ -183,14 +183,51 @@ export class ConfigLoader {
             return config;
         } catch (error) {
             logError('CLI command failed', error);
-            // devgen not installed or failed - try to install
-            log('Attempting to install devgen...');
+            
+            // Check if devgen exists - if so, don't try to reinstall
+            // The error is likely a plugin issue, not a missing binary
+            const devgenExists = await this.checkDevgenExists();
+            if (devgenExists) {
+                log('devgen binary exists but command failed. Not attempting reinstall.');
+                vscode.window.showWarningMessage(
+                    `DevGen: Command failed. Check output for details.`
+                );
+                return null;
+            }
+            
+            // devgen not installed - try to install
+            log('devgen not found. Attempting to install...');
             const installed = await this.tryInstallDevgen();
             if (installed) {
                 // Retry loading config after installation
                 return this.loadConfigFromCLI(workspaceDir);
             }
             return null;
+        }
+    }
+
+    /**
+     * Check if devgen binary exists and is executable.
+     */
+    private async checkDevgenExists(): Promise<boolean> {
+        try {
+            await execAsync(`${this.devgenPath} version`, {
+                timeout: 5000,
+                env: getEnvWithGoPath(),
+            });
+            return true;
+        } catch {
+            // Also try 'which' / 'where' to check if binary exists
+            try {
+                const whichCmd = process.platform === 'win32' ? 'where' : 'which';
+                await execAsync(`${whichCmd} ${this.devgenPath}`, {
+                    timeout: 5000,
+                    env: getEnvWithGoPath(),
+                });
+                return true;
+            } catch {
+                return false;
+            }
         }
     }
 

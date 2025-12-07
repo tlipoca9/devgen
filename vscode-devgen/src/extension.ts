@@ -62,10 +62,61 @@ interface TypeInfo {
 
 interface FieldInfo {
     name: string;
-    typeName: string;      // Field type name (e.g., "Address", "*Address", "Status")
+    typeName: string;      // Base type name (e.g., "Address" for []Address, "*Address", "Status")
+    fullType: string;      // Full type string (e.g., "[]Address", "map[string]Address")
     isPointer: boolean;
+    isSlice: boolean;
+    isMap: boolean;
     range: vscode.Range;
     annotations: ParsedAnnotation[];
+}
+
+/**
+ * Parse a field type string and extract base type and modifiers.
+ * Examples:
+ *   "string" -> { baseType: "string", isPointer: false, isSlice: false, isMap: false }
+ *   "*Address" -> { baseType: "Address", isPointer: true, isSlice: false, isMap: false }
+ *   "[]Address" -> { baseType: "Address", isPointer: false, isSlice: true, isMap: false }
+ *   "[]*Address" -> { baseType: "Address", isPointer: true, isSlice: true, isMap: false }
+ *   "map[string]Address" -> { baseType: "Address", isPointer: false, isSlice: false, isMap: true }
+ *   "map[string]*Address" -> { baseType: "Address", isPointer: true, isSlice: false, isMap: true }
+ */
+function parseFieldType(fullType: string): { baseType: string; isPointer: boolean; isSlice: boolean; isMap: boolean } {
+    let remaining = fullType.trim();
+    let isSlice = false;
+    let isMap = false;
+    let isPointer = false;
+
+    // Check for slice prefix
+    if (remaining.startsWith('[]')) {
+        isSlice = true;
+        remaining = remaining.slice(2);
+    }
+
+    // Check for map prefix
+    if (remaining.startsWith('map[')) {
+        isMap = true;
+        // Find the closing bracket of the key type
+        let depth = 1;
+        let i = 4;
+        for (; i < remaining.length && depth > 0; i++) {
+            if (remaining[i] === '[') depth++;
+            if (remaining[i] === ']') depth--;
+        }
+        remaining = remaining.slice(i);
+    }
+
+    // Check for pointer prefix
+    if (remaining.startsWith('*')) {
+        isPointer = true;
+        remaining = remaining.slice(1);
+    }
+
+    // Extract base type (handle qualified types like "pkg.Type")
+    const baseMatch = remaining.match(/^(\w+(?:\.\w+)?)/);
+    const baseType = baseMatch ? baseMatch[1] : remaining;
+
+    return { baseType, isPointer, isSlice, isMap };
 }
 
 // Method info from LSP
@@ -154,6 +205,10 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.workspace.onDidOpenTextDocument(doc => {
             if (doc.languageId === 'go') {
                 updateDiagnostics(doc);
+                // Run dry-run validation if enabled
+                if (isDryRunEnabled()) {
+                    runDryRunValidation(doc);
+                }
             }
         })
     );
@@ -206,7 +261,7 @@ function isDiagnosticsEnabled(): boolean {
 
 function isDryRunEnabled(): boolean {
     const config = vscode.workspace.getConfiguration('devgen');
-    return config.get<boolean>('validateOnSave') ?? false;
+    return config.get<boolean>('validateOnSave') ?? true;  // Default to true
 }
 
 function getDevgenPath(): string {
@@ -254,8 +309,18 @@ async function runDryRunValidation(document: vscode.TextDocument): Promise<void>
             dryRunDiagnosticCollection = vscode.languages.createDiagnosticCollection('devgen-dryrun');
         }
 
-        // Clear previous dry-run diagnostics for this file
-        dryRunDiagnosticCollection.delete(document.uri);
+        // Clear all previous dry-run diagnostics for files in this directory
+        // This ensures old errors are removed when they're fixed
+        const urisToDelete: vscode.Uri[] = [];
+        dryRunDiagnosticCollection.forEach((uri, _diagnostics, _collection) => {
+            const diagDir = path.dirname(uri.fsPath);
+            if (diagDir === fileDir || diagDir.startsWith(fileDir + path.sep)) {
+                urisToDelete.push(uri);
+            }
+        });
+        for (const uri of urisToDelete) {
+            dryRunDiagnosticCollection.delete(uri);
+        }
 
         if (!result.diagnostics || result.diagnostics.length === 0) {
             return;
@@ -408,8 +473,10 @@ function parseTypes(document: vscode.TextDocument): TypeInfo[] {
             }
 
             if (braceCount > 0 && !line.match(typePattern)) {
-                // Parse field with type: FieldName TypeName or FieldName *TypeName
-                const fieldMatch = line.match(/^\s+(\w+)\s+(\*?)(\w+)/);
+                // Parse field with type: FieldName TypeName
+                // Supports: simple types, pointers, slices, maps, qualified types
+                // Examples: Name string, Age int, Address *Address, Items []string, Data map[string]int
+                const fieldMatch = line.match(/^\s+(\w+)\s+(.+?)(?:\s+`[^`]*`)?(?:\s*\/\/.*)?$/);
                 if (fieldMatch) {
                     const fieldAnnotations: ParsedAnnotation[] = [];
 
@@ -435,10 +502,16 @@ function parseTypes(document: vscode.TextDocument): TypeInfo[] {
                         j--;
                     }
 
+                    const fullType = fieldMatch[2].trim();
+                    const { baseType, isPointer, isSlice, isMap } = parseFieldType(fullType);
+
                     currentType.fields.push({
                         name: fieldMatch[1],
-                        typeName: fieldMatch[3],
-                        isPointer: fieldMatch[2] === '*',
+                        typeName: baseType,
+                        fullType: fullType,
+                        isPointer: isPointer,
+                        isSlice: isSlice,
+                        isMap: isMap,
                         range: new vscode.Range(i, 0, i, line.length),
                         annotations: fieldAnnotations
                     });
@@ -986,11 +1059,10 @@ async function validateMethodAnnotations(
                 const methodName = ann.params?.trim();
                 if (!methodName) continue;
 
-                // Get the type to validate against
-                let targetType = field.typeName;
-                if (annMeta.lsp.resolveFrom === 'fieldType') {
-                    targetType = field.typeName;
-                }
+                // Get the base type to validate against (strip slice/map/pointer prefixes)
+                // field.typeName already contains the base type extracted by parseFieldType
+                const targetType = field.typeName;
+                const displayType = field.fullType || field.typeName;
 
                 // Validate method exists and has correct signature
                 const validation = await validateMethod(
@@ -1003,7 +1075,7 @@ async function validateMethodAnnotations(
                 if (!validation.exists) {
                     diagnostics.push(new vscode.Diagnostic(
                         ann.range,
-                        validation.message || `Method '${methodName}' not found on type '${targetType}'`,
+                        validation.message || `Method '${methodName}' not found on type '${displayType}'`,
                         vscode.DiagnosticSeverity.Error
                     ));
                 } else if (!validation.valid) {

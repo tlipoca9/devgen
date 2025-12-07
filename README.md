@@ -18,9 +18,11 @@ go install github.com/tlipoca9/devgen/cmd/validategen@latest
 ## 使用
 
 ```bash
-devgen ./...        # 运行所有生成器
-enumgen ./...       # 仅运行枚举生成器
-validategen ./...   # 仅运行验证生成器
+devgen ./...                    # 运行所有生成器
+devgen --dry-run ./...          # 验证注解但不写入文件
+devgen --dry-run --json ./...   # JSON 格式输出，用于 IDE 集成
+enumgen ./...                   # 仅运行枚举生成器
+validategen ./...               # 仅运行验证生成器
 ```
 
 ## 工具
@@ -137,6 +139,7 @@ make vscode   # 构建 VSCode 扩展
 
 ## Release Notes
 
+- [v0.2.1](docs/release/v0.2.1.md) - 2025-12-07
 - [v0.2.0](docs/release/v0.2.0.md) - 2025-12-07
 - [v0.1.3](docs/release/v0.1.3.md) - 2025-12-07
 - [v0.1.2](docs/release/v0.1.2.md) - 2025-12-07

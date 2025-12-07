@@ -41,6 +41,35 @@ Supported options:
 - `text` - Generate `MarshalText()` / `UnmarshalText()` methods
 - `sql` - Generate `Value()` (driver.Valuer) / `Scan()` (sql.Scanner) methods
 
+**Supported Underlying Types**:
+- Integer types: `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`
+- String type: `string`
+
+### String Underlying Type
+
+enumgen supports `string` as an underlying type:
+
+```go
+// Color represents color enum
+// enumgen:@enum(string)
+type Color string
+
+const (
+    ColorRed   Color = "red"
+    ColorGreen Color = "green"
+    ColorBlue  Color = "blue"
+)
+```
+
+**Generated Methods** (string type):
+- `IsValid()` - Check if value is valid
+- `String()` - Return string representation
+- `{Type}Enums.List()` - Return all valid values
+- `{Type}Enums.Contains(string)` - Check if string is a valid value
+- `{Type}Enums.Parse(string)` - Parse string to enum value
+
+**Note**: String type enums do not generate `Name()`, `Names()`, `ContainsName()` methods, and `@name` annotation is not supported.
+
 ### @name - Custom Value Name
 
 By default, enum value string names automatically strip the type name prefix (e.g., `StatusPending` → `Pending`).

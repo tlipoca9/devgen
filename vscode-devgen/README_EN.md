@@ -12,6 +12,7 @@ VSCode extension providing editor support for devgen annotations: syntax highlig
 - **Diagnostics** - Detection of missing generated files, field annotations without type annotations, etc.
 - **Hover Documentation** - Hover to view annotation documentation and available options
 - **LSP Integration** - Integration with gopls for cross-package type method lookup and validation
+- **Dry-run Validation** - Automatically run `devgen --dry-run` for static validation on save
 
 ## Installation
 
@@ -25,6 +26,13 @@ Or search for `devgen` in VSCode.
 |---------|------|---------|-------------|
 | `devgen.enableDiagnostics` | boolean | `true` | Enable/disable diagnostics |
 | `devgen.executablePath` | string | `devgen` | Path to devgen executable |
+| `devgen.validateOnSave` | boolean | `true` | Run dry-run validation on file save and open |
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `DevGen: Validate Annotations` | Manually trigger dry-run validation |
 
 ## Supported Tools
 
@@ -148,6 +156,16 @@ The extension retrieves tool configuration through the following methods:
 3. **Auto-install** - If devgen is not installed, the extension will automatically install it via `go install`
 
 Plugins can implement the `ConfigurableTool` interface for self-describing configuration, eliminating the need to manually write `[tools.xxx]` configuration.
+
+### Dry-run Validation
+
+The extension automatically runs `devgen --dry-run --json` for static validation when saving and opening Go files:
+
+- Detect annotation parameter errors (e.g., `@min` parameter is not a number)
+- Detect field type incompatibility with annotations (e.g., `@method` used on builtin types)
+- Detect `@oneof` missing values and other issues
+
+Validation results are displayed in the Problems panel. This can be disabled via the `devgen.validateOnSave` setting.
 
 See [Plugin Development Guide](../docs/plugin_EN.md) for details.
 

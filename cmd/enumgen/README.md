@@ -41,6 +41,35 @@ const (
 - `text` - 生成 `MarshalText()` / `UnmarshalText()` 方法
 - `sql` - 生成 `Value()` (driver.Valuer) / `Scan()` (sql.Scanner) 方法
 
+**支持的底层类型**：
+- 整数类型: `int`, `int8`, `int16`, `int32`, `int64`, `uint`, `uint8`, `uint16`, `uint32`, `uint64`
+- 字符串类型: `string`
+
+### 字符串底层类型
+
+enumgen 支持 `string` 作为底层类型：
+
+```go
+// Color 颜色枚举
+// enumgen:@enum(string)
+type Color string
+
+const (
+    ColorRed   Color = "red"
+    ColorGreen Color = "green"
+    ColorBlue  Color = "blue"
+)
+```
+
+**生成的方法**（字符串类型）：
+- `IsValid()` - 检查值是否有效
+- `String()` - 返回字符串表示
+- `{Type}Enums.List()` - 返回所有有效值
+- `{Type}Enums.Contains(string)` - 检查字符串是否为有效值
+- `{Type}Enums.Parse(string)` - 解析字符串为枚举值
+
+**注意**：字符串类型枚举不生成 `Name()`、`Names()`、`ContainsName()` 方法，也不支持 `@name` 注解。
+
 ### @name - 自定义值名称
 
 默认情况下，枚举值的字符串名称会自动去除类型名前缀（如 `StatusPending` → `Pending`）。
