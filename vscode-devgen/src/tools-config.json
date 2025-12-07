@@ -4,7 +4,7 @@
       "enum"
     ],
     "fieldAnnotations": [
-      "enum.name"
+      "name"
     ],
     "outputSuffix": "_enum.go",
     "annotations": {
@@ -24,7 +24,7 @@
           "text": "Generate MarshalText/UnmarshalText methods"
         }
       },
-      "enum.name": {
+      "name": {
         "doc": "Custom name for enum value",
         "paramType": "string",
         "placeholder": "name"

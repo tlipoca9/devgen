@@ -20,7 +20,7 @@ text = "Generate MarshalText/UnmarshalText methods"
 sql = "Generate Value/Scan methods for database/sql"
 
 [[annotations]]
-name = "enum.name"
+name = "name"
 type = "field"
 doc = "Custom name for enum value"
 

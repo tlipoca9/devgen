@@ -37,7 +37,7 @@ type Status int
 const (
     StatusPending Status = iota + 1
     StatusActive
-    // enumgen:@enum.name(Cancelled)
+    // enumgen:@name(Cancelled)
     StatusCanceled  // 自定义名称
 )
 ```

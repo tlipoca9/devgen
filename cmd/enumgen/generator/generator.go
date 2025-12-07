@@ -16,13 +16,13 @@ const ToolName = "enumgen"
 type GenerateOption int
 
 const (
-	// enumgen:@enum.name(string)
+	// enumgen:@name(string)
 	GenerateOptionString GenerateOption = iota + 1
-	// enumgen:@enum.name(json)
+	// enumgen:@name(json)
 	GenerateOptionJSON
-	// enumgen:@enum.name(text)
+	// enumgen:@name(text)
 	GenerateOptionText
-	// enumgen:@enum.name(sql)
+	// enumgen:@name(sql)
 	GenerateOptionSQL
 )
 
@@ -121,7 +121,7 @@ func (eg *Generator) GenerateEnum(g *genkit.GeneratedFile, enum *genkit.Enum) er
 	for _, v := range enum.Values {
 		name := GetValueName(v, typeName)
 		if existing, ok := nameSet[name]; ok {
-			return fmt.Errorf("%s: duplicate @enum.name %q on %s and %s", typeName, name, existing, v.Name)
+			return fmt.Errorf("%s: duplicate @name %q on %s and %s", typeName, name, existing, v.Name)
 		}
 		nameSet[name] = v.Name
 	}
@@ -381,9 +381,9 @@ func TrimPrefix(name, prefix string) string {
 }
 
 // GetValueName returns the display name for an enum value.
-// It checks for enumgen:@enum.name annotation first, otherwise uses TrimPrefix.
+// It checks for enumgen:@name annotation first, otherwise uses TrimPrefix.
 func GetValueName(v *genkit.EnumValue, typeName string) string {
-	if ann := genkit.GetAnnotation(v.Doc, ToolName, "enum.name"); ann != nil && len(ann.Flags) > 0 {
+	if ann := genkit.GetAnnotation(v.Doc, ToolName, "name"); ann != nil && len(ann.Flags) > 0 {
 		return ann.Flags[0]
 	}
 	return TrimPrefix(v.Name, typeName)

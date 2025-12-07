@@ -41,11 +41,11 @@ Supported options:
 - `text` - Generate `MarshalText()` / `UnmarshalText()` methods
 - `sql` - Generate `Value()` (driver.Valuer) / `Scan()` (sql.Scanner) methods
 
-### @enum.name - Custom Value Name
+### @name - Custom Value Name
 
 By default, enum value string names automatically strip the type name prefix (e.g., `StatusPending` → `Pending`).
 
-Use `@enum.name` to customize names:
+Use `@name` to customize names:
 
 ```go
 // Level represents log level
@@ -53,18 +53,18 @@ Use `@enum.name` to customize names:
 type Level int
 
 const (
-    // enumgen:@enum.name(DEBUG)
+    // enumgen:@name(DEBUG)
     LevelDebug Level = iota + 1
-    // enumgen:@enum.name(INFO)
+    // enumgen:@name(INFO)
     LevelInfo
-    // enumgen:@enum.name(WARN)
+    // enumgen:@name(WARN)
     LevelWarn
-    // enumgen:@enum.name(ERROR)
+    // enumgen:@name(ERROR)
     LevelError
 )
 ```
 
-**Note**: `@enum.name` values cannot be duplicated, otherwise an error will be reported.
+**Note**: `@name` values cannot be duplicated, otherwise an error will be reported.
 
 ## Generated Code
 
@@ -220,7 +220,7 @@ const (
     OrderStatusPending    OrderStatus = iota + 1 // Pending
     OrderStatusProcessing                        // Processing
     OrderStatusCompleted                         // Completed
-    // enumgen:@enum.name(Cancelled)
+    // enumgen:@name(Cancelled)
     OrderStatusCanceled                          // Canceled (custom name)
 )
 ```
