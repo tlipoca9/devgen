@@ -1,0 +1,222 @@
+# DevGen tool configuration for validategen
+# This file is used to generate VSCode extension configuration
+
+[tool]
+name = "validategen"
+output_suffix = "_validate.go"
+
+[[annotations]]
+name = "validate"
+type = "type"
+doc = "Generate Validate() method for struct"
+
+# Field-level validation annotations
+
+[[annotations]]
+name = "required"
+type = "field"
+doc = "Field must not be empty/zero"
+
+[[annotations]]
+name = "min"
+type = "field"
+doc = "Minimum value or length"
+
+[annotations.params]
+type = "number"
+placeholder = "value"
+
+[[annotations]]
+name = "max"
+type = "field"
+doc = "Maximum value or length"
+
+[annotations.params]
+type = "number"
+placeholder = "value"
+
+[[annotations]]
+name = "len"
+type = "field"
+doc = "Exact length"
+
+[annotations.params]
+type = "number"
+placeholder = "value"
+
+[[annotations]]
+name = "eq"
+type = "field"
+doc = "Must equal specified value (supports string, number, bool)"
+
+[annotations.params]
+type = ["string", "number", "bool"]
+placeholder = "value"
+
+[[annotations]]
+name = "ne"
+type = "field"
+doc = "Must not equal specified value (supports string, number, bool)"
+
+[annotations.params]
+type = ["string", "number", "bool"]
+placeholder = "value"
+
+[[annotations]]
+name = "gt"
+type = "field"
+doc = "Must be greater than"
+
+[annotations.params]
+type = "number"
+placeholder = "value"
+
+[[annotations]]
+name = "gte"
+type = "field"
+doc = "Must be greater than or equal"
+
+[annotations.params]
+type = "number"
+placeholder = "value"
+
+[[annotations]]
+name = "lt"
+type = "field"
+doc = "Must be less than"
+
+[annotations.params]
+type = "number"
+placeholder = "value"
+
+[[annotations]]
+name = "lte"
+type = "field"
+doc = "Must be less than or equal"
+
+[annotations.params]
+type = "number"
+placeholder = "value"
+
+[[annotations]]
+name = "oneof"
+type = "field"
+doc = "Must be one of the specified values"
+
+[annotations.params]
+type = "list"
+placeholder = "values"
+
+[[annotations]]
+name = "email"
+type = "field"
+doc = "Must be a valid email address"
+
+[[annotations]]
+name = "url"
+type = "field"
+doc = "Must be a valid URL"
+
+[[annotations]]
+name = "uuid"
+type = "field"
+doc = "Must be a valid UUID"
+
+[[annotations]]
+name = "ip"
+type = "field"
+doc = "Must be a valid IP address"
+
+[[annotations]]
+name = "ipv4"
+type = "field"
+doc = "Must be a valid IPv4 address"
+
+[[annotations]]
+name = "ipv6"
+type = "field"
+doc = "Must be a valid IPv6 address"
+
+[[annotations]]
+name = "alpha"
+type = "field"
+doc = "Must contain only letters"
+
+[[annotations]]
+name = "alphanum"
+type = "field"
+doc = "Must contain only letters and numbers"
+
+[[annotations]]
+name = "numeric"
+type = "field"
+doc = "Must contain only numbers"
+
+[[annotations]]
+name = "contains"
+type = "field"
+doc = "Must contain the specified substring"
+
+[annotations.params]
+type = "string"
+placeholder = "substring"
+
+[[annotations]]
+name = "excludes"
+type = "field"
+doc = "Must not contain the specified substring"
+
+[annotations.params]
+type = "string"
+placeholder = "substring"
+
+[[annotations]]
+name = "startswith"
+type = "field"
+doc = "Must start with the specified prefix"
+
+[annotations.params]
+type = "string"
+placeholder = "prefix"
+
+[[annotations]]
+name = "endswith"
+type = "field"
+doc = "Must end with the specified suffix"
+
+[annotations.params]
+type = "string"
+placeholder = "suffix"
+
+[[annotations]]
+name = "method"
+type = "field"
+doc = "Call specified method for validation (for struct fields)"
+
+[annotations.params]
+type = "string"
+placeholder = "MethodName"
+
+[[annotations]]
+name = "regex"
+type = "field"
+doc = "Must match the specified regular expression"
+
+[annotations.params]
+type = "string"
+placeholder = "pattern"
+
+[[annotations]]
+name = "format"
+type = "field"
+doc = "Must be valid format (json, yaml, toml, csv)"
+
+[annotations.params]
+values = ["json", "yaml", "toml", "csv"]
+maxArgs = 1
+
+[annotations.params.docs]
+json = "Validate JSON format"
+yaml = "Validate YAML format"
+toml = "Validate TOML format"
+csv = "Validate CSV format"

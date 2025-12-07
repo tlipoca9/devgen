@@ -1,0 +1,29 @@
+# DevGen tool configuration for enumgen
+# This file is used to generate VSCode extension configuration
+
+[tool]
+name = "enumgen"
+output_suffix = "_enum.go"
+
+[[annotations]]
+name = "enum"
+type = "type"
+doc = "Generate enum helper methods (options: string, json, text, sql)"
+
+[annotations.params]
+values = ["string", "json", "text", "sql"]
+
+[annotations.params.docs]
+string = "Generate String() method"
+json = "Generate MarshalJSON/UnmarshalJSON methods"
+text = "Generate MarshalText/UnmarshalText methods"
+sql = "Generate Value/Scan methods for database/sql"
+
+[[annotations]]
+name = "enum.name"
+type = "field"
+doc = "Custom name for enum value"
+
+[annotations.params]
+type = "string"
+placeholder = "name"

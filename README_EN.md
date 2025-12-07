@@ -1,0 +1,126 @@
+# devgen
+
+[中文](README.md) | English
+
+A Go code generation toolkit that automatically generates boilerplate code through annotations, reducing repetitive manual coding.
+
+## Installation
+
+```bash
+# Install devgen (includes all tools)
+go install github.com/tlipoca9/devgen/cmd/devgen@latest
+
+# Or install individually
+go install github.com/tlipoca9/devgen/cmd/enumgen@latest
+go install github.com/tlipoca9/devgen/cmd/validategen@latest
+```
+
+## Usage
+
+```bash
+devgen ./...        # Run all generators
+enumgen ./...       # Run enum generator only
+validategen ./...   # Run validation generator only
+```
+
+## Tools
+
+### enumgen - Enum Code Generator
+
+Automatically generates serialization, deserialization, and validation methods for Go enum types.
+
+```go
+// Status represents status
+// enumgen:@enum(string, json, sql)
+type Status int
+
+const (
+    StatusPending Status = iota + 1
+    StatusActive
+    // enumgen:@enum.name(Cancelled)
+    StatusCanceled  // Custom name
+)
+```
+
+**Supported Options**:
+- `string` - Generate `String()` method
+- `json` - Generate `MarshalJSON()` / `UnmarshalJSON()`
+- `text` - Generate `MarshalText()` / `UnmarshalText()`
+- `sql` - Generate `Value()` / `Scan()` for database operations
+
+**Generated Helper Methods**:
+- `IsValid()` - Check if enum value is valid
+- `{Type}Enums.List()` - Return all valid enum values
+- `{Type}Enums.Parse(s)` - Parse enum from string
+- `{Type}Enums.Name(v)` - Get string name of enum value
+
+See [enumgen README](cmd/enumgen/README_EN.md) for details.
+
+---
+
+### validategen - Validation Code Generator
+
+Automatically generates `Validate()` methods for Go structs.
+
+```go
+// User model
+// validategen:@validate
+type User struct {
+    // validategen:@required
+    // validategen:@min(2)
+    // validategen:@max(50)
+    Name string
+
+    // validategen:@required
+    // validategen:@email
+    Email string
+
+    // validategen:@gte(0)
+    // validategen:@lte(150)
+    Age int
+
+    // validategen:@oneof(admin, user, guest)
+    Role string
+}
+```
+
+**Validation Annotations**:
+
+| Category | Annotations |
+|----------|-------------|
+| Required | `@required` |
+| Range | `@min(n)` `@max(n)` `@len(n)` `@gt(n)` `@gte(n)` `@lt(n)` `@lte(n)` |
+| Equality | `@eq(v)` `@ne(v)` `@oneof(a, b, c)` |
+| Format | `@email` `@url` `@uuid` `@ip` `@ipv4` `@ipv6` |
+| Character | `@alpha` `@alphanum` `@numeric` |
+| String | `@contains(s)` `@excludes(s)` `@startswith(s)` `@endswith(s)` |
+| Regex | `@regex(pattern)` |
+| Data Format | `@format(json\|yaml\|toml\|csv)` |
+| Nested | `@method(MethodName)` |
+
+**Advanced Features**:
+- `postValidate(errs []string) error` hook for custom validation logic
+
+See [validategen README](cmd/validategen/README_EN.md) for details.
+
+---
+
+### vscode-devgen - VSCode Extension
+
+Provides editor support for devgen annotations: syntax highlighting, auto-completion, parameter validation hints.
+
+## Build
+
+```bash
+make build    # Build all tools
+make test     # Run tests
+make vscode   # Build VSCode extension
+```
+
+## Release Notes
+
+- [v0.1.0](docs/release/v0.1.0_EN.md) - 2025-12-07
+
+## License
+
+MIT
