@@ -535,7 +535,12 @@ func run(ctx context.Context, args []string, includeTests bool) error {
 		for _, tool := range pluginTools {
 			tools = append(tools, tool)
 			toolNames[tool.Name()] = true
-			log.Item("Loaded plugin: %s", tool.Name())
+		}
+		if len(pluginTools) > 0 {
+			log.Load("Loaded %v plugin(s)", len(pluginTools))
+			for _, tool := range pluginTools {
+				log.Item("'%s'", tool.Name())
+			}
 		}
 	}
 
