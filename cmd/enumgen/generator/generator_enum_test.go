@@ -232,15 +232,37 @@ func TestGenerateOptionEnums_Parse(t *testing.T) {
 
 func TestGenerateOptionEnums_List(t *testing.T) {
 	list := GenerateOptionEnums.List()
-	if len(list) != 4 {
-		t.Errorf("List() returned %d items, want %d", len(list), 4)
+	want := []GenerateOption{
+		GenerateOptionString,
+		GenerateOptionJSON,
+		GenerateOptionText,
+		GenerateOptionSQL,
+	}
+	if len(list) != len(want) {
+		t.Fatalf("List() returned %d items, want %d", len(list), len(want))
+	}
+	for i, v := range list {
+		if v != want[i] {
+			t.Errorf("List()[%d] = %v, want %v", i, v, want[i])
+		}
 	}
 }
 
 func TestGenerateOptionEnums_Names(t *testing.T) {
 	names := GenerateOptionEnums.Names()
-	if len(names) != 4 {
-		t.Errorf("Names() returned %d items, want %d", len(names), 4)
+	want := []string{
+		"string",
+		"json",
+		"text",
+		"sql",
+	}
+	if len(names) != len(want) {
+		t.Fatalf("Names() returned %d items, want %d", len(names), len(want))
+	}
+	for i, n := range names {
+		if n != want[i] {
+			t.Errorf("Names()[%d] = %v, want %v", i, n, want[i])
+		}
 	}
 }
 
@@ -377,7 +399,25 @@ func TestUnderlyingTypeEnums_Parse(t *testing.T) {
 
 func TestUnderlyingTypeEnums_List(t *testing.T) {
 	list := UnderlyingTypeEnums.List()
-	if len(list) != 11 {
-		t.Errorf("List() returned %d items, want %d", len(list), 11)
+	want := []UnderlyingType{
+		UnderlyingTypeInt,
+		UnderlyingTypeInt8,
+		UnderlyingTypeInt16,
+		UnderlyingTypeInt32,
+		UnderlyingTypeInt64,
+		UnderlyingTypeUint,
+		UnderlyingTypeUint8,
+		UnderlyingTypeUint16,
+		UnderlyingTypeUint32,
+		UnderlyingTypeUint64,
+		UnderlyingTypeString,
+	}
+	if len(list) != len(want) {
+		t.Fatalf("List() returned %d items, want %d", len(list), len(want))
+	}
+	for i, v := range list {
+		if v != want[i] {
+			t.Errorf("List()[%d] = %v, want %v", i, v, want[i])
+		}
 	}
 }

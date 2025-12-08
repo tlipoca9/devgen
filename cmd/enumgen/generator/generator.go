@@ -976,22 +976,44 @@ func (eg *Generator) GenerateEnumTest(g *genkit.GeneratedFile, enum *genkit.Enum
 	g.P("}")
 	g.P("}")
 
-	// Generate test for XxxEnums.List
+	// Generate test for XxxEnums.List - verify all values are present
 	g.P()
 	g.P("func Test", enumsVar, "_List(t *testing.T) {")
 	g.P("list := ", enumsVar, ".List()")
-	g.P("if len(list) != ", len(enum.Values), " {")
-	g.P("t.Errorf(\"List() returned %d items, want %d\", len(list), ", len(enum.Values), ")")
+	g.P("want := []", typeName, "{")
+	for _, v := range enum.Values {
+		g.P(v.Name, ",")
+	}
+	g.P("}")
+	g.P("if len(list) != len(want) {")
+	g.P("t.Fatalf(\"List() returned %d items, want %d\", len(list), len(want))")
+	g.P("}")
+	g.P("for i, v := range list {")
+	g.P("if v != want[i] {")
+	g.P("t.Errorf(\"List()[%d] = %v, want %v\", i, v, want[i])")
+	g.P("}")
 	g.P("}")
 	g.P("}")
 
 	// Generate tests for Name, Names, ContainsName (only for non-string types)
 	if !isStringType {
+		// Generate test for Names - verify all names are present
 		g.P()
 		g.P("func Test", enumsVar, "_Names(t *testing.T) {")
 		g.P("names := ", enumsVar, ".Names()")
-		g.P("if len(names) != ", len(enum.Values), " {")
-		g.P("t.Errorf(\"Names() returned %d items, want %d\", len(names), ", len(enum.Values), ")")
+		g.P("want := []string{")
+		for _, v := range enum.Values {
+			name := GetValueName(v, typeName)
+			g.P(fmt.Sprintf("%q", name), ",")
+		}
+		g.P("}")
+		g.P("if len(names) != len(want) {")
+		g.P("t.Fatalf(\"Names() returned %d items, want %d\", len(names), len(want))")
+		g.P("}")
+		g.P("for i, n := range names {")
+		g.P("if n != want[i] {")
+		g.P("t.Errorf(\"Names()[%d] = %v, want %v\", i, n, want[i])")
+		g.P("}")
 		g.P("}")
 		g.P("}")
 
