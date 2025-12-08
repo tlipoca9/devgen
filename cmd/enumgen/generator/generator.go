@@ -73,24 +73,93 @@ func (eg *Generator) Config() genkit.ToolConfig {
 			{
 				Name: "enum",
 				Type: "type",
-				Doc:  "Generate enum helper methods (options: string, json, text, sql)",
+				Doc: `Generate enum helper methods for type-safe enums.
+
+USAGE:
+  // enumgen:@enum(string, json, text, sql)
+  type Status int
+
+SUPPORTED OPTIONS:
+  - string: Generate String() method for fmt.Stringer interface
+  - json:   Generate MarshalJSON/UnmarshalJSON for encoding/json
+  - text:   Generate MarshalText/UnmarshalText for encoding.TextMarshaler
+  - sql:    Generate Value/Scan for database/sql driver
+
+GENERATED HELPERS:
+  - StatusEnums.List()         - Get all valid enum values
+  - StatusEnums.Contains(v)    - Check if value is valid
+  - StatusEnums.Parse(s)       - Parse string to enum (returns error if invalid)
+  - StatusEnums.Name(v)        - Get string name of enum value
+  - Status.IsValid()           - Check if the enum value is valid
+
+EXAMPLE:
+  // enumgen:@enum(string, json)
+  type OrderStatus int
+
+  const (
+      OrderStatusPending   OrderStatus = iota + 1  // String: "Pending"
+      OrderStatusConfirmed                          // String: "Confirmed"
+      OrderStatusShipped                            // String: "Shipped"
+  )
+
+  // Usage:
+  status := OrderStatusPending
+  fmt.Println(status.String())           // "Pending"
+  fmt.Println(status.IsValid())          // true
+  fmt.Println(OrderStatusEnums.List())   // [OrderStatusPending, OrderStatusConfirmed, OrderStatusShipped]
+  parsed, _ := OrderStatusEnums.Parse("Pending")  // OrderStatusPending
+
+UNDERLYING TYPES:
+  Supported: int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, string
+  For string underlying type, @name annotation is not supported (value itself is the name).`,
 				Params: &genkit.AnnotationParams{
 					Values: []string{"string", "json", "text", "sql"},
 					Docs: map[string]string{
-						"string": "Generate String() method",
-						"json":   "Generate MarshalJSON/UnmarshalJSON methods",
-						"text":   "Generate MarshalText/UnmarshalText methods",
-						"sql":    "Generate Value/Scan methods for database/sql",
+						"string": "Generate String() method for fmt.Stringer interface",
+						"json":   "Generate MarshalJSON/UnmarshalJSON for JSON serialization",
+						"text":   "Generate MarshalText/UnmarshalText for text serialization",
+						"sql":    "Generate Value/Scan for database/sql driver interface",
 					},
 				},
 			},
 			{
 				Name: "name",
 				Type: "field",
-				Doc:  "Custom name for enum value",
+				Doc: `Custom string name for an enum value (only for non-string underlying types).
+
+USAGE:
+  const (
+      // enumgen:@name(custom_name)
+      StatusActive Status = iota + 1
+  )
+
+DEFAULT BEHAVIOR:
+  Without @name, the string name is derived by trimming the type prefix:
+    StatusActive -> "Active"
+    StatusPending -> "Pending"
+
+EXAMPLE:
+  // enumgen:@enum(string, json)
+  type ErrorCode int
+
+  const (
+      // enumgen:@name(ERR_NOT_FOUND)
+      ErrorCodeNotFound ErrorCode = 404
+
+      // enumgen:@name(ERR_INTERNAL)
+      ErrorCodeInternal ErrorCode = 500
+  )
+
+  // Usage:
+  fmt.Println(ErrorCodeNotFound.String())  // "ERR_NOT_FOUND"
+  parsed, _ := ErrorCodeEnums.Parse("ERR_INTERNAL")  // ErrorCodeInternal
+
+NOTE:
+  - @name is NOT supported for string underlying types (the string value is used directly)
+  - Each @name value must be unique within the enum type`,
 				Params: &genkit.AnnotationParams{
 					Type:        "string",
-					Placeholder: "name",
+					Placeholder: "custom_name",
 				},
 			},
 		},

@@ -41,11 +41,38 @@ var regexVarNames = map[string]string{
 }
 
 // Generator generates Validate() methods for structs.
-type Generator struct{}
+type Generator struct {
+	// pkgIndex maps import path to package for cross-package enum lookup
+	pkgIndex map[genkit.GoImportPath]*genkit.Package
+}
 
 // New creates a new Generator.
 func New() *Generator {
-	return &Generator{}
+	return &Generator{
+		pkgIndex: make(map[genkit.GoImportPath]*genkit.Package),
+	}
+}
+
+// buildPkgIndex builds the package index from all loaded packages.
+func (vg *Generator) buildPkgIndex(gen *genkit.Generator) {
+	for _, pkg := range gen.Packages {
+		vg.pkgIndex[pkg.GoImportPath()] = pkg
+	}
+}
+
+// findEnum looks up an enum by import path and type name.
+// Returns nil if not found.
+func (vg *Generator) findEnum(importPath genkit.GoImportPath, typeName string) *genkit.Enum {
+	pkg, ok := vg.pkgIndex[importPath]
+	if !ok {
+		return nil
+	}
+	for _, e := range pkg.Enums {
+		if e.Name == typeName {
+			return e
+		}
+	}
+	return nil
 }
 
 // regexTracker tracks custom regex patterns and assigns variable names.
@@ -81,118 +108,726 @@ func (vg *Generator) Config() genkit.ToolConfig {
 	return genkit.ToolConfig{
 		OutputSuffix: "_validate.go",
 		Annotations: []genkit.AnnotationConfig{
-			{Name: "validate", Type: "type", Doc: "Generate Validate() method for struct"},
-			{Name: "required", Type: "field", Doc: "Field must not be empty/zero"},
 			{
-				Name:   "min",
-				Type:   "field",
-				Doc:    "Minimum value or length",
+				Name: "validate",
+				Type: "type",
+				Doc: `为结构体生成 Validate() 方法。
+
+用法：在结构体定义上方添加注解
+  // validategen:@validate
+  type User struct {
+      // validategen:@required
+      // validategen:@min(2)
+      // validategen:@max(50)
+      Name string
+
+      // validategen:@required
+      // validategen:@email
+      Email string
+
+      // validategen:@min(0)
+      // validategen:@max(150)
+      Age int
+  }
+
+生成的方法：
+  func (x User) Validate() error
+
+自定义后置验证（postValidate 钩子）：
+  定义 postValidate 方法添加自定义验证逻辑：
+  func (x User) postValidate(errs []string) error {
+      if x.Age < 18 && x.Role == "admin" {
+          errs = append(errs, "admin must be 18+")
+      }
+      if len(errs) > 0 {
+          return fmt.Errorf("%s", strings.Join(errs, "; "))
+      }
+      return nil
+  }`,
+			},
+			{
+				Name: "required",
+				Type: "field",
+				Doc: `字段不能为空/零值。
+
+用法：在字段上方添加注解
+  // validategen:@required
+  Name string
+
+不同类型的验证逻辑：
+  string:    不能为空字符串 ""
+  slice/map: 长度不能为 0
+  pointer:   不能为 nil
+  bool:      必须为 true
+  numeric:   不能为 0
+
+示例：
+  // validategen:@validate
+  type Config struct {
+      // validategen:@required
+      Name string  // Name != ""
+
+      // validategen:@required
+      Items []string  // len(Items) > 0
+
+      // validategen:@required
+      Metadata map[string]string  // len(Metadata) > 0
+
+      // validategen:@required
+      Handler *Handler  // Handler != nil
+
+      // validategen:@required
+      Enabled bool  // Enabled == true
+
+      // validategen:@required
+      Port int  // Port != 0
+  }`,
+			},
+			{
+				Name: "min",
+				Type: "field",
+				Doc: `最小值（数字）或最小长度（字符串/切片/map）。
+
+用法：在字段上方添加注解
+  // validategen:@min(0)
+  Age int
+
+  // validategen:@min(2)
+  Name string
+
+  // validategen:@min(1)
+  Items []int
+
+不同类型的验证逻辑：
+  string:    len(field) >= min
+  slice/map: len(field) >= min
+  numeric:   field >= min
+  *string:   非 nil 时，len(*field) >= min
+  *numeric:  非 nil 时，*field >= min
+
+示例：
+  // validategen:@validate
+  type Product struct {
+      // validategen:@min(1)
+      Name string  // 至少 1 个字符
+
+      // validategen:@min(0)
+      Price float64  // 非负价格
+
+      // validategen:@min(1)
+      Quantity int  // 至少 1 件
+
+      // validategen:@min(1)
+      Tags []string  // 至少 1 个标签
+  }`,
 				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
 			},
 			{
-				Name:   "max",
-				Type:   "field",
-				Doc:    "Maximum value or length",
+				Name: "max",
+				Type: "field",
+				Doc: `最大值（数字）或最大长度（字符串/切片/map）。
+
+用法：在字段上方添加注解
+  // validategen:@max(150)
+  Age int
+
+  // validategen:@max(100)
+  Name string
+
+  // validategen:@max(10)
+  Items []int
+
+不同类型的验证逻辑：
+  string:    len(field) <= max
+  slice/map: len(field) <= max
+  numeric:   field <= max
+  *string:   非 nil 时，len(*field) <= max
+  *numeric:  非 nil 时，*field <= max
+
+示例：
+  // validategen:@validate
+  type Comment struct {
+      // validategen:@max(1000)
+      Content string  // 最多 1000 个字符
+
+      // validategen:@max(5)
+      Rating int  // 评分 1-5
+
+      // validategen:@max(5)
+      Tags []string  // 最多 5 个标签
+  }`,
 				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
 			},
 			{
-				Name:   "len",
-				Type:   "field",
-				Doc:    "Exact length",
+				Name: "len",
+				Type: "field",
+				Doc: `精确长度（字符串/切片/map）。
+
+用法：在字段上方添加注解
+  // validategen:@len(6)
+  Code string
+
+  // validategen:@len(2)
+  Pair [2]int
+
+示例：
+  // validategen:@validate
+  type VerificationCode struct {
+      // validategen:@len(6)
+      Code string  // 必须是 6 个字符
+
+      // validategen:@len(4)
+      Digits []int  // 必须有 4 个元素
+  }`,
 				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
 			},
 			{
-				Name:   "eq",
-				Type:   "field",
-				Doc:    "Must equal specified value",
+				Name: "eq",
+				Type: "field",
+				Doc: `字段值必须等于指定值。
+
+用法：在字段上方添加注解
+  // validategen:@eq(v1)
+  Version string
+
+  // validategen:@eq(1)
+  Status int
+
+  // validategen:@eq(true)
+  Active bool
+
+支持类型：string, numeric, bool（及其指针类型）
+
+示例：
+  // validategen:@validate
+  type APIRequest struct {
+      // validategen:@eq(v2)
+      Version string  // 必须是 "v2"
+
+      // validategen:@eq(1)
+      Type int  // 必须是 1
+  }`,
 				Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"},
 			},
 			{
-				Name:   "ne",
-				Type:   "field",
-				Doc:    "Must not equal specified value",
+				Name: "ne",
+				Type: "field",
+				Doc: `字段值不能等于指定值。
+
+用法：在字段上方添加注解
+  // validategen:@ne(deleted)
+  Status string
+
+  // validategen:@ne(0)
+  Code int
+
+支持类型：string, numeric, bool（及其指针类型）
+
+示例：
+  // validategen:@validate
+  type User struct {
+      // validategen:@ne(banned)
+      Status string  // 不能是 "banned"
+
+      // validategen:@ne(123456)
+      Password string  // 不能是 "123456"
+  }`,
 				Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"},
 			},
 			{
-				Name:   "gt",
-				Type:   "field",
-				Doc:    "Must be greater than",
+				Name: "gt",
+				Type: "field",
+				Doc: `大于（数字）或长度大于（字符串/切片）。
+
+用法：在字段上方添加注解
+  // validategen:@gt(0)
+  Age int
+
+  // validategen:@gt(0)
+  Name string
+
+示例：
+  // validategen:@validate
+  type Order struct {
+      // validategen:@gt(0)
+      Amount float64  // 必须为正数
+
+      // validategen:@gt(0)
+      Quantity int  // 必须大于 0
+  }`,
 				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
 			},
 			{
-				Name:   "gte",
-				Type:   "field",
-				Doc:    "Must be greater than or equal",
+				Name: "gte",
+				Type: "field",
+				Doc: `大于等于（数字）或长度大于等于（字符串/切片）。
+
+用法：在字段上方添加注解
+  // validategen:@gte(18)
+  Age int
+
+示例：
+  // validategen:@validate
+  type Adult struct {
+      // validategen:@gte(18)
+      Age int  // 必须 >= 18 岁
+  }`,
 				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
 			},
 			{
-				Name:   "lt",
-				Type:   "field",
-				Doc:    "Must be less than",
+				Name: "lt",
+				Type: "field",
+				Doc: `小于（数字）或长度小于（字符串/切片）。
+
+用法：在字段上方添加注解
+  // validategen:@lt(100)
+  Discount float64
+
+示例：
+  // validategen:@validate
+  type Discount struct {
+      // validategen:@lt(100)
+      Percent float64  // 必须小于 100%
+  }`,
 				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
 			},
 			{
-				Name:   "lte",
-				Type:   "field",
-				Doc:    "Must be less than or equal",
+				Name: "lte",
+				Type: "field",
+				Doc: `小于等于（数字）或长度小于等于（字符串/切片）。
+
+用法：在字段上方添加注解
+  // validategen:@lte(5)
+  Rating int
+
+示例：
+  // validategen:@validate
+  type Review struct {
+      // validategen:@lte(5)
+      Rating int  // 评分必须 <= 5
+  }`,
 				Params: &genkit.AnnotationParams{Type: "number", Placeholder: "value"},
 			},
 			{
-				Name:   "oneof",
-				Type:   "field",
-				Doc:    "Must be one of the specified values",
-				Params: &genkit.AnnotationParams{Type: "list", Placeholder: "values"},
+				Name: "oneof",
+				Type: "field",
+				Doc: `字段值必须是指定值之一（空格分隔）。
+
+用法：在字段上方添加注解
+  // validategen:@oneof(pending active completed)
+  Status string
+
+  // validategen:@oneof(1 2 3)
+  Level int
+
+支持类型：string, numeric
+
+示例：
+  // validategen:@validate
+  type Task struct {
+      // validategen:@oneof(todo doing done)
+      Status string
+
+      // validategen:@oneof(1 2 3 4 5)
+      Priority int
+  }`,
+				Params: &genkit.AnnotationParams{Type: "list", Placeholder: "value1 value2 ..."},
 			},
-			{Name: "email", Type: "field", Doc: "Must be a valid email address"},
-			{Name: "url", Type: "field", Doc: "Must be a valid URL"},
-			{Name: "uuid", Type: "field", Doc: "Must be a valid UUID"},
-			{Name: "ip", Type: "field", Doc: "Must be a valid IP address"},
-			{Name: "ipv4", Type: "field", Doc: "Must be a valid IPv4 address"},
-			{Name: "ipv6", Type: "field", Doc: "Must be a valid IPv6 address"},
-			{Name: "duration", Type: "field", Doc: "Must be a valid time.Duration string (e.g., 1h30m, 500ms)"},
 			{
-				Name:   "duration_min",
-				Type:   "field",
-				Doc:    "Minimum duration value (e.g., 1s, 5m, 1h)",
-				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "duration"},
+				Name: "oneof_enum",
+				Type: "field",
+				Doc: `字段值必须是有效的枚举值（使用 EnumTypeEnums.Contains）。
+
+用法：在字段上方添加注解
+  // validategen:@oneof_enum(OrderStatus)
+  Status OrderStatus
+
+跨包枚举（自动添加 import）：
+  // validategen:@oneof_enum(github.com/you/pkg/common.Status)
+  Status common.Status
+
+跨包枚举（指定 import alias）：
+  // validategen:@oneof_enum(mytypes:github.com/you/pkg/types.Status)
+  Status mytypes.Status
+  // 生成代码：import mytypes "github.com/you/pkg/types"
+  //          if !mytypes.StatusEnums.Contains(x.Status) { ... }
+
+要求：枚举类型必须有 enumgen:@enum 注解。
+
+示例：
+  // 同一个包内：
+  // enumgen:@enum(string)
+  type Status int
+  const (StatusActive Status = iota + 1; StatusInactive)
+
+  // validategen:@validate
+  type User struct {
+      // validategen:@oneof_enum(Status)
+      Status Status
+  }
+  // 生成代码：if !StatusEnums.Contains(x.Status) { ... }`,
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "[alias:]import/path.EnumType"},
 			},
 			{
-				Name:   "duration_max",
-				Type:   "field",
-				Doc:    "Maximum duration value (e.g., 1h, 24h, 7d)",
-				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "duration"},
+				Name: "email",
+				Type: "field",
+				Doc: `字段必须是有效的邮箱地址格式。
+
+用法：在字段上方添加注解
+  // validategen:@email
+  Email string
+
+正则：^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+
+示例：
+  // validategen:@validate
+  type Contact struct {
+      // validategen:@email
+      Email string  // "user@example.com" ✓, "invalid" ✗
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
 			},
-			{Name: "alpha", Type: "field", Doc: "Must contain only letters"},
-			{Name: "alphanum", Type: "field", Doc: "Must contain only letters and numbers"},
-			{Name: "numeric", Type: "field", Doc: "Must contain only numbers"},
 			{
-				Name:   "contains",
-				Type:   "field",
-				Doc:    "Must contain the specified substring",
+				Name: "url",
+				Type: "field",
+				Doc: `字段必须是有效的 URL（使用 net/url.ParseRequestURI）。
+
+用法：在字段上方添加注解
+  // validategen:@url
+  Website string
+
+示例：
+  // validategen:@validate
+  type Company struct {
+      // validategen:@url
+      Website string  // "https://example.com" ✓
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
+			},
+			{
+				Name: "uuid",
+				Type: "field",
+				Doc: `字段必须是有效的 UUID 格式。
+
+用法：在字段上方添加注解
+  // validategen:@uuid
+  ID string
+
+正则：^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+
+示例：
+  // validategen:@validate
+  type Entity struct {
+      // validategen:@uuid
+      ID string  // "550e8400-e29b-41d4-a716-446655440000" ✓
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
+			},
+			{
+				Name: "ip",
+				Type: "field",
+				Doc: `字段必须是有效的 IP 地址（IPv4 或 IPv6）。
+
+用法：在字段上方添加注解
+  // validategen:@ip
+  Address string
+
+示例：
+  // validategen:@validate
+  type Server struct {
+      // validategen:@ip
+      IP string  // "192.168.1.1" ✓, "::1" ✓
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
+			},
+			{
+				Name: "ipv4",
+				Type: "field",
+				Doc: `字段必须是有效的 IPv4 地址。
+
+用法：在字段上方添加注解
+  // validategen:@ipv4
+  Address string
+
+示例：
+  // validategen:@validate
+  type Server struct {
+      // validategen:@ipv4
+      IPv4 string  // "192.168.1.1" ✓, "::1" ✗
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
+			},
+			{
+				Name: "ipv6",
+				Type: "field",
+				Doc: `字段必须是有效的 IPv6 地址。
+
+用法：在字段上方添加注解
+  // validategen:@ipv6
+  Address string
+
+示例：
+  // validategen:@validate
+  type Server struct {
+      // validategen:@ipv6
+      IPv6 string  // "::1" ✓, "192.168.1.1" ✗
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
+			},
+			{
+				Name: "duration",
+				Type: "field",
+				Doc: `字段必须是有效的 Go duration 字符串（time.ParseDuration）。
+
+用法：在字段上方添加注解
+  // validategen:@duration
+  Timeout string
+
+有效格式：1h, 30m, 500ms, 1h30m, 2h45m30s 等
+
+示例：
+  // validategen:@validate
+  type Config struct {
+      // validategen:@duration
+      Timeout string  // "30s" ✓, "invalid" ✗
+
+      // validategen:@duration
+      RetryDelay string  // "500ms" ✓
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
+			},
+			{
+				Name: "duration_min",
+				Type: "field",
+				Doc: `最小时间间隔（字段必须是有效的 duration 字符串）。
+
+用法：在字段上方添加注解
+  // validategen:@duration_min(1s)
+  Timeout string
+
+示例：
+  // validategen:@validate
+  type Config struct {
+      // validategen:@duration_min(100ms)
+      Timeout string  // 至少 100ms
+
+      // validategen:@duration_min(1h)
+      TTL string  // 至少 1 小时
+  }
+
+注意：同时会验证字符串是否为有效的 duration 格式。`,
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "1s, 5m, 1h, etc."},
+			},
+			{
+				Name: "duration_max",
+				Type: "field",
+				Doc: `最大时间间隔（字段必须是有效的 duration 字符串）。
+
+用法：在字段上方添加注解
+  // validategen:@duration_max(1h)
+  Timeout string
+
+示例：
+  // validategen:@validate
+  type Config struct {
+      // validategen:@duration_max(30s)
+      Timeout string  // 最多 30 秒
+
+      // validategen:@duration_max(24h)
+      TTL string  // 最多 24 小时
+  }
+
+注意：同时会验证字符串是否为有效的 duration 格式。`,
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "1s, 5m, 1h, etc."},
+			},
+			{
+				Name: "alpha",
+				Type: "field",
+				Doc: `字段只能包含 ASCII 字母（a-zA-Z）。
+
+用法：在字段上方添加注解
+  // validategen:@alpha
+  Name string
+
+正则：^[a-zA-Z]+$
+
+示例：
+  // validategen:@validate
+  type Person struct {
+      // validategen:@alpha
+      FirstName string  // "John" ✓, "John123" ✗
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
+			},
+			{
+				Name: "alphanum",
+				Type: "field",
+				Doc: `字段只能包含 ASCII 字母和数字（a-zA-Z0-9）。
+
+用法：在字段上方添加注解
+  // validategen:@alphanum
+  Code string
+
+正则：^[a-zA-Z0-9]+$
+
+示例：
+  // validategen:@validate
+  type Product struct {
+      // validategen:@alphanum
+      SKU string  // "ABC123" ✓, "ABC-123" ✗
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
+			},
+			{
+				Name: "numeric",
+				Type: "field",
+				Doc: `字段只能包含数字字符（0-9）。
+
+用法：在字段上方添加注解
+  // validategen:@numeric
+  Phone string
+
+正则：^[0-9]+$
+
+示例：
+  // validategen:@validate
+  type Contact struct {
+      // validategen:@numeric
+      Phone string  // "1234567890" ✓, "123-456" ✗
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
+			},
+			{
+				Name: "contains",
+				Type: "field",
+				Doc: `字段必须包含指定的子串。
+
+用法：在字段上方添加注解
+  // validategen:@contains(@)
+  Email string
+
+示例：
+  // validategen:@validate
+  type User struct {
+      // validategen:@contains(@)
+      Email string  // 必须包含 "@"
+
+      // validategen:@contains(://)
+      URL string  // 必须包含 "://"
+  }`,
 				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "substring"},
 			},
 			{
-				Name:   "excludes",
-				Type:   "field",
-				Doc:    "Must not contain the specified substring",
+				Name: "excludes",
+				Type: "field",
+				Doc: `字段不能包含指定的子串。
+
+用法：在字段上方添加注解
+  // validategen:@excludes(admin)
+  Name string
+
+示例：
+  // validategen:@validate
+  type User struct {
+      // validategen:@excludes(admin)
+      Username string  // 不能包含 "admin"
+
+      // validategen:@excludes(password)
+      Password string  // 不能包含 "password"
+  }`,
 				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "substring"},
 			},
 			{
-				Name:   "startswith",
-				Type:   "field",
-				Doc:    "Must start with the specified prefix",
+				Name: "startswith",
+				Type: "field",
+				Doc: `字段必须以指定前缀开头。
+
+用法：在字段上方添加注解
+  // validategen:@startswith(usr_)
+  ID string
+
+示例：
+  // validategen:@validate
+  type Entity struct {
+      // validategen:@startswith(usr_)
+      UserID string  // "usr_123" ✓
+
+      // validategen:@startswith(prod_)
+      ProductID string  // "prod_abc" ✓
+  }`,
 				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "prefix"},
 			},
 			{
-				Name:   "endswith",
-				Type:   "field",
-				Doc:    "Must end with the specified suffix",
+				Name: "endswith",
+				Type: "field",
+				Doc: `字段必须以指定后缀结尾。
+
+用法：在字段上方添加注解
+  // validategen:@endswith(.json)
+  Filename string
+
+示例：
+  // validategen:@validate
+  type Config struct {
+      // validategen:@endswith(.yaml)
+      ConfigFile string  // "config.yaml" ✓
+
+      // validategen:@endswith(.png)
+      ImageFile string  // "logo.png" ✓
+  }`,
 				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "suffix"},
 			},
 			{
-				Name:   "method",
-				Type:   "field",
-				Doc:    "Call specified method for validation (for struct fields)",
+				Name: "method",
+				Type: "field",
+				Doc: `调用字段的方法进行嵌套验证。
+
+用法：在字段上方添加注解
+  // validategen:@method(Validate)
+  Address Address
+
+  // validategen:@method(Validate)
+  Items []Item  // 验证每个元素
+
+  // validategen:@method(Validate)
+  Users map[int]User  // 验证每个值
+
+方法签名：func() error
+
+行为：
+  - 指针字段：非 nil 时才调用
+  - 切片：对每个元素调用，错误信息包含索引
+  - map：对每个值调用，错误信息包含键
+
+示例：
+  // validategen:@validate
+  type Order struct {
+      // validategen:@method(Validate)
+      Customer Customer
+
+      // validategen:@method(Validate)
+      Items []OrderItem
+
+      // validategen:@method(Validate)
+      Discounts map[string]Discount
+  }
+
+  // Items 生成的代码：
+  for i, v := range x.Items {
+      if err := v.Validate(); err != nil {
+          errs = append(errs, fmt.Sprintf("Items[%d]: %v", i, err))
+      }
+  }`,
 				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "MethodName"},
 				LSP: &genkit.LSPConfig{
 					Enabled:     true,
@@ -203,23 +838,70 @@ func (vg *Generator) Config() genkit.ToolConfig {
 				},
 			},
 			{
-				Name:   "regex",
-				Type:   "field",
-				Doc:    "Must match the specified regular expression",
+				Name: "regex",
+				Type: "field",
+				Doc: `字段必须匹配指定的正则表达式。
+
+用法：在字段上方添加注解
+  // validategen:@regex(^\+?[0-9]{10,14}$)
+  Phone string
+
+示例：
+  // validategen:@validate
+  type Contact struct {
+      // 国际电话号码格式
+      // validategen:@regex(^\+?[0-9]{10,14}$)
+      Phone string
+
+      // Slug 格式（小写字母、数字、连字符）
+      // validategen:@regex(^[a-z0-9]+(-[a-z0-9]+)*$)
+      Slug string
+
+      // 版本号格式（semver）
+      // validategen:@regex(^v?[0-9]+\.[0-9]+\.[0-9]+$)
+      Version string
+  }
+
+注意：正则表达式在包初始化时编译一次，性能优化。`,
 				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "pattern"},
 			},
 			{
 				Name: "format",
 				Type: "field",
-				Doc:  "Must be valid format (json, yaml, toml, csv)",
+				Doc: `字段必须是有效的指定格式（json, yaml, toml, csv）。
+
+用法：在字段上方添加注解
+  // validategen:@format(json)
+  Config string
+
+支持的格式：
+  - json: 使用 encoding/json.Valid 验证
+  - yaml: 使用 gopkg.in/yaml.v3.Unmarshal 验证
+  - toml: 使用 github.com/BurntSushi/toml.Unmarshal 验证
+  - csv:  使用 encoding/csv.Reader.ReadAll 验证
+
+示例：
+  // validategen:@validate
+  type Template struct {
+      // validategen:@format(json)
+      JSONConfig string  // '{"key":"value"}' ✓
+
+      // validategen:@format(yaml)
+      YAMLConfig string  // 'key: value' ✓
+
+      // validategen:@format(csv)
+      CSVData string  // 'a,b,c\n1,2,3' ✓
+  }
+
+注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
 				Params: &genkit.AnnotationParams{
 					Values:  []string{"json", "yaml", "toml", "csv"},
 					MaxArgs: 1,
 					Docs: map[string]string{
-						"json": "Validate JSON format",
-						"yaml": "Validate YAML format",
-						"toml": "Validate TOML format",
-						"csv":  "Validate CSV format",
+						"json": "使用 encoding/json.Valid 验证 JSON 格式",
+						"yaml": "使用 gopkg.in/yaml.v3 验证 YAML 格式",
+						"toml": "使用 github.com/BurntSushi/toml 验证 TOML 格式",
+						"csv":  "使用 encoding/csv 验证 CSV 格式",
 					},
 				},
 			},
@@ -229,6 +911,9 @@ func (vg *Generator) Config() genkit.ToolConfig {
 
 // Run processes all packages and generates validation methods.
 func (vg *Generator) Run(gen *genkit.Generator, log *genkit.Logger) error {
+	// Build package index for cross-package enum lookup
+	vg.buildPkgIndex(gen)
+
 	var totalCount int
 	for _, pkg := range gen.Packages {
 		types := vg.FindTypes(pkg)
@@ -359,6 +1044,7 @@ func (vg *Generator) WriteHeader(
 // GenerateValidate generates Validate method for a single type.
 func (vg *Generator) GenerateValidate(g *genkit.GeneratedFile, typ *genkit.Type, customRegex *regexTracker) error {
 	typeName := typ.Name
+	pkg := typ.Pkg
 
 	// Collect fields with validation annotations
 	var validatedFields []*fieldValidation
@@ -392,7 +1078,7 @@ func (vg *Generator) GenerateValidate(g *genkit.GeneratedFile, typ *genkit.Type,
 	g.P()
 
 	for _, fv := range validatedFields {
-		vg.generateFieldValidation(g, fv, customRegex)
+		vg.generateFieldValidation(g, fv, customRegex, pkg)
 	}
 
 	g.P()
@@ -644,9 +1330,10 @@ var rulePriority = map[string]int{
 	"lte": 26,
 
 	// 3. Equality checks
-	"eq":    30,
-	"ne":    31,
-	"oneof": 32,
+	"eq":         30,
+	"ne":         31,
+	"oneof":      32,
+	"oneof_enum": 33,
 
 	// 4. Format checks
 	"email":        40,
@@ -673,7 +1360,12 @@ var rulePriority = map[string]int{
 	"method": 70,
 }
 
-func (vg *Generator) generateFieldValidation(g *genkit.GeneratedFile, fv *fieldValidation, customRegex *regexTracker) {
+func (vg *Generator) generateFieldValidation(
+	g *genkit.GeneratedFile,
+	fv *fieldValidation,
+	customRegex *regexTracker,
+	pkg *genkit.Package,
+) {
 	fieldName := fv.Field.Name
 	fieldType := fv.Field.Type
 
@@ -733,6 +1425,8 @@ func (vg *Generator) generateFieldValidation(g *genkit.GeneratedFile, fv *fieldV
 			vg.genLte(g, fieldName, fieldType, rule.Param)
 		case "oneof":
 			vg.genOneof(g, fv.Field, rule.Param)
+		case "oneof_enum":
+			vg.genOneofEnum(g, fv.Field, rule.Param, pkg)
 		case "email":
 			vg.genEmail(g, fieldName)
 		case "url":
@@ -1244,6 +1938,122 @@ func (vg *Generator) genOneof(g *genkit.GeneratedFile, field *genkit.Field, para
 		g.P("return false")
 		g.P("}() {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be one of [", strings.Join(cleanValues, ", "), "], got %v\", x.", fieldName, "))")
+		g.P("}")
+	}
+}
+
+func (vg *Generator) genOneofEnum(g *genkit.GeneratedFile, field *genkit.Field, param string, pkg *genkit.Package) {
+	// Validation already done in validateRule, skip if invalid
+	if param == "" {
+		return
+	}
+
+	fieldName := field.Name
+	enumType := strings.TrimSpace(param)
+	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
+
+	// Parse enum type parameter
+	// Formats supported:
+	// - Same package: "Status" -> StatusEnums.Contains
+	// - Cross-package: "github.com/user/pkg/common.Status" -> common.StatusEnums.Contains
+	//   (automatically adds import for "github.com/user/pkg/common")
+	// - Cross-package with alias: "alias:github.com/user/pkg/common.Status" -> alias.StatusEnums.Contains
+	//   (imports with alias: import alias "github.com/user/pkg/common")
+
+	var enumsVar string      // Variable name for the enums instance (e.g., "StatusEnums")
+	var enumValues []string  // For generating comment with enum values
+	var isStringEnum bool    // Whether the enum's underlying type is string
+
+	// Check for alias format: "alias:import/path.Type"
+	var importAlias string
+	if colonIdx := strings.Index(enumType, ":"); colonIdx != -1 {
+		importAlias = enumType[:colonIdx]
+		enumType = enumType[colonIdx+1:]
+	}
+
+	if lastDot := strings.LastIndex(enumType, "."); lastDot != -1 {
+		// Cross-package with full import path: "github.com/user/pkg/common.Status"
+		beforeDot := enumType[:lastDot]
+		typeName := enumType[lastDot+1:]
+
+		importPath := genkit.GoImportPath(beforeDot)
+
+		// Determine package name for generated code and ensure import is added
+		var pkgName string
+		if importAlias != "" {
+			// Use specified alias
+			g.ImportAs(importPath, genkit.GoPackageName(importAlias))
+			pkgName = importAlias
+		} else {
+			// Use default package name and add import
+			pkgName = string(g.Import(importPath))
+		}
+
+		enumsVar = pkgName + "." + typeName + "Enums"
+
+		// Look up cross-package enum from package index
+		if enum := vg.findEnum(importPath, typeName); enum != nil {
+			isStringEnum = isStringType(enum.UnderlyingType)
+			for _, v := range enum.Values {
+				enumValues = append(enumValues, pkgName+"."+v.Name)
+			}
+		}
+	} else {
+		// Same package: "Status" -> StatusEnums
+		enumsVar = enumType + "Enums"
+
+		// Find enum in the same package
+		for _, e := range pkg.Enums {
+			if e.Name == enumType {
+				isStringEnum = isStringType(e.UnderlyingType)
+				for _, v := range e.Values {
+					enumValues = append(enumValues, v.Name)
+				}
+				break
+			}
+		}
+	}
+
+	// Generate comment with enum values for code review
+	if len(enumValues) > 0 {
+		g.P("// Valid values:")
+		for _, v := range enumValues {
+			g.P("//   - ", v)
+		}
+	}
+
+	// Generate validation code based on enum's underlying type
+	// - String enums: use Contains() and List()
+	// - Non-string enums: use ContainsName() and Names() for better error messages
+	if isStringEnum {
+		// String enum: use Contains and List
+		g.P("if !", enumsVar, ".Contains(x.", fieldName, ") {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be one of %v, got %v\", ",
+			enumsVar,
+			".List(), x.",
+			fieldName,
+			"))",
+		)
+		g.P("}")
+	} else {
+		// Non-string enum: use ContainsName and Names for string representation
+		g.P("if !", enumsVar, ".ContainsName(", fmtSprintf, "(\"%v\", x.", fieldName, ")) {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be one of %v, got %v\", ",
+			enumsVar,
+			".Names(), x.",
+			fieldName,
+			"))",
+		)
 		g.P("}")
 	}
 }
@@ -1884,6 +2694,9 @@ const (
 // Validate implements genkit.ValidatableTool.
 // It checks for errors without generating files, returning diagnostics for IDE integration.
 func (vg *Generator) Validate(gen *genkit.Generator, _ *genkit.Logger) []genkit.Diagnostic {
+	// Build package index for cross-package enum lookup
+	vg.buildPkgIndex(gen)
+
 	c := genkit.NewDiagnosticCollector(ToolName)
 
 	for _, pkg := range gen.Packages {
@@ -2109,6 +2922,81 @@ func (vg *Generator) validateRule(
 			if !hasValue {
 				c.Errorf(ErrCodeOneofMissingValues, field.Pos,
 					"@oneof annotation requires at least one value")
+			}
+		}
+
+	// oneof_enum - field type must be the enum type itself or string underlying type
+	case "oneof_enum":
+		if rule.Param == "" {
+			c.Errorf(ErrCodeMissingParam, field.Pos,
+				"@oneof_enum annotation requires an enum type parameter")
+			return
+		}
+
+		enumType := strings.TrimSpace(rule.Param)
+
+		// Strip alias prefix if present: "alias:import/path.Type" -> "import/path.Type"
+		if colonIdx := strings.Index(enumType, ":"); colonIdx != -1 {
+			enumType = enumType[colonIdx+1:]
+		}
+
+		// Check if it's a cross-package enum (has full import path)
+		if lastDot := strings.LastIndex(enumType, "."); lastDot != -1 && strings.Contains(enumType[:lastDot], "/") {
+			// Cross-package enum: "github.com/user/pkg/common.Status"
+			importPath := genkit.GoImportPath(enumType[:lastDot])
+			typeName := enumType[lastDot+1:]
+
+			// Look up the enum from package index
+			// Note: If package is not loaded (not in ./... scope), skip validation
+			// The generated code will still work as long as the import path is correct
+			enum := vg.findEnum(importPath, typeName)
+			if enum != nil {
+				// Enum found: field type must match enum type or underlying type must match
+				if field.Type != typeName && !isStringType(underlyingType) && underlyingType != enum.UnderlyingType {
+					c.Errorf(
+						ErrCodeInvalidFieldType,
+						field.Pos,
+						"@oneof_enum(%s) requires field underlying type to be %s or string, got %s",
+						rule.Param,
+						enum.UnderlyingType,
+						underlyingType,
+					)
+				}
+			}
+			// If enum not found, skip validation - package may not be loaded
+		} else {
+			// Same package enum: look up enum first
+			var enum *genkit.Enum
+			for _, e := range typ.Pkg.Enums {
+				if e.Name == enumType {
+					enum = e
+					break
+				}
+			}
+
+			if enum == nil {
+				c.Errorf(
+					ErrCodeInvalidFieldType,
+					field.Pos,
+					"@oneof_enum(%s): enum type %s not found in current package",
+					enumType,
+					enumType,
+				)
+				return
+			}
+
+			// Enum found: field type must be the enum type itself, or underlying type must match
+			if field.Type != enumType && !isStringType(underlyingType) && underlyingType != enum.UnderlyingType {
+				c.Errorf(
+					ErrCodeInvalidFieldType,
+					field.Pos,
+					"@oneof_enum(%s) requires field type to be %s or have underlying type %s, got %s (underlying: %s)",
+					enumType,
+					enumType,
+					enum.UnderlyingType,
+					field.Type,
+					underlyingType,
+				)
 			}
 		}
 	}

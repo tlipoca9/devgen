@@ -301,7 +301,66 @@ type Config struct {
 
 ---
 
-### 12. @email - 邮箱格式
+### 12. @oneof_enum(EnumType) - 枚举类型验证
+
+验证字段值必须是指定枚举类型的有效值。与 `@oneof` 不同，`@oneof_enum` 自动从 enumgen 生成的 `EnumTypeEnums.Contains()` 方法获取有效值，避免在 enum 新增值时需要同时修改 `@oneof` 注解。
+
+**同包 enum：**
+```go
+// enumgen:@enum(string)
+type Role int
+
+const (
+    RoleAdmin Role = iota
+    RoleUser
+    RoleGuest
+)
+
+// validategen:@validate
+type User struct {
+    // validategen:@oneof_enum(Role)
+    Role Role  // 自动使用 RoleEnums.Contains() 验证
+}
+
+// 生成的验证代码:
+// if !RoleEnums.Contains(x.Role) {
+//     errs = append(errs, fmt.Sprintf("Role must be a valid Role, got %v", x.Role))
+// }
+```
+
+**跨包 enum（完整 import 路径，自动添加 import）：**
+```go
+// validategen:@validate
+type Request struct {
+    // validategen:@oneof_enum(github.com/myorg/pkg/types.Status)
+    Status types.Status  // 自动 import "github.com/myorg/pkg/types"
+}
+
+// 生成的验证代码会自动添加 import:
+// import "github.com/myorg/pkg/types"
+// ...
+// if !types.StatusEnums.Contains(x.Status) { ... }
+```
+
+**跨包 enum（指定 import alias）：**
+```go
+// validategen:@validate
+type Request struct {
+    // validategen:@oneof_enum(mytypes:github.com/myorg/pkg/types.Status)
+    Status mytypes.Status  // 使用指定的 alias
+}
+
+// 生成的验证代码：
+// import mytypes "github.com/myorg/pkg/types"
+// ...
+// if !mytypes.StatusEnums.Contains(x.Status) { ... }
+```
+
+**优势**：当 enum 新增值时（如添加 `RoleModerator`），只需修改 enum 定义，无需修改 `@oneof_enum` 注解，符合单一修改原则。
+
+---
+
+### 13. @email - 邮箱格式
 
 验证字符串是有效的邮箱地址。空字符串会跳过验证。
 
@@ -316,7 +375,7 @@ type User struct {
 
 ---
 
-### 13. @url - URL 格式
+### 14. @url - URL 格式
 
 验证字符串是有效的 URL。空字符串会跳过验证。
 
@@ -334,7 +393,7 @@ type Profile struct {
 
 ---
 
-### 14. @uuid - UUID 格式
+### 15. @uuid - UUID 格式
 
 验证字符串是有效的 UUID（8-4-4-4-12 格式）。空字符串会跳过验证。
 
@@ -352,7 +411,7 @@ type Resource struct {
 
 ---
 
-### 15. @ip - IP 地址
+### 16. @ip - IP 地址
 
 验证字符串是有效的 IP 地址（IPv4 或 IPv6）。空字符串会跳过验证。
 
@@ -366,7 +425,7 @@ type Server struct {
 
 ---
 
-### 16. @ipv4 - IPv4 地址
+### 17. @ipv4 - IPv4 地址
 
 验证字符串是有效的 IPv4 地址。空字符串会跳过验证。
 
@@ -380,7 +439,7 @@ type NetworkConfig struct {
 
 ---
 
-### 17. @ipv6 - IPv6 地址
+### 18. @ipv6 - IPv6 地址
 
 验证字符串是有效的 IPv6 地址。空字符串会跳过验证。
 
@@ -394,7 +453,7 @@ type NetworkConfig struct {
 
 ---
 
-### 18. @duration - 时间间隔格式
+### 19. @duration - 时间间隔格式
 
 验证字符串是有效的 Go duration 格式（如 `1h30m`、`500ms`）。空字符串会跳过验证。
 
@@ -408,7 +467,7 @@ type Config struct {
 
 ---
 
-### 19. @duration_min(duration) - 最小时间间隔
+### 20. @duration_min(duration) - 最小时间间隔
 
 验证 duration 字符串的值不小于指定值。空字符串会跳过验证。
 
@@ -425,7 +484,7 @@ type Config struct {
 
 ---
 
-### 20. @duration_max(duration) - 最大时间间隔
+### 21. @duration_max(duration) - 最大时间间隔
 
 验证 duration 字符串的值不大于指定值。空字符串会跳过验证。
 
@@ -442,7 +501,7 @@ type Config struct {
 
 ---
 
-### 21. @duration + @duration_min + @duration_max 组合
+### 22. @duration + @duration_min + @duration_max 组合
 
 可以组合使用这三个注解，生成的代码会合并为一个代码块，只解析一次：
 
@@ -458,7 +517,7 @@ type Config struct {
 
 ---
 
-### 22. @alpha - 纯字母
+### 23. @alpha - 纯字母
 
 验证字符串只包含字母（a-zA-Z）。空字符串会跳过验证。
 
@@ -472,7 +531,7 @@ type Person struct {
 
 ---
 
-### 23. @alphanum - 字母数字
+### 24. @alphanum - 字母数字
 
 验证字符串只包含字母和数字（a-zA-Z0-9）。空字符串会跳过验证。
 
@@ -490,7 +549,7 @@ type User struct {
 
 ---
 
-### 24. @numeric - 纯数字
+### 25. @numeric - 纯数字
 
 验证字符串只包含数字（0-9）。空字符串会跳过验证。
 
@@ -504,7 +563,7 @@ type Contact struct {
 
 ---
 
-### 25. @contains(substring) - 包含子串
+### 26. @contains(substring) - 包含子串
 
 验证字符串包含指定的子串。
 
@@ -521,7 +580,7 @@ type Email struct {
 
 ---
 
-### 26. @excludes(substring) - 不包含子串
+### 27. @excludes(substring) - 不包含子串
 
 验证字符串不包含指定的子串。
 
@@ -538,7 +597,7 @@ type User struct {
 
 ---
 
-### 27. @startswith(prefix) - 前缀匹配
+### 28. @startswith(prefix) - 前缀匹配
 
 验证字符串以指定前缀开头。
 
@@ -555,7 +614,7 @@ type URL struct {
 
 ---
 
-### 28. @endswith(suffix) - 后缀匹配
+### 29. @endswith(suffix) - 后缀匹配
 
 验证字符串以指定后缀结尾。
 
@@ -572,7 +631,7 @@ type Domain struct {
 
 ---
 
-### 29. @regex(pattern) - 正则表达式
+### 30. @regex(pattern) - 正则表达式
 
 验证字符串匹配指定的正则表达式。空字符串会跳过验证。
 
@@ -589,7 +648,7 @@ type Product struct {
 
 ---
 
-### 30. @format(type) - 格式验证
+### 31. @format(type) - 格式验证
 
 验证字符串是有效的指定格式。支持 `json`、`yaml`、`toml`、`csv` 四种格式。空字符串会跳过验证。
 
@@ -619,7 +678,7 @@ type Config struct {
 
 ---
 
-### 31. @method(MethodName) - 调用验证方法
+### 32. @method(MethodName) - 调用验证方法
 
 调用嵌套结构体或自定义类型的验证方法。对于指针类型，会先检查 nil。
 
@@ -1011,6 +1070,7 @@ ginkgo --json-report=benchmark_report.json --junit-report=benchmark_report.xml .
 | `@eq(v)` | string/number/bool | string, number, bool | 等于 |
 | `@ne(v)` | string/number/bool | string, number, bool | 不等于 |
 | `@oneof(a, b, c)` | 逗号分隔的值列表 | string, number | 枚举值 |
+| `@oneof_enum(EnumType)` | 枚举类型名 | enum type | 枚举类型验证 |
 | `@email` | - | string | 邮箱格式 |
 | `@url` | - | string | URL 格式 |
 | `@uuid` | - | string | UUID 格式 |
