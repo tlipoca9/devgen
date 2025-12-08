@@ -107,37 +107,86 @@ func (l *Logger) color(c string) string {
 
 // Info logs an info message.
 func (l *Logger) Info(format string, args ...any) {
-	_, _ = fmt.Fprintf(l.w, "%s  %s[INFO]%s %s\n", EmojiInfo, l.color(colorBlue), l.color(colorReset), l.format(format, args...))
+	_, _ = fmt.Fprintf(
+		l.w,
+		"%s  %s[INFO]%s %s\n",
+		EmojiInfo,
+		l.color(colorBlue),
+		l.color(colorReset),
+		l.format(format, args...),
+	)
 }
 
 // Warn logs a warning message.
 func (l *Logger) Warn(format string, args ...any) {
-	_, _ = fmt.Fprintf(l.w, "%s  %s[WARN]%s %s\n", EmojiWarn, l.color(colorYellow), l.color(colorReset), l.format(format, args...))
+	_, _ = fmt.Fprintf(
+		l.w,
+		"%s  %s[WARN]%s %s\n",
+		EmojiWarn,
+		l.color(colorYellow),
+		l.color(colorReset),
+		l.format(format, args...),
+	)
 }
 
 // Error logs an error message.
 func (l *Logger) Error(format string, args ...any) {
-	_, _ = fmt.Fprintf(l.w, "%s %s[ERROR]%s %s\n", EmojiError, l.color(colorRed), l.color(colorReset), l.format(format, args...))
+	_, _ = fmt.Fprintf(
+		l.w,
+		"%s %s[ERROR]%s %s\n",
+		EmojiError,
+		l.color(colorRed),
+		l.color(colorReset),
+		l.format(format, args...),
+	)
 }
 
 // Done logs a completion message.
 func (l *Logger) Done(format string, args ...any) {
-	_, _ = fmt.Fprintf(l.w, "%s  %s[DONE]%s %s\n", EmojiDone, l.color(colorGreen), l.color(colorReset), l.format(format, args...))
+	_, _ = fmt.Fprintf(
+		l.w,
+		"%s  %s[DONE]%s %s\n",
+		EmojiDone,
+		l.color(colorGreen),
+		l.color(colorReset),
+		l.format(format, args...),
+	)
 }
 
 // Find logs a discovery message.
 func (l *Logger) Find(format string, args ...any) {
-	_, _ = fmt.Fprintf(l.w, "%s  %s[FIND]%s %s\n", EmojiFind, l.color(colorCyan), l.color(colorReset), l.format(format, args...))
+	_, _ = fmt.Fprintf(
+		l.w,
+		"%s  %s[FIND]%s %s\n",
+		EmojiFind,
+		l.color(colorCyan),
+		l.color(colorReset),
+		l.format(format, args...),
+	)
 }
 
 // Write logs a file write message.
 func (l *Logger) Write(format string, args ...any) {
-	_, _ = fmt.Fprintf(l.w, "%s %s[WRITE]%s %s\n", EmojiWrite, l.color(colorGreen), l.color(colorReset), l.format(format, args...))
+	_, _ = fmt.Fprintf(
+		l.w,
+		"%s %s[WRITE]%s %s\n",
+		EmojiWrite,
+		l.color(colorGreen),
+		l.color(colorReset),
+		l.format(format, args...),
+	)
 }
 
 // Load logs a loading message.
 func (l *Logger) Load(format string, args ...any) {
-	_, _ = fmt.Fprintf(l.w, "%s  %s[LOAD]%s %s\n", EmojiLoad, l.color(colorBlue), l.color(colorReset), l.format(format, args...))
+	_, _ = fmt.Fprintf(
+		l.w,
+		"%s  %s[LOAD]%s %s\n",
+		EmojiLoad,
+		l.color(colorBlue),
+		l.color(colorReset),
+		l.format(format, args...),
+	)
 }
 
 // Item logs an indented item under the previous log entry.
