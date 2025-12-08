@@ -230,6 +230,62 @@ func TestGenerateOptionEnums_Parse(t *testing.T) {
 	}
 }
 
+func TestGenerateOptionEnums_List(t *testing.T) {
+	list := GenerateOptionEnums.List()
+	if len(list) != 4 {
+		t.Errorf("List() returned %d items, want %d", len(list), 4)
+	}
+}
+
+func TestGenerateOptionEnums_Names(t *testing.T) {
+	names := GenerateOptionEnums.Names()
+	if len(names) != 4 {
+		t.Errorf("Names() returned %d items, want %d", len(names), 4)
+	}
+}
+
+func TestGenerateOptionEnums_Name(t *testing.T) {
+	tests := []struct {
+		name  string
+		value GenerateOption
+		want  string
+	}{
+		{name: "GenerateOptionString", value: GenerateOptionString, want: "string"},
+		{name: "GenerateOptionJSON", value: GenerateOptionJSON, want: "json"},
+		{name: "GenerateOptionText", value: GenerateOptionText, want: "text"},
+		{name: "GenerateOptionSQL", value: GenerateOptionSQL, want: "sql"},
+		{name: "invalid", value: GenerateOption(-999), want: "GenerateOption(-999)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GenerateOptionEnums.Name(tt.value); got != tt.want {
+				t.Errorf("Name() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerateOptionEnums_ContainsName(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{name: "valid_GenerateOptionString", input: "string", want: true},
+		{name: "valid_GenerateOptionJSON", input: "json", want: true},
+		{name: "valid_GenerateOptionText", input: "text", want: true},
+		{name: "valid_GenerateOptionSQL", input: "sql", want: true},
+		{name: "invalid", input: "__invalid__", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GenerateOptionEnums.ContainsName(tt.input); got != tt.want {
+				t.Errorf("ContainsName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestUnderlyingType_IsValid(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -316,5 +372,12 @@ func TestUnderlyingTypeEnums_Parse(t *testing.T) {
 				t.Errorf("Parse() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestUnderlyingTypeEnums_List(t *testing.T) {
+	list := UnderlyingTypeEnums.List()
+	if len(list) != 11 {
+		t.Errorf("List() returned %d items, want %d", len(list), 11)
 	}
 }
