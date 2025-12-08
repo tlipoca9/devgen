@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	enumgen "github.com/tlipoca9/devgen/cmd/enumgen/generator"
+	golangcilint "github.com/tlipoca9/devgen/cmd/golangcilint/generator"
 	validategen "github.com/tlipoca9/devgen/cmd/validategen/generator"
 	"github.com/tlipoca9/devgen/genkit"
 )
@@ -28,6 +29,7 @@ var (
 var builtinTools = []genkit.Tool{
 	enumgen.New(),
 	validategen.New(),
+	golangcilint.New(),
 }
 
 func main() {
