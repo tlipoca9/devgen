@@ -42,6 +42,7 @@ func main() {
 func rootCmd() *cobra.Command {
 	var dryRun bool
 	var jsonOutput bool
+	var includeTests bool
 
 	ver := version
 	if ver == commit {
@@ -71,9 +72,9 @@ External plugins can be configured in devgen.toml:
 				return cmd.Help()
 			}
 			if dryRun {
-				return runDryRun(cmd.Context(), args, jsonOutput)
+				return runDryRun(cmd.Context(), args, jsonOutput, includeTests)
 			}
-			return run(cmd.Context(), args)
+			return run(cmd.Context(), args, includeTests)
 		},
 	}
 	cmd.SetVersionTemplate(fmt.Sprintf("devgen %s (%s) %s\n", ver, commit, date))
@@ -81,6 +82,7 @@ External plugins can be configured in devgen.toml:
 	// Add flags
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and preview without writing files")
 	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format (for IDE integration, requires --dry-run)")
+	cmd.Flags().BoolVar(&includeTests, "include-tests", false, "Also generate *_test.go files")
 
 	// Add config subcommand
 	cmd.AddCommand(configCmd())
@@ -311,7 +313,7 @@ func formatStringSlice(ss []string) string {
 	return "[" + strings.Join(quoted, ", ") + "]"
 }
 
-func runDryRun(ctx context.Context, args []string, jsonOutput bool) error {
+func runDryRun(ctx context.Context, args []string, jsonOutput bool, includeTests bool) error {
 	// Use silent logger for JSON output to avoid polluting stdout
 	var log *genkit.Logger
 	if jsonOutput {
@@ -379,6 +381,7 @@ func runDryRun(ctx context.Context, args []string, jsonOutput bool) error {
 
 	gen := genkit.New(genkit.Options{
 		IgnoreGeneratedFiles: true,
+		IncludeTests:         includeTests,
 	})
 	if err := gen.Load(args...); err != nil {
 		return fmt.Errorf("load: %w", err)
@@ -483,7 +486,7 @@ func printDryRunResult(result *genkit.DryRunResult, log *genkit.Logger) error {
 	return nil
 }
 
-func run(ctx context.Context, args []string) error {
+func run(ctx context.Context, args []string, includeTests bool) error {
 	log := genkit.NewLogger()
 
 	// Determine config search directory from first argument
@@ -546,6 +549,7 @@ func run(ctx context.Context, args []string) error {
 
 	gen := genkit.New(genkit.Options{
 		IgnoreGeneratedFiles: true,
+		IncludeTests:         includeTests,
 	})
 	if err := gen.Load(args...); err != nil {
 		return fmt.Errorf("load: %w", err)
