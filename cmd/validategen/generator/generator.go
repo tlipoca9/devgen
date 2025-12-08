@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tlipoca9/devgen/cmd/validategen/rules"
 	"github.com/tlipoca9/devgen/genkit"
 )
 
@@ -905,6 +906,20 @@ func (vg *Generator) Config() genkit.ToolConfig {
 					},
 				},
 			},
+		},
+	}
+}
+
+// Rules implements genkit.RuleTool.
+// Returns AI-friendly documentation for validategen.
+func (vg *Generator) Rules() []genkit.Rule {
+	return []genkit.Rule{
+		{
+			Name:        "devgen-tool-validategen",
+			Description: "Go 结构体验证代码生成工具 validategen 的使用指南。当用户需要为结构体生成 Validate() 方法、添加字段验证规则时使用此规则。",
+			Globs:       []string{"*.go"},
+			AlwaysApply: false,
+			Content:     rules.ValidategenRule,
 		},
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 
+	devgenrules "github.com/tlipoca9/devgen/cmd/devgen/rules"
 	enumgen "github.com/tlipoca9/devgen/cmd/enumgen/generator"
 	golangcilint "github.com/tlipoca9/devgen/cmd/golangcilint/generator"
 	validategen "github.com/tlipoca9/devgen/cmd/validategen/generator"
@@ -83,6 +84,9 @@ External plugins can be configured in devgen.toml:
 
 	// Add config subcommand
 	cmd.AddCommand(configCmd())
+
+	// Add rules subcommand
+	cmd.AddCommand(rulesCmd())
 
 	return cmd
 }
@@ -578,4 +582,261 @@ func run(ctx context.Context, args []string) error {
 	}
 
 	return nil
+}
+
+// AgentConfig defines the configuration for an AI agent's rules format.
+type AgentConfig struct {
+	// Name is the agent name (e.g., "codebuddy", "cursor").
+	Name string
+	// RulesDir is the directory where rules are stored.
+	RulesDir string
+	// FileExt is the file extension for rules files.
+	FileExt string
+	// FrontmatterFormat is the format for rule frontmatter.
+	// Supported: "yaml" (CodeBuddy, Cursor)
+	FrontmatterFormat string
+}
+
+// supportedAgents defines all supported AI agents.
+var supportedAgents = map[string]AgentConfig{
+	"codebuddy": {
+		Name:              "codebuddy",
+		RulesDir:          ".codebuddy/rules",
+		FileExt:           ".md",
+		FrontmatterFormat: "yaml",
+	},
+	// Future agents can be added here:
+	// "cursor": {
+	// 	Name:              "cursor",
+	// 	RulesDir:          ".cursor/rules",
+	// 	FileExt:           ".mdc",
+	// 	FrontmatterFormat: "yaml",
+	// },
+}
+
+func rulesCmd() *cobra.Command {
+	var agentName string
+	var writeFiles bool
+	var listAgents bool
+
+	cmd := &cobra.Command{
+		Use:   "rules",
+		Short: "Generate AI rules for coding assistants",
+		Long: `Generate AI-friendly rules/documentation for AI coding assistants.
+
+This command generates rules that help AI assistants (like CodeBuddy, Cursor, etc.)
+understand how to use devgen tools correctly. Each tool provides detailed,
+step-by-step documentation with examples.
+
+SUPPORTED AGENTS:
+  codebuddy    Tencent CodeBuddy (.codebuddy/rules/*.md)
+
+WHAT GETS GENERATED:
+  Each tool that implements the RuleTool interface will generate a rule file
+  containing:
+    • Tool overview and when to use it
+    • Step-by-step usage guide
+    • Annotation reference with examples
+    • Common mistakes and how to avoid them
+    • Complete working examples
+
+OUTPUT:
+  By default, rules are printed to stdout.
+  Use -w/--write to write files to the appropriate directory.`,
+		Example: `  # List supported agents
+  devgen rules --list-agents
+
+  # Preview rules for CodeBuddy (stdout)
+  devgen rules --agent codebuddy
+
+  # Generate and write rules for CodeBuddy
+  devgen rules --agent codebuddy -w`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if listAgents {
+				return listSupportedAgents()
+			}
+			if agentName == "" {
+				return fmt.Errorf("--agent is required. Use --list-agents to see supported agents")
+			}
+			return runRules(cmd.Context(), agentName, writeFiles)
+		},
+	}
+
+	cmd.Flags().StringVar(&agentName, "agent", "", "Target AI agent (e.g., codebuddy)")
+	cmd.Flags().BoolVarP(&writeFiles, "write", "w", false, "Write rules to files instead of stdout")
+	cmd.Flags().BoolVar(&listAgents, "list-agents", false, "List supported AI agents")
+
+	return cmd
+}
+
+func listSupportedAgents() error {
+	fmt.Println("Supported AI agents:")
+	fmt.Println()
+	for name, cfg := range supportedAgents {
+		fmt.Printf("  %-12s  %s/*%s\n", name, cfg.RulesDir, cfg.FileExt)
+	}
+	fmt.Println()
+	fmt.Println("Usage: devgen rules --agent <name> [-w]")
+	return nil
+}
+
+func runRules(ctx context.Context, agentName string, writeFiles bool) error {
+	log := genkit.NewLogger()
+
+	// Validate agent
+	agent, ok := supportedAgents[strings.ToLower(agentName)]
+	if !ok {
+		return fmt.Errorf("unsupported agent %q. Use --list to see supported agents", agentName)
+	}
+
+	// Load config to get plugins
+	configSearchDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("get working directory: %w", err)
+	}
+
+	cfg, err := genkit.LoadConfig(configSearchDir)
+	if err != nil {
+		cfg = &genkit.Config{}
+	}
+
+	// Collect all tools
+	tools := make([]genkit.Tool, 0, len(builtinTools)+len(cfg.Plugins))
+	toolNames := make(map[string]bool)
+
+	// Load external plugins first
+	if len(cfg.Plugins) > 0 {
+		loader := genkit.NewPluginLoader("")
+		pluginTools, err := loader.LoadPlugins(ctx, cfg)
+		if err != nil {
+			return fmt.Errorf("load plugins: %w", err)
+		}
+		for _, tool := range pluginTools {
+			tools = append(tools, tool)
+			toolNames[tool.Name()] = true
+		}
+	}
+
+	// Add built-in tools
+	for _, tool := range builtinTools {
+		if !toolNames[tool.Name()] {
+			tools = append(tools, tool)
+		}
+	}
+
+	// Collect rules from tools
+	var allRules []genkit.Rule
+
+	// Add devgen's own rules first
+	allRules = append(allRules, devgenRules()...)
+
+	// Add rules from tools
+	for _, tool := range tools {
+		if rt, ok := tool.(genkit.RuleTool); ok {
+			rules := rt.Rules()
+			allRules = append(allRules, rules...)
+		}
+	}
+
+	if len(allRules) == 0 {
+		log.Warn("No rules found (no tools implement RuleTool interface)")
+		return nil
+	}
+
+	// Generate output
+	if writeFiles {
+		return writeRuleFiles(agent, allRules, log)
+	}
+	return printRules(agent, allRules)
+}
+
+func printRules(agent AgentConfig, rules []genkit.Rule) error {
+	for i, rule := range rules {
+		if i > 0 {
+			fmt.Println("\n" + strings.Repeat("=", 80) + "\n")
+		}
+		fmt.Printf("# File: %s/%s%s\n\n", agent.RulesDir, rule.Name, agent.FileExt)
+		fmt.Print(formatRuleContent(agent, rule))
+	}
+	return nil
+}
+
+func writeRuleFiles(agent AgentConfig, rules []genkit.Rule, log *genkit.Logger) error {
+	// Create rules directory
+	if err := os.MkdirAll(agent.RulesDir, 0755); err != nil {
+		return fmt.Errorf("create directory %s: %w", agent.RulesDir, err)
+	}
+
+	log.Info("Generating rules for %s...", agent.Name)
+
+	for _, rule := range rules {
+		filename := filepath.Join(agent.RulesDir, rule.Name+agent.FileExt)
+		content := formatRuleContent(agent, rule)
+
+		if err := os.WriteFile(filename, []byte(content), 0644); err != nil {
+			return fmt.Errorf("write %s: %w", filename, err)
+		}
+	}
+
+	log.Done("Generated %v rule file(s) in %s", len(rules), agent.RulesDir)
+	for _, rule := range rules {
+		filename := filepath.Join(agent.RulesDir, rule.Name+agent.FileExt)
+		log.Item("%s", filename)
+	}
+	return nil
+}
+
+func formatRuleContent(agent AgentConfig, rule genkit.Rule) string {
+	var sb strings.Builder
+
+	// Write frontmatter
+	switch agent.FrontmatterFormat {
+	case "yaml":
+		sb.WriteString("---\n")
+		sb.WriteString(fmt.Sprintf("description: %s\n", rule.Description))
+		if len(rule.Globs) > 0 {
+			sb.WriteString(fmt.Sprintf("globs: %s\n", strings.Join(rule.Globs, ", ")))
+		}
+		sb.WriteString(fmt.Sprintf("alwaysApply: %t\n", rule.AlwaysApply))
+		sb.WriteString("---\n\n")
+	}
+
+	// Write content
+	sb.WriteString(rule.Content)
+
+	return sb.String()
+}
+
+// devgenRules returns the rules for devgen itself.
+func devgenRules() []genkit.Rule {
+	return []genkit.Rule{
+		{
+			Name:        "devgen",
+			Description: "devgen 代码生成工具集使用指南。包含安装、命令行用法、配置文件、故障排查等。",
+			Globs:       []string{"**/devgen.toml", "**/*.go"},
+			AlwaysApply: false,
+			Content:     devgenrules.DevgenRule,
+		},
+		{
+			Name:        "devgen-plugin",
+			Description: "devgen 插件开发指南。介绍如何使用 genkit 框架开发自定义代码生成插件。",
+			Globs:       []string{"**/*.go"},
+			AlwaysApply: false,
+			Content:     devgenrules.DevgenPluginRule,
+		},
+		{
+			Name:        "devgen-genkit",
+			Description: "genkit API 参考。包含 Generator、GeneratedFile、Package、Type 等数据结构和注解解析函数。",
+			Globs:       []string{"**/*.go"},
+			AlwaysApply: false,
+			Content:     devgenrules.DevgenGenkitRule,
+		},
+		{
+			Name:        "devgen-rules",
+			Description: "devgen AI Rules 系统说明。介绍如何查看、生成和编写 AI rules。",
+			Globs:       []string{"**/*.go"},
+			AlwaysApply: true,
+			Content:     devgenrules.DevgenRulesRule,
+		},
+	}
 }
