@@ -29,7 +29,49 @@ npm install -g @vscode/vsce
 
 ### Step 1: 前置检查
 
-#### 1.1 检查 Rules 接口是否需要更新
+#### 1.1 检查 Config 接口是否需要更新
+
+`Config()` 方法返回 `genkit.ToolConfig`，定义了工具的注解配置，供 VSCode 插件用于语法高亮和自动补全。**只有当注解语法发生变化时才需要更新。**
+
+**需要更新 Config 的情况：**
+- 新增/修改/删除注解名称（如新增 `@newannotation`）
+- 修改注解参数（如 `@enum(string)` 新增参数 `@enum(string, json)`）
+- 修改注解适用范围（type/field）
+
+**不需要更新 Config 的情况：**
+- 内部生成逻辑变更（不影响注解语法）
+- Bug 修复
+- 性能优化
+
+**检查步骤：**
+
+```bash
+# 1. 查看 generator 文件变更
+git diff --name-only HEAD~5 | grep -E 'cmd/.*/generator/.*\.go$'
+
+# 2. 如果有变更，检查 Config() 方法是否有改动
+git diff HEAD~5 -- cmd/enumgen/generator/generator.go cmd/validategen/generator/generator.go | grep -A 20 'func.*Config()'
+
+# 3. 判断是否影响注解配置（Annotations 数组的内容）
+```
+
+**如果需要更新，修改以下文件：**
+
+1. **Generator 代码**
+   - `cmd/<tool>/generator/generator.go` 中的 `Config()` 方法
+   - 更新 `genkit.ToolConfig` 的 `Annotations` 字段
+
+2. **Rules 文档**（同步更新注解说明）
+   - `cmd/<tool>/rules/*.md`
+   - 修改后运行 `devgen rules --agent codebuddy -w` 重新生成
+
+3. **README 文档**
+   - `README.md` / `README_EN.md`
+   - `cmd/<tool>/README.md`
+
+**注意**：`Config()` 返回的 `ToolConfig.Annotations` 会被 VSCode 插件读取，用于提供注解的语法高亮和自动补全。
+
+#### 1.2 检查 Rules 接口是否需要更新
 
 Rules 是给 AI 看的工具使用文档，存放在 `cmd/<tool>/rules/` 目录下。**只有当工具的「用户接口」发生变化时才需要更新。**
 
@@ -62,20 +104,6 @@ devgen rules --agent codebuddy -w
 ```
 
 **注意**：`devgen rules` 命令只是从源码中提取 rules 并生成到 `.codebuddy/rules/` 目录，它不会自动判断是否需要更新。你需要先人工判断是否需要修改 `cmd/<tool>/rules/*.md` 源文件。
-
-#### 1.2 检查 Config 接口是否需要更新
-
-根据代码变更判断是否需要更新配置文档：
-
-```bash
-# 查看配置相关变更
-git diff HEAD~5 -- '**/*config*.go' '**/flags.go'
-
-# 如果有以下变更，需要更新 devgen.toml 和文档：
-# - 新增配置字段
-# - 修改配置默认值
-# - 新增命令行参数
-```
 
 #### 1.3 更新文档
 
