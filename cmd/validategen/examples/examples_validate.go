@@ -25,8 +25,9 @@ var (
 	_validateRegex1        = regexp.MustCompile(`^[A-Z]{2}-\d{4}$`)
 )
 
-// Validate validates the User fields.
-func (x User) Validate() error {
+// _validate performs field-level validation for User.
+// This method excludes @method validations for easier testing.
+func (x User) _validate() []string {
 	var errs []string
 
 	if x.ID == 0 {
@@ -89,11 +90,19 @@ func (x User) Validate() error {
 	if x.Code != "" && !_validateRegexAlphanum.MatchString(x.Code) {
 		errs = append(errs, fmt.Sprintf("Code must contain only letters and numbers, got %q", x.Code))
 	}
-	if err := x.Address.Validate(); err != nil {
-		errs = append(errs, fmt.Sprintf("Address: %v", err))
-	}
 	if x.OptionalAddress == nil {
 		errs = append(errs, "OptionalAddress is required")
+	}
+
+	return errs
+}
+
+// _validateMethod performs nested validation via @method annotations.
+func (x User) _validateMethod() []string {
+	var errs []string
+
+	if err := x.Address.Validate(); err != nil {
+		errs = append(errs, fmt.Sprintf("Address: %v", err))
 	}
 	if x.OptionalAddress != nil {
 		if err := x.OptionalAddress.Validate(); err != nil {
@@ -114,11 +123,19 @@ func (x User) Validate() error {
 		}
 	}
 
+	return errs
+}
+
+// Validate validates the User fields.
+func (x User) Validate() error {
+	errs := x._validate()
+	errs = append(errs, x._validateMethod()...)
 	return x.postValidate(errs)
 }
 
-// Validate validates the Config fields.
-func (x Config) Validate() error {
+// _validate performs field-level validation for Config.
+// This method excludes @method validations for easier testing.
+func (x Config) _validate() []string {
 	var errs []string
 
 	if x.Host == "" {
@@ -147,14 +164,21 @@ func (x Config) Validate() error {
 		errs = append(errs, fmt.Sprintf("LogLevel must be one of [debug, info, warn, error], got %q", x.LogLevel))
 	}
 
+	return errs
+}
+
+// Validate validates the Config fields.
+func (x Config) Validate() error {
+	errs := x._validate()
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return nil
 }
 
-// Validate validates the NetworkConfig fields.
-func (x NetworkConfig) Validate() error {
+// _validate performs field-level validation for NetworkConfig.
+// This method excludes @method validations for easier testing.
+func (x NetworkConfig) _validate() []string {
 	var errs []string
 
 	if x.IPv4Address != "" {
@@ -201,14 +225,21 @@ func (x NetworkConfig) Validate() error {
 		}
 	}
 
+	return errs
+}
+
+// Validate validates the NetworkConfig fields.
+func (x NetworkConfig) Validate() error {
+	errs := x._validate()
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return nil
 }
 
-// Validate validates the Product fields.
-func (x Product) Validate() error {
+// _validate performs field-level validation for Product.
+// This method excludes @method validations for easier testing.
+func (x Product) _validate() []string {
 	var errs []string
 
 	if x.ID == 0 {
@@ -236,14 +267,21 @@ func (x Product) Validate() error {
 		errs = append(errs, fmt.Sprintf("Weight must be at most 1000, got %v", x.Weight))
 	}
 
+	return errs
+}
+
+// Validate validates the Product fields.
+func (x Product) Validate() error {
+	errs := x._validate()
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return nil
 }
 
-// Validate validates the StringPatterns fields.
-func (x StringPatterns) Validate() error {
+// _validate performs field-level validation for StringPatterns.
+// This method excludes @method validations for easier testing.
+func (x StringPatterns) _validate() []string {
 	var errs []string
 
 	if x.FirstName != "" && !_validateRegexAlpha.MatchString(x.FirstName) {
@@ -271,14 +309,21 @@ func (x StringPatterns) Validate() error {
 		errs = append(errs, fmt.Sprintf("ProductCode must match pattern %s, got %q", `^[A-Z]{2}-\d{4}$`, x.ProductCode))
 	}
 
+	return errs
+}
+
+// Validate validates the StringPatterns fields.
+func (x StringPatterns) Validate() error {
+	errs := x._validate()
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return nil
 }
 
-// Validate validates the AllNumericTypes fields.
-func (x AllNumericTypes) Validate() error {
+// _validate performs field-level validation for AllNumericTypes.
+// This method excludes @method validations for easier testing.
+func (x AllNumericTypes) _validate() []string {
 	var errs []string
 
 	if x.Int <= 0 {
@@ -327,14 +372,21 @@ func (x AllNumericTypes) Validate() error {
 		errs = append(errs, fmt.Sprintf("Uintptr must be greater than 0, got %v", x.Uintptr))
 	}
 
+	return errs
+}
+
+// Validate validates the AllNumericTypes fields.
+func (x AllNumericTypes) Validate() error {
+	errs := x._validate()
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return nil
 }
 
-// Validate validates the BoolExample fields.
-func (x BoolExample) Validate() error {
+// _validate performs field-level validation for BoolExample.
+// This method excludes @method validations for easier testing.
+func (x BoolExample) _validate() []string {
 	var errs []string
 
 	if !x.IsActive {
@@ -343,15 +395,25 @@ func (x BoolExample) Validate() error {
 	if x.MustBeTrue != true {
 		errs = append(errs, fmt.Sprintf("MustBeTrue must equal true, got %v", x.MustBeTrue))
 	}
+	if x.MustBeFalse == true {
+		errs = append(errs, "MustBeFalse must not equal true")
+	}
 
+	return errs
+}
+
+// Validate validates the BoolExample fields.
+func (x BoolExample) Validate() error {
+	errs := x._validate()
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return nil
 }
 
-// Validate validates the SliceExample fields.
-func (x SliceExample) Validate() error {
+// _validate performs field-level validation for SliceExample.
+// This method excludes @method validations for easier testing.
+func (x SliceExample) _validate() []string {
 	var errs []string
 
 	if len(x.Items) == 0 {
@@ -366,15 +428,25 @@ func (x SliceExample) Validate() error {
 	if len(x.FixedItems) != 3 {
 		errs = append(errs, fmt.Sprintf("FixedItems must have exactly 3 elements, got %d", len(x.FixedItems)))
 	}
+	if len(x.RequiredMap) == 0 {
+		errs = append(errs, "RequiredMap is required")
+	}
 
+	return errs
+}
+
+// Validate validates the SliceExample fields.
+func (x SliceExample) Validate() error {
+	errs := x._validate()
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}
 	return nil
 }
 
-// Validate validates the FormatExample fields.
-func (x FormatExample) Validate() error {
+// _validate performs field-level validation for FormatExample.
+// This method excludes @method validations for easier testing.
+func (x FormatExample) _validate() []string {
 	var errs []string
 
 	if x.JSONConfig != "" {
@@ -401,6 +473,136 @@ func (x FormatExample) Validate() error {
 		}
 	}
 
+	return errs
+}
+
+// Validate validates the FormatExample fields.
+func (x FormatExample) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for PointerExample.
+// This method excludes @method validations for easier testing.
+func (x PointerExample) _validate() []string {
+	var errs []string
+
+	if x.OptionalName != nil && len(*x.OptionalName) < 2 {
+		errs = append(errs, fmt.Sprintf("OptionalName must be at least 2 characters, got %d", len(*x.OptionalName)))
+	}
+	if x.OptionalName != nil && len(*x.OptionalName) > 10 {
+		errs = append(errs, fmt.Sprintf("OptionalName must be at most 10 characters, got %d", len(*x.OptionalName)))
+	}
+	if x.OptionalAge != nil && *x.OptionalAge < 0 {
+		errs = append(errs, fmt.Sprintf("OptionalAge must be at least 0, got %v", *x.OptionalAge))
+	}
+	if x.OptionalAge != nil && *x.OptionalAge > 100 {
+		errs = append(errs, fmt.Sprintf("OptionalAge must be at most 100, got %v", *x.OptionalAge))
+	}
+	if x.OptionalScore != nil && *x.OptionalScore < 0.0 {
+		errs = append(errs, fmt.Sprintf("OptionalScore must be at least 0.0, got %v", *x.OptionalScore))
+	}
+	if x.OptionalScore != nil && *x.OptionalScore > 100.0 {
+		errs = append(errs, fmt.Sprintf("OptionalScore must be at most 100.0, got %v", *x.OptionalScore))
+	}
+
+	return errs
+}
+
+// Validate validates the PointerExample fields.
+func (x PointerExample) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for StringEqNeExample.
+// This method excludes @method validations for easier testing.
+func (x StringEqNeExample) _validate() []string {
+	var errs []string
+
+	if x.Version != "v1" {
+		errs = append(errs, fmt.Sprintf("Version must equal v1, got %q", x.Version))
+	}
+	if x.Status == "banned" {
+		errs = append(errs, "Status must not equal banned")
+	}
+
+	return errs
+}
+
+// Validate validates the StringEqNeExample fields.
+func (x StringEqNeExample) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for NumericOneofExample.
+// This method excludes @method validations for easier testing.
+func (x NumericOneofExample) _validate() []string {
+	var errs []string
+
+	if !func() bool {
+		for _, v := range []int{1, 2, 3, 4, 5} {
+			if x.Priority == v {
+				return true
+			}
+		}
+		return false
+	}() {
+		errs = append(errs, fmt.Sprintf("Priority must be one of [1, 2, 3, 4, 5], got %v", x.Priority))
+	}
+	if !func() bool {
+		for _, v := range []int64{100, 200, 300} {
+			if x.StatusCode == v {
+				return true
+			}
+		}
+		return false
+	}() {
+		errs = append(errs, fmt.Sprintf("StatusCode must be one of [100, 200, 300], got %v", x.StatusCode))
+	}
+
+	return errs
+}
+
+// Validate validates the NumericOneofExample fields.
+func (x NumericOneofExample) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for EnumExample.
+// This method excludes @method validations for easier testing.
+func (x EnumExample) _validate() []string {
+	var errs []string
+
+	// Valid values:
+	//   - OrderStatusPending
+	//   - OrderStatusPaid
+	//   - OrderStatusShipped
+	//   - OrderStatusDelivered
+	if !OrderStatusEnums.ContainsName(fmt.Sprintf("%v", x.Status)) {
+		errs = append(errs, fmt.Sprintf("Status must be one of %v, got %v", OrderStatusEnums.Names(), x.Status))
+	}
+
+	return errs
+}
+
+// Validate validates the EnumExample fields.
+func (x EnumExample) Validate() error {
+	errs := x._validate()
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))
 	}

@@ -255,6 +255,9 @@ type BoolExample struct {
 
 	// validategen:@eq(true)
 	MustBeTrue bool
+
+	// validategen:@ne(true)
+	MustBeFalse bool
 }
 
 // SliceExample demonstrates slice validation.
@@ -267,6 +270,9 @@ type SliceExample struct {
 
 	// validategen:@len(3)
 	FixedItems []int
+
+	// validategen:@required
+	RequiredMap map[string]int
 }
 
 // FormatExample demonstrates format validation annotations.
@@ -283,4 +289,58 @@ type FormatExample struct {
 
 	// validategen:@format(csv)
 	CSVData string
+}
+
+// PointerExample demonstrates pointer type validation.
+// validategen:@validate
+type PointerExample struct {
+	// validategen:@min(2)
+	// validategen:@max(10)
+	OptionalName *string
+
+	// validategen:@min(0)
+	// validategen:@max(100)
+	OptionalAge *int
+
+	// validategen:@min(0.0)
+	// validategen:@max(100.0)
+	OptionalScore *float64
+}
+
+// StringEqNeExample demonstrates eq/ne on string type.
+// validategen:@validate
+type StringEqNeExample struct {
+	// validategen:@eq(v1)
+	Version string
+
+	// validategen:@ne(banned)
+	Status string
+}
+
+// NumericOneofExample demonstrates oneof on numeric type.
+// validategen:@validate
+type NumericOneofExample struct {
+	// validategen:@oneof(1 2 3 4 5)
+	Priority int
+
+	// validategen:@oneof(100 200 300)
+	StatusCode int64
+}
+
+// OrderStatus is an enum type for testing oneof_enum.
+// enumgen:@enum(string)
+type OrderStatus int
+
+const (
+	OrderStatusPending OrderStatus = iota + 1
+	OrderStatusPaid
+	OrderStatusShipped
+	OrderStatusDelivered
+)
+
+// EnumExample demonstrates oneof_enum validation.
+// validategen:@validate
+type EnumExample struct {
+	// validategen:@oneof_enum(OrderStatus)
+	Status OrderStatus
 }

@@ -23,7 +23,7 @@ install:
 test:
 	@mkdir -p _output/tests
 	@if command -v ginkgo >/dev/null 2>&1; then \
-		ginkgo -v --cover --coverprofile=_output/tests/coverage.out ./...; \
+		ginkgo -v --keep-going --cover --coverprofile=_output/tests/coverage.out ./...; \
 	else \
 		go test -v -coverprofile=_output/tests/coverage.out ./...; \
 	fi
