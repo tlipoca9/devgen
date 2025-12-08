@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/tlipoca9/devgen/cmd/enumgen/rules"
 	"github.com/tlipoca9/devgen/genkit"
 )
 
@@ -67,6 +68,10 @@ func (eg *Generator) Name() string {
 
 // Config returns the tool configuration for VSCode extension integration.
 func (eg *Generator) Config() genkit.ToolConfig {
+	return eg.config()
+}
+
+func (eg *Generator) config() genkit.ToolConfig {
 	return genkit.ToolConfig{
 		OutputSuffix: "_enum.go",
 		Annotations: []genkit.AnnotationConfig{
@@ -162,6 +167,20 @@ NOTE:
 					Placeholder: "custom_name",
 				},
 			},
+		},
+	}
+}
+
+// Rules implements genkit.RuleTool.
+// Returns AI-friendly documentation for enumgen.
+func (eg *Generator) Rules() []genkit.Rule {
+	return []genkit.Rule{
+		{
+			Name:        "devgen-tool-enumgen",
+			Description: "Go 枚举代码生成工具 enumgen 的使用指南。当用户需要定义类型安全的枚举、生成枚举辅助方法（String、JSON、SQL等）时使用此规则。",
+			Globs:       []string{"*.go"},
+			AlwaysApply: false,
+			Content:     rules.EnumgenRule,
 		},
 	}
 }
