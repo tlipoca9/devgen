@@ -299,8 +299,42 @@ async function detectAndGenerateRules(): Promise<void> {
         return;
     }
     
+    // Check user preference for auto-generation
+    const config = vscode.workspace.getConfiguration('devgen');
+    const autoGenerate = config.get<string>('rules.autoGenerate') ?? 'ask';
+    
+    if (autoGenerate === 'never') {
+        outputChannel.appendLine('[Rules] Auto-generation disabled by user preference');
+        return;
+    }
+    
     const workspaceDir = workspaceFolders[0].uri.fsPath;
     const devgenPath = getDevgenPath();
+    
+    // If "ask" mode, prompt user before generating
+    if (autoGenerate === 'ask') {
+        const result = await vscode.window.showInformationMessage(
+            `检测到 AI IDE (${appName})，是否生成 devgen rules 以获得更好的 AI 编码体验？`,
+            { modal: false },
+            '生成',
+            '始终生成',
+            '不再提示'
+        );
+        
+        if (result === '始终生成') {
+            // Save to workspace settings (per-project)
+            await config.update('rules.autoGenerate', 'always', vscode.ConfigurationTarget.Workspace);
+            outputChannel.appendLine('[Rules] User chose to always auto-generate for this workspace');
+        } else if (result === '不再提示') {
+            // Save to workspace settings (per-project)
+            await config.update('rules.autoGenerate', 'never', vscode.ConfigurationTarget.Workspace);
+            outputChannel.appendLine('[Rules] User chose to never auto-generate for this workspace');
+            return;
+        } else if (result !== '生成') {
+            outputChannel.appendLine('[Rules] User dismissed the prompt, skipping rules generation');
+            return;
+        }
+    }
     
     try {
         outputChannel.appendLine(`[Rules] Running: ${devgenPath} rules --agent ${agentName} -w --no-color`);
@@ -322,6 +356,11 @@ async function detectAndGenerateRules(): Promise<void> {
         }
         
         outputChannel.appendLine('[Rules] Rules generated successfully');
+        
+        // Show success message only in "ask" mode
+        if (autoGenerate === 'ask') {
+            vscode.window.showInformationMessage('DevGen rules 已生成');
+        }
     } catch (error) {
         const errorMsg = error instanceof Error ? error.message : String(error);
         outputChannel.appendLine(`[Rules] Error generating rules: ${errorMsg}`);
