@@ -714,6 +714,246 @@ type NE struct {
 					Expect(code).To(ContainSubstring("must not equal 0"))
 				}
 			})
+
+			It("should generate gte validation for pointer to int", func() {
+				testFile := filepath.Join(tempDir, "gteptr.go")
+				content := `package testpkg
+
+// GTEPtr has gte validation for pointer to int.
+// validategen:@validate
+type GTEPtr struct {
+	// validategen:@gte(0)
+	Age *int
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("if x.Age != nil && *x.Age < 0"))
+					Expect(code).To(ContainSubstring("must be at least 0"))
+				}
+			})
+
+			It("should generate lte validation for pointer to float64", func() {
+				testFile := filepath.Join(tempDir, "lteptr.go")
+				content := `package testpkg
+
+// LTEPtr has lte validation for pointer to float64.
+// validategen:@validate
+type LTEPtr struct {
+	// validategen:@lte(100)
+	Score *float64
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("if x.Score != nil && *x.Score > 100"))
+					Expect(code).To(ContainSubstring("must be at most 100"))
+				}
+			})
+
+			It("should generate gt validation for pointer to int64", func() {
+				testFile := filepath.Join(tempDir, "gtptr.go")
+				content := `package testpkg
+
+// GTPtr has gt validation for pointer to int64.
+// validategen:@validate
+type GTPtr struct {
+	// validategen:@gt(0)
+	ID *int64
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("if x.ID != nil && *x.ID <= 0"))
+					Expect(code).To(ContainSubstring("must be greater than 0"))
+				}
+			})
+
+			It("should generate lt validation for pointer to int32", func() {
+				testFile := filepath.Join(tempDir, "ltptr.go")
+				content := `package testpkg
+
+// LTPtr has lt validation for pointer to int32.
+// validategen:@validate
+type LTPtr struct {
+	// validategen:@lt(100)
+	Count *int32
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("if x.Count != nil && *x.Count >= 100"))
+					Expect(code).To(ContainSubstring("must be less than 100"))
+				}
+			})
+
+			It("should generate min validation for pointer to uint", func() {
+				testFile := filepath.Join(tempDir, "minptr.go")
+				content := `package testpkg
+
+// MinPtr has min validation for pointer to uint.
+// validategen:@validate
+type MinPtr struct {
+	// validategen:@min(1)
+	Quantity *uint
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("if x.Quantity != nil && *x.Quantity < 1"))
+					Expect(code).To(ContainSubstring("must be at least 1"))
+				}
+			})
+
+			It("should generate max validation for pointer to int", func() {
+				testFile := filepath.Join(tempDir, "maxptr.go")
+				content := `package testpkg
+
+// MaxPtr has max validation for pointer to int.
+// validategen:@validate
+type MaxPtr struct {
+	// validategen:@max(1000)
+	Limit *int
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("if x.Limit != nil && *x.Limit > 1000"))
+					Expect(code).To(ContainSubstring("must be at most 1000"))
+				}
+			})
+
+			It("should generate eq validation for pointer to int", func() {
+				testFile := filepath.Join(tempDir, "eqptr.go")
+				content := `package testpkg
+
+// EQPtr has eq validation for pointer to int.
+// validategen:@validate
+type EQPtr struct {
+	// validategen:@eq(1)
+	Version *int
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("if x.Version != nil && *x.Version != 1"))
+					Expect(code).To(ContainSubstring("must equal 1"))
+				}
+			})
+
+			It("should generate ne validation for pointer to int", func() {
+				testFile := filepath.Join(tempDir, "neptr.go")
+				content := `package testpkg
+
+// NEPtr has ne validation for pointer to int.
+// validategen:@validate
+type NEPtr struct {
+	// validategen:@ne(0)
+	Stock *int
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("if x.Stock != nil && *x.Stock == 0"))
+					Expect(code).To(ContainSubstring("must not equal 0"))
+				}
+			})
 		})
 
 		Describe("Oneof validation", func() {
@@ -1986,6 +2226,48 @@ type UnknownFormat struct {
 				Expect(diagnostics).To(HaveLen(1))
 				Expect(diagnostics[0].Code).To(Equal(generator.ErrCodeFormatUnsupported))
 				Expect(diagnostics[0].Message).To(ContainSubstring("unsupported format"))
+			})
+
+			It("should not return diagnostic for pointer to numeric type with comparison annotations", func() {
+				testFile := filepath.Join(tempDir, "ptrnumeric.go")
+				content := `package testpkg
+
+// PtrNumeric has comparison validations on pointer to numeric types.
+// validategen:@validate
+type PtrNumeric struct {
+	// validategen:@gte(0)
+	Age *int
+
+	// validategen:@lte(100)
+	Score *float64
+
+	// validategen:@gt(0)
+	ID *int64
+
+	// validategen:@lt(1000)
+	Count *int32
+
+	// validategen:@min(1)
+	Quantity *uint
+
+	// validategen:@max(999)
+	Limit *int
+
+	// validategen:@eq(1)
+	Version *int
+
+	// validategen:@ne(0)
+	Stock *int
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				diagnostics := gen.Validate(gk, genkit.NewLoggerWithWriter(io.Discard))
+				Expect(diagnostics).To(BeEmpty(), "Expected no diagnostics for pointer to numeric types")
 			})
 		})
 	})
