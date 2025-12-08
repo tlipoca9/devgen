@@ -46,6 +46,27 @@ vscode:
 	@cd vscode-devgen && sed -i '' 's/"version": "[^"]*"/"version": "$(VSCODE_VERSION)"/' package.json
 	cd vscode-devgen && npm run compile && npm run package
 
+# Install VSCode extension to current IDE
+# Auto-detects IDE from TERM_PROGRAM env var: vscode, codebuddy
+# Usage: make vscode-install [IDE=code|buddycn]
+vscode-install: vscode
+	@IDE_CMD=""; \
+	if [ -n "$(IDE)" ]; then \
+		IDE_CMD="$(IDE)"; \
+	elif [ "$$TERM_PROGRAM" = "vscode" ]; then \
+		IDE_CMD="code"; \
+	elif [ "$$TERM_PROGRAM" = "codebuddy" ]; then \
+		IDE_CMD="buddycn"; \
+	elif command -v buddycn >/dev/null 2>&1; then \
+		IDE_CMD="buddycn"; \
+	elif command -v code >/dev/null 2>&1; then \
+		IDE_CMD="code"; \
+	else \
+		echo "Error: No IDE detected. Set IDE=code|buddycn"; exit 1; \
+	fi; \
+	echo "Installing to $$IDE_CMD..."; \
+	cd vscode-devgen && $$IDE_CMD --install-extension devgen-$(VSCODE_VERSION).vsix
+
 # Publish a new version: bump version, build vscode extension, amend commit, and re-tag
 # Usage: make publish RELEASE_VERSION=0.1.4
 publish:
@@ -72,12 +93,13 @@ tools:
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  all     - Run lint, test, and build (default)"
-	@echo "  build   - Build all packages"
-	@echo "  test    - Run tests with coverage (ginkgo or go test)"
-	@echo "  lint    - Run golangci-lint"
-	@echo "  tidy    - Tidy dependencies"
-	@echo "  clean   - Clean build artifacts"
-	@echo "  vscode  - Generate and build VSCode extension"
-	@echo "  publish - Publish new version (Usage: make publish RELEASE_VERSION=x.y.z)"
-	@echo "  tools   - Install development tools"
+	@echo "  all           - Run lint, test, and build (default)"
+	@echo "  build         - Build all packages"
+	@echo "  test          - Run tests with coverage (ginkgo or go test)"
+	@echo "  lint          - Run golangci-lint"
+	@echo "  tidy          - Tidy dependencies"
+	@echo "  clean         - Clean build artifacts"
+	@echo "  vscode        - Build VSCode extension"
+	@echo "  vscode-install- Build and install VSCode extension (auto-detects IDE)"
+	@echo "  publish       - Publish new version (Usage: make publish RELEASE_VERSION=x.y.z)"
+	@echo "  tools         - Install development tools"

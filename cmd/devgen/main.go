@@ -618,6 +618,7 @@ func rulesCmd() *cobra.Command {
 	var agentName string
 	var writeFiles bool
 	var listAgents bool
+	var noColor bool
 
 	cmd := &cobra.Command{
 		Use:   "rules",
@@ -658,13 +659,14 @@ OUTPUT:
 			if agentName == "" {
 				return fmt.Errorf("--agent is required. Use --list-agents to see supported agents")
 			}
-			return runRules(cmd.Context(), agentName, writeFiles)
+			return runRules(cmd.Context(), agentName, writeFiles, noColor)
 		},
 	}
 
 	cmd.Flags().StringVar(&agentName, "agent", "", "Target AI agent (e.g., codebuddy)")
 	cmd.Flags().BoolVarP(&writeFiles, "write", "w", false, "Write rules to files instead of stdout")
 	cmd.Flags().BoolVar(&listAgents, "list-agents", false, "List supported AI agents")
+	cmd.Flags().BoolVar(&noColor, "no-color", false, "Disable colored output")
 
 	return cmd
 }
@@ -680,8 +682,8 @@ func listSupportedAgents() error {
 	return nil
 }
 
-func runRules(ctx context.Context, agentName string, writeFiles bool) error {
-	log := genkit.NewLogger()
+func runRules(ctx context.Context, agentName string, writeFiles bool, noColor bool) error {
+	log := genkit.NewLogger().SetNoColor(noColor)
 
 	// Validate agent
 	agent, ok := supportedAgents[strings.ToLower(agentName)]
