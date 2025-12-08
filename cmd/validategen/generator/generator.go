@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tlipoca9/devgen/genkit"
 )
@@ -149,6 +150,18 @@ func (vg *Generator) Config() genkit.ToolConfig {
 			{Name: "ipv4", Type: "field", Doc: "Must be a valid IPv4 address"},
 			{Name: "ipv6", Type: "field", Doc: "Must be a valid IPv6 address"},
 			{Name: "duration", Type: "field", Doc: "Must be a valid time.Duration string (e.g., 1h30m, 500ms)"},
+			{
+				Name:   "duration_min",
+				Type:   "field",
+				Doc:    "Minimum duration value (e.g., 1s, 5m, 1h)",
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "duration"},
+			},
+			{
+				Name:   "duration_max",
+				Type:   "field",
+				Doc:    "Maximum duration value (e.g., 1h, 24h, 7d)",
+				Params: &genkit.AnnotationParams{Type: "string", Placeholder: "duration"},
+			},
 			{Name: "alpha", Type: "field", Doc: "Must contain only letters"},
 			{Name: "alphanum", Type: "field", Doc: "Must contain only letters and numbers"},
 			{Name: "numeric", Type: "field", Doc: "Must contain only numbers"},
@@ -639,9 +652,11 @@ var rulePriority = map[string]int{
 	"email":    40,
 	"url":      41,
 	"uuid":     42,
-	"ip":       43,
-	"ipv4":     44,
-	"ipv6":     45,
+	"ip":           43,
+	"ipv4":         44,
+	"ipv6":         45,
+	"duration_min": 46,
+	"duration_max": 47,
 	"alpha":    46,
 	"alphanum": 47,
 	"numeric":  48,
@@ -674,6 +689,25 @@ func (vg *Generator) generateFieldValidation(g *genkit.GeneratedFile, fv *fieldV
 		// Same priority: maintain original order (stable sort)
 		return false
 	})
+
+	// Collect duration-related rules to generate them together
+	var hasDuration, hasDurationMin, hasDurationMax bool
+	var durationMinParam, durationMaxParam string
+	for _, rule := range rules {
+		switch rule.Name {
+		case "duration":
+			hasDuration = true
+		case "duration_min":
+			hasDurationMin = true
+			durationMinParam = rule.Param
+		case "duration_max":
+			hasDurationMax = true
+			durationMaxParam = rule.Param
+		}
+	}
+
+	// Track if duration block has been generated
+	durationGenerated := false
 
 	for _, rule := range rules {
 		switch rule.Name {
@@ -725,8 +759,12 @@ func (vg *Generator) generateFieldValidation(g *genkit.GeneratedFile, fv *fieldV
 			vg.genIPv4(g, fieldName)
 		case "ipv6":
 			vg.genIPv6(g, fieldName)
-		case "duration":
-			vg.genDuration(g, fieldName)
+		case "duration", "duration_min", "duration_max":
+			// Generate all duration validations together, only once
+			if !durationGenerated {
+				vg.genDurationCombined(g, fieldName, hasDuration, hasDurationMin, durationMinParam, hasDurationMax, durationMaxParam)
+				durationGenerated = true
+			}
 		case "method":
 			vg.genMethod(g, fv.Field, rule.Param)
 		case "regex":
@@ -1409,19 +1447,91 @@ func (vg *Generator) genIPv6(g *genkit.GeneratedFile, fieldName string) {
 	g.P("}")
 }
 
-func (vg *Generator) genDuration(g *genkit.GeneratedFile, fieldName string) {
+func (vg *Generator) genDurationCombined(g *genkit.GeneratedFile, fieldName string, checkFormat, hasMin bool, minParam string, hasMax bool, maxParam string) {
+	// Parse min/max durations at generation time
+	var minNanos, maxNanos int64
+	if hasMin && minParam != "" {
+		if dur, err := time.ParseDuration(minParam); err == nil {
+			minNanos = dur.Nanoseconds()
+		} else {
+			hasMin = false // Invalid duration, skip
+		}
+	}
+	if hasMax && maxParam != "" {
+		if dur, err := time.ParseDuration(maxParam); err == nil {
+			maxNanos = dur.Nanoseconds()
+		} else {
+			hasMax = false // Invalid duration, skip
+		}
+	}
+
+	// If only format check, use simple validation
+	if checkFormat && !hasMin && !hasMax {
+		fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
+		g.P("if x.", fieldName, " != \"\" {")
+		g.P("if _, err := ", genkit.GoImportPath("time").Ident("ParseDuration"), "(x.", fieldName, "); err != nil {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be a valid duration (e.g., 1h30m, 500ms), got %q\", x.",
+			fieldName,
+			"))",
+		)
+		g.P("}")
+		g.P("}")
+		return
+	}
+
+	// Combined validation with min/max
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
+	timePkg := genkit.GoImportPath("time")
+
 	g.P("if x.", fieldName, " != \"\" {")
-	g.P("if _, err := ", genkit.GoImportPath("time").Ident("ParseDuration"), "(x.", fieldName, "); err != nil {")
-	g.P(
-		"errs = append(errs, ",
-		fmtSprintf,
-		"(\"",
-		fieldName,
-		" must be a valid duration (e.g., 1h30m, 500ms), got %q\", x.",
-		fieldName,
-		"))",
-	)
+	g.P("if _dur, _err := ", timePkg.Ident("ParseDuration"), "(x.", fieldName, "); _err != nil {")
+	if checkFormat {
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be a valid duration (e.g., 1h30m, 500ms), got %q\", x.",
+			fieldName,
+			"))",
+		)
+	}
+	g.P("} else {")
+	if hasMin {
+		g.P("if _dur < ", minNanos, " {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be at least ",
+			minParam,
+			", got %s\", x.",
+			fieldName,
+			"))",
+		)
+		g.P("}")
+	}
+	if hasMax {
+		g.P("if _dur > ", maxNanos, " {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be at most ",
+			maxParam,
+			", got %s\", x.",
+			fieldName,
+			"))",
+		)
+		g.P("}")
+	}
 	g.P("}")
 	g.P("}")
 }
@@ -1733,6 +1843,15 @@ func isValidNumber(s string) bool {
 	return false
 }
 
+// isValidDuration checks if a string is a valid Go duration (e.g., "1h", "30m", "500ms").
+func isValidDuration(s string) bool {
+	if s == "" {
+		return false
+	}
+	_, err := time.ParseDuration(s)
+	return err == nil
+}
+
 // Error codes for diagnostics.
 const (
 	ErrCodeMethodMissingParam  = "E001"
@@ -1833,6 +1952,23 @@ func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, typ *genkit.Typ
 				rule.Name,
 				underlyingType,
 			)
+		}
+
+	// Duration range validation - require string underlying type and valid duration parameter
+	case "duration_min", "duration_max":
+		if !isStringType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@%s annotation requires string underlying type, got %s",
+				rule.Name,
+				underlyingType,
+			)
+		}
+		if rule.Param == "" {
+			c.Errorf(ErrCodeMissingParam, field.Pos, "@%s annotation requires a duration parameter", rule.Name)
+		} else if !isValidDuration(rule.Param) {
+			c.Errorf(ErrCodeInvalidParamType, field.Pos, "@%s parameter must be a valid duration (e.g., 1h, 30m, 500ms), got %q", rule.Name, rule.Param)
 		}
 
 	// Annotations that work on string/slice/map (length) or numeric (value)
