@@ -682,6 +682,20 @@ func (vg *Generator) genMin(g *genkit.GeneratedFile, fieldName, fieldType, param
 			")))",
 		)
 		g.P("}")
+	} else if isPointerToStringType(fieldType) {
+		g.P("if x.", fieldName, " != nil && len(*x.", fieldName, ") < ", param, " {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be at least ",
+			param,
+			" characters, got %d\", len(*x.",
+			fieldName,
+			")))",
+		)
+		g.P("}")
 	} else if isSliceOrMapType(fieldType) {
 		g.P("if len(x.", fieldName, ") < ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must have at least ", param, " elements, got %d\", len(x.", fieldName, ")))")
@@ -689,6 +703,10 @@ func (vg *Generator) genMin(g *genkit.GeneratedFile, fieldName, fieldType, param
 	} else if isNumericType(fieldType) {
 		g.P("if x.", fieldName, " < ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be at least ", param, ", got %v\", x.", fieldName, "))")
+		g.P("}")
+	} else if isPointerToNumericType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " < ", param, " {")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be at least ", param, ", got %v\", *x.", fieldName, "))")
 		g.P("}")
 	}
 }
@@ -712,6 +730,20 @@ func (vg *Generator) genMax(g *genkit.GeneratedFile, fieldName, fieldType, param
 			")))",
 		)
 		g.P("}")
+	} else if isPointerToStringType(fieldType) {
+		g.P("if x.", fieldName, " != nil && len(*x.", fieldName, ") > ", param, " {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be at most ",
+			param,
+			" characters, got %d\", len(*x.",
+			fieldName,
+			")))",
+		)
+		g.P("}")
 	} else if isSliceOrMapType(fieldType) {
 		g.P("if len(x.", fieldName, ") > ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must have at most ", param, " elements, got %d\", len(x.", fieldName, ")))")
@@ -719,6 +751,10 @@ func (vg *Generator) genMax(g *genkit.GeneratedFile, fieldName, fieldType, param
 	} else if isNumericType(fieldType) {
 		g.P("if x.", fieldName, " > ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be at most ", param, ", got %v\", x.", fieldName, "))")
+		g.P("}")
+	} else if isPointerToNumericType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " > ", param, " {")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be at most ", param, ", got %v\", *x.", fieldName, "))")
 		g.P("}")
 	}
 }
@@ -767,13 +803,30 @@ func (vg *Generator) genEq(g *genkit.GeneratedFile, fieldName, fieldType, param 
 			fieldName,
 			"))",
 		)
+		g.P("}")
+	} else if isPointerToStringType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " != \"", param, "\" {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must equal ",
+			param,
+			", got %q\", *x.",
+			fieldName,
+			"))",
+		)
+		g.P("}")
 	} else if isNumericType(fieldType) || isBoolType(fieldType) {
 		g.P("if x.", fieldName, " != ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must equal ", param, ", got %v\", x.", fieldName, "))")
-	} else {
-		return // Unsupported type
+		g.P("}")
+	} else if isPointerToNumericType(fieldType) || isPointerToBoolType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " != ", param, " {")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must equal ", param, ", got %v\", *x.", fieldName, "))")
+		g.P("}")
 	}
-	g.P("}")
 }
 
 func (vg *Generator) genNe(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
@@ -783,13 +836,20 @@ func (vg *Generator) genNe(g *genkit.GeneratedFile, fieldName, fieldType, param 
 	if isStringType(fieldType) {
 		g.P("if x.", fieldName, " == \"", param, "\" {")
 		g.P("errs = append(errs, \"", fieldName, " must not equal ", param, "\")")
+		g.P("}")
+	} else if isPointerToStringType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " == \"", param, "\" {")
+		g.P("errs = append(errs, \"", fieldName, " must not equal ", param, "\")")
+		g.P("}")
 	} else if isNumericType(fieldType) || isBoolType(fieldType) {
 		g.P("if x.", fieldName, " == ", param, " {")
 		g.P("errs = append(errs, \"", fieldName, " must not equal ", param, "\")")
-	} else {
-		return // Unsupported type
+		g.P("}")
+	} else if isPointerToNumericType(fieldType) || isPointerToBoolType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " == ", param, " {")
+		g.P("errs = append(errs, \"", fieldName, " must not equal ", param, "\")")
+		g.P("}")
 	}
-	g.P("}")
 }
 
 func (vg *Generator) genGt(g *genkit.GeneratedFile, fieldName, fieldType, param string) {
@@ -811,6 +871,20 @@ func (vg *Generator) genGt(g *genkit.GeneratedFile, fieldName, fieldType, param 
 			")))",
 		)
 		g.P("}")
+	} else if isPointerToStringType(fieldType) {
+		g.P("if x.", fieldName, " != nil && len(*x.", fieldName, ") <= ", param, " {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be more than ",
+			param,
+			" characters, got %d\", len(*x.",
+			fieldName,
+			")))",
+		)
+		g.P("}")
 	} else if isSliceOrMapType(fieldType) {
 		g.P("if len(x.", fieldName, ") <= ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must have more than ", param, " elements, got %d\", len(x.", fieldName, ")))")
@@ -818,6 +892,10 @@ func (vg *Generator) genGt(g *genkit.GeneratedFile, fieldName, fieldType, param 
 	} else if isNumericType(fieldType) {
 		g.P("if x.", fieldName, " <= ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be greater than ", param, ", got %v\", x.", fieldName, "))")
+		g.P("}")
+	} else if isPointerToNumericType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " <= ", param, " {")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be greater than ", param, ", got %v\", *x.", fieldName, "))")
 		g.P("}")
 	}
 }
@@ -841,6 +919,20 @@ func (vg *Generator) genGte(g *genkit.GeneratedFile, fieldName, fieldType, param
 			")))",
 		)
 		g.P("}")
+	} else if isPointerToStringType(fieldType) {
+		g.P("if x.", fieldName, " != nil && len(*x.", fieldName, ") < ", param, " {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be at least ",
+			param,
+			" characters, got %d\", len(*x.",
+			fieldName,
+			")))",
+		)
+		g.P("}")
 	} else if isSliceOrMapType(fieldType) {
 		g.P("if len(x.", fieldName, ") < ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must have at least ", param, " elements, got %d\", len(x.", fieldName, ")))")
@@ -848,6 +940,10 @@ func (vg *Generator) genGte(g *genkit.GeneratedFile, fieldName, fieldType, param
 	} else if isNumericType(fieldType) {
 		g.P("if x.", fieldName, " < ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be at least ", param, ", got %v\", x.", fieldName, "))")
+		g.P("}")
+	} else if isPointerToNumericType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " < ", param, " {")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be at least ", param, ", got %v\", *x.", fieldName, "))")
 		g.P("}")
 	}
 }
@@ -871,6 +967,20 @@ func (vg *Generator) genLt(g *genkit.GeneratedFile, fieldName, fieldType, param 
 			")))",
 		)
 		g.P("}")
+	} else if isPointerToStringType(fieldType) {
+		g.P("if x.", fieldName, " != nil && len(*x.", fieldName, ") >= ", param, " {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be less than ",
+			param,
+			" characters, got %d\", len(*x.",
+			fieldName,
+			")))",
+		)
+		g.P("}")
 	} else if isSliceOrMapType(fieldType) {
 		g.P("if len(x.", fieldName, ") >= ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must have less than ", param, " elements, got %d\", len(x.", fieldName, ")))")
@@ -878,6 +988,10 @@ func (vg *Generator) genLt(g *genkit.GeneratedFile, fieldName, fieldType, param 
 	} else if isNumericType(fieldType) {
 		g.P("if x.", fieldName, " >= ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be less than ", param, ", got %v\", x.", fieldName, "))")
+		g.P("}")
+	} else if isPointerToNumericType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " >= ", param, " {")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be less than ", param, ", got %v\", *x.", fieldName, "))")
 		g.P("}")
 	}
 }
@@ -901,6 +1015,20 @@ func (vg *Generator) genLte(g *genkit.GeneratedFile, fieldName, fieldType, param
 			")))",
 		)
 		g.P("}")
+	} else if isPointerToStringType(fieldType) {
+		g.P("if x.", fieldName, " != nil && len(*x.", fieldName, ") > ", param, " {")
+		g.P(
+			"errs = append(errs, ",
+			fmtSprintf,
+			"(\"",
+			fieldName,
+			" must be at most ",
+			param,
+			" characters, got %d\", len(*x.",
+			fieldName,
+			")))",
+		)
+		g.P("}")
 	} else if isSliceOrMapType(fieldType) {
 		g.P("if len(x.", fieldName, ") > ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must have at most ", param, " elements, got %d\", len(x.", fieldName, ")))")
@@ -908,6 +1036,10 @@ func (vg *Generator) genLte(g *genkit.GeneratedFile, fieldName, fieldType, param
 	} else if isNumericType(fieldType) {
 		g.P("if x.", fieldName, " > ", param, " {")
 		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be at most ", param, ", got %v\", x.", fieldName, "))")
+		g.P("}")
+	} else if isPointerToNumericType(fieldType) {
+		g.P("if x.", fieldName, " != nil && *x.", fieldName, " > ", param, " {")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be at most ", param, ", got %v\", *x.", fieldName, "))")
 		g.P("}")
 	}
 }
@@ -1360,6 +1492,11 @@ func isStringType(t string) bool {
 	return t == "string"
 }
 
+// isPointerToStringType checks if t is a pointer to string type (e.g., "*string").
+func isPointerToStringType(t string) bool {
+	return t == "*string"
+}
+
 func isSliceOrMapType(t string) bool {
 	return strings.HasPrefix(t, "[]") || strings.HasPrefix(t, "map[")
 }
@@ -1403,6 +1540,11 @@ func isBoolType(t string) bool {
 	return t == "bool"
 }
 
+// isPointerToBoolType checks if t is a pointer to bool type (e.g., "*bool").
+func isPointerToBoolType(t string) bool {
+	return t == "*bool"
+}
+
 func isNumericType(t string) bool {
 	switch t {
 	case "int", "int8", "int16", "int32", "int64",
@@ -1413,6 +1555,14 @@ func isNumericType(t string) bool {
 	default:
 		return false
 	}
+}
+
+// isPointerToNumericType checks if t is a pointer to a numeric type (e.g., "*int", "*float64").
+func isPointerToNumericType(t string) bool {
+	if !strings.HasPrefix(t, "*") {
+		return false
+	}
+	return isNumericType(strings.TrimPrefix(t, "*"))
 }
 
 // isBuiltinType checks if the type is a Go builtin type that cannot have methods.
@@ -1568,7 +1718,9 @@ func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, field *genkit.F
 
 	// Annotations that work on string/slice/map (length) or numeric (value)
 	case "min", "max", "gt", "gte", "lt", "lte":
-		if !isStringType(underlyingType) && !isSliceOrMapType(underlyingType) && !isNumericType(underlyingType) {
+		if !isStringType(underlyingType) && !isPointerToStringType(underlyingType) &&
+			!isSliceOrMapType(underlyingType) &&
+			!isNumericType(underlyingType) && !isPointerToNumericType(underlyingType) {
 			c.Errorf(
 				ErrCodeInvalidFieldType,
 				field.Pos,
@@ -1601,7 +1753,9 @@ func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, field *genkit.F
 
 	// eq/ne - string, numeric, or bool
 	case "eq", "ne":
-		if !isStringType(underlyingType) && !isNumericType(underlyingType) && !isBoolType(underlyingType) {
+		if !isStringType(underlyingType) && !isPointerToStringType(underlyingType) &&
+			!isNumericType(underlyingType) && !isPointerToNumericType(underlyingType) &&
+			!isBoolType(underlyingType) && !isPointerToBoolType(underlyingType) {
 			c.Errorf(
 				ErrCodeInvalidFieldType,
 				field.Pos,
