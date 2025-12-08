@@ -751,4 +751,76 @@ var _ = Describe("Benchmark", func() {
 			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 1*time.Millisecond))
 		})
 	})
+
+	Context("Duration Validation", func() {
+		It("benchmarks duration (valid)", func() {
+			s := "1h30m"
+			experiment.SampleDuration("duration/valid", func(_ int) {
+				for i := 0; i < 1000; i++ {
+					_, _ = time.ParseDuration(s)
+				}
+			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
+
+			stats := experiment.GetStats("duration/valid")
+			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
+		})
+
+		It("benchmarks duration (invalid)", func() {
+			s := "invalid"
+			experiment.SampleDuration("duration/invalid", func(_ int) {
+				for i := 0; i < 1000; i++ {
+					_, _ = time.ParseDuration(s)
+				}
+			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
+
+			stats := experiment.GetStats("duration/invalid")
+			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
+		})
+
+		It("benchmarks duration_min (valid)", func() {
+			s := "5m"
+			minNanos := int64(time.Minute) // 1m in nanoseconds
+			experiment.SampleDuration("duration_min/valid", func(_ int) {
+				for i := 0; i < 1000; i++ {
+					if dur, err := time.ParseDuration(s); err == nil {
+						_ = dur >= time.Duration(minNanos)
+					}
+				}
+			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
+
+			stats := experiment.GetStats("duration_min/valid")
+			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
+		})
+
+		It("benchmarks duration_max (valid)", func() {
+			s := "30m"
+			maxNanos := int64(time.Hour) // 1h in nanoseconds
+			experiment.SampleDuration("duration_max/valid", func(_ int) {
+				for i := 0; i < 1000; i++ {
+					if dur, err := time.ParseDuration(s); err == nil {
+						_ = dur <= time.Duration(maxNanos)
+					}
+				}
+			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
+
+			stats := experiment.GetStats("duration_max/valid")
+			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
+		})
+
+		It("benchmarks duration combined (valid)", func() {
+			s := "30m"
+			minNanos := int64(time.Minute)  // 1m
+			maxNanos := int64(time.Hour)    // 1h
+			experiment.SampleDuration("duration_combined/valid", func(_ int) {
+				for i := 0; i < 1000; i++ {
+					if dur, err := time.ParseDuration(s); err == nil {
+						_ = dur >= time.Duration(minNanos) && dur <= time.Duration(maxNanos)
+					}
+				}
+			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
+
+			stats := experiment.GetStats("duration_combined/valid")
+			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
+		})
+	})
 })
