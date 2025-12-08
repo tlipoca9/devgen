@@ -130,6 +130,12 @@ type NetworkConfig struct {
 
 	// validategen:@ip
 	AnyIPAddress string
+
+	// validategen:@duration
+	Timeout string
+
+	// validategen:@duration
+	RetryInterval string
 }
 
 // Product demonstrates numeric comparison annotations.

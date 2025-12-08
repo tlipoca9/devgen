@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Precompiled regex patterns for validation.
@@ -170,6 +171,16 @@ func (x NetworkConfig) Validate() error {
 	}
 	if x.AnyIPAddress != "" && net.ParseIP(x.AnyIPAddress) == nil {
 		errs = append(errs, fmt.Sprintf("AnyIPAddress must be a valid IP address, got %q", x.AnyIPAddress))
+	}
+	if x.Timeout != "" {
+		if _, err := time.ParseDuration(x.Timeout); err != nil {
+			errs = append(errs, fmt.Sprintf("Timeout must be a valid duration (e.g., 1h30m, 500ms), got %q", x.Timeout))
+		}
+	}
+	if x.RetryInterval != "" {
+		if _, err := time.ParseDuration(x.RetryInterval); err != nil {
+			errs = append(errs, fmt.Sprintf("RetryInterval must be a valid duration (e.g., 1h30m, 500ms), got %q", x.RetryInterval))
+		}
 	}
 
 	if len(errs) > 0 {
