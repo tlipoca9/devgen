@@ -454,6 +454,103 @@ func (vg *Generator) hasPostValidateMethod(typ *genkit.Type) bool {
 	return false
 }
 
+// hasMethodOnFieldType checks if a method exists on the field's type.
+// It handles qualified types (e.g., "common.NetworkConfiguration"), pointers, slices, and maps.
+func (vg *Generator) hasMethodOnFieldType(pkg *genkit.Package, fieldType, methodName string) bool {
+	if pkg == nil || pkg.TypesInfo == nil {
+		return false
+	}
+
+	// Strip slice prefix
+	baseType := strings.TrimPrefix(fieldType, "[]")
+	// Strip map prefix (extract value type)
+	if strings.HasPrefix(baseType, "map[") {
+		// Find the value type after ]
+		idx := strings.Index(baseType, "]")
+		if idx != -1 && idx+1 < len(baseType) {
+			baseType = baseType[idx+1:]
+		}
+	}
+	// Strip pointer prefix
+	baseType = strings.TrimPrefix(baseType, "*")
+
+	// Handle qualified types (e.g., "common.NetworkConfiguration")
+	var typeName string
+	var lookupPkg *types.Package
+	if strings.Contains(baseType, ".") {
+		parts := strings.SplitN(baseType, ".", 2)
+		pkgAlias := parts[0]
+		typeName = parts[1]
+		// Find the imported package by alias
+		lookupPkg = vg.findImportedPackage(pkg, pkgAlias)
+		if lookupPkg == nil {
+			return false
+		}
+	} else {
+		typeName = baseType
+		lookupPkg = pkg.TypesPkg
+	}
+
+	if lookupPkg == nil {
+		return false
+	}
+
+	// Look up the type in the package scope
+	obj := lookupPkg.Scope().Lookup(typeName)
+	if obj == nil {
+		return false
+	}
+
+	// Get the named type
+	named, ok := obj.Type().(*types.Named)
+	if !ok {
+		return false
+	}
+
+	// Check methods on the type (value receiver)
+	for i := 0; i < named.NumMethods(); i++ {
+		method := named.Method(i)
+		if method.Name() == methodName {
+			return true
+		}
+	}
+
+	// Also check methods on pointer receiver
+	ptrType := types.NewPointer(named)
+	methodSet := types.NewMethodSet(ptrType)
+	for i := 0; i < methodSet.Len(); i++ {
+		sel := methodSet.At(i)
+		if sel.Obj().Name() == methodName {
+			return true
+		}
+	}
+
+	return false
+}
+
+// findImportedPackage finds an imported package by its alias name.
+func (vg *Generator) findImportedPackage(pkg *genkit.Package, alias string) *types.Package {
+	if pkg.TypesPkg == nil {
+		return nil
+	}
+
+	// Check all imports
+	for _, imp := range pkg.TypesPkg.Imports() {
+		// Check if the import name matches the alias
+		if imp.Name() == alias {
+			return imp
+		}
+		// Also check the last part of the path (default import name)
+		path := imp.Path()
+		parts := strings.Split(path, "/")
+		if len(parts) > 0 && parts[len(parts)-1] == alias {
+			return imp
+		}
+	}
+
+	return nil
+}
+
 // parseFieldAnnotations parses validation annotations from field doc/comment.
 // Supported annotations:
 //   - validategen:@required
@@ -1626,6 +1723,7 @@ const (
 	ErrCodeMissingParam        = "E007" // Generic missing parameter error
 	ErrCodeInvalidParamType    = "E008" // Invalid parameter type
 	ErrCodeInvalidFieldType    = "E009" // Annotation not applicable to field type
+	ErrCodeMethodNotFound      = "E010" // Method not found on type
 )
 
 // Validate implements genkit.ValidatableTool.
@@ -1650,13 +1748,13 @@ func (vg *Generator) validateType(c *genkit.DiagnosticCollector, typ *genkit.Typ
 	for _, field := range typ.Fields {
 		rules := vg.parseFieldAnnotations(field)
 		for _, rule := range rules {
-			vg.validateRule(c, field, rule)
+			vg.validateRule(c, typ, field, rule)
 		}
 	}
 }
 
 // validateRule validates a single rule and collects diagnostics.
-func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, field *genkit.Field, rule *validateRule) {
+func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, typ *genkit.Type, field *genkit.Field, rule *validateRule) {
 	// Use UnderlyingType for validation (supports custom types like `type Email string`)
 	underlyingType := field.UnderlyingType
 
@@ -1784,6 +1882,7 @@ func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, field *genkit.F
 	case "method":
 		if rule.Param == "" {
 			c.Error(ErrCodeMethodMissingParam, "@method annotation requires a method name parameter", field.Pos)
+			return
 		}
 		// For method, check declared type (not underlying) - custom types can have methods
 		if isBuiltinType(field.Type) {
@@ -1793,6 +1892,19 @@ func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, field *genkit.F
 				"@method annotation can only be applied to custom types, got builtin type %s",
 				field.Type,
 			)
+			return
+		}
+		// Check if the method exists on the field type
+		if typ.Pkg != nil && typ.Pkg.TypesInfo != nil {
+			if !vg.hasMethodOnFieldType(typ.Pkg, field.Type, rule.Param) {
+				c.Errorf(
+					ErrCodeMethodNotFound,
+					field.Pos,
+					"method '%s' not found on type '%s'",
+					rule.Param,
+					field.Type,
+				)
+			}
 		}
 
 	// oneof - string or numeric
