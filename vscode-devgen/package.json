@@ -43,6 +43,17 @@
           "type": "boolean",
           "default": true,
           "description": "Run devgen dry-run validation on file save and open to check for annotation errors"
+        },
+        "devgen.rules.autoGenerate": {
+          "type": "string",
+          "enum": ["ask", "always", "never"],
+          "default": "ask",
+          "enumDescriptions": [
+            "Ask before generating rules (default)",
+            "Always auto-generate rules silently",
+            "Never auto-generate rules"
+          ],
+          "description": "Control auto-generation of AI IDE rules when opening a workspace"
         }
       }
     },
