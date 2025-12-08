@@ -222,49 +222,113 @@ Validates string is a valid IPv6 address. Empty strings skip validation.
 
 ---
 
-### 18. @alpha - Letters Only
+### 18. @duration - Duration Format
+
+Validates string is a valid Go duration format (e.g., `1h30m`, `500ms`). Empty strings skip validation.
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@duration
+    Timeout string  // Must be a valid duration format
+}
+```
+
+---
+
+### 19. @duration_min(duration) - Minimum Duration
+
+Validates duration string value is not less than specified value. Empty strings skip validation.
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@duration_min(1s)
+    Timeout string  // Timeout at least 1 second
+
+    // validategen:@duration_min(100ms)
+    RetryInterval string  // Retry interval at least 100 milliseconds
+}
+```
+
+---
+
+### 20. @duration_max(duration) - Maximum Duration
+
+Validates duration string value is not greater than specified value. Empty strings skip validation.
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@duration_max(1h)
+    Timeout string  // Timeout at most 1 hour
+
+    // validategen:@duration_max(30s)
+    RetryInterval string  // Retry interval at most 30 seconds
+}
+```
+
+---
+
+### 21. @duration + @duration_min + @duration_max Combined
+
+These three annotations can be combined. Generated code merges into a single block, parsing only once:
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@duration
+    // validategen:@duration_min(1s)
+    // validategen:@duration_max(1h)
+    RetryInterval string  // Valid duration, range 1s ~ 1h
+}
+```
+
+---
+
+### 22. @alpha - Letters Only
 
 Validates string contains only letters (a-zA-Z). Empty strings skip validation.
 
 ---
 
-### 19. @alphanum - Alphanumeric
+### 23. @alphanum - Alphanumeric
 
 Validates string contains only letters and numbers (a-zA-Z0-9). Empty strings skip validation.
 
 ---
 
-### 20. @numeric - Numbers Only
+### 24. @numeric - Numbers Only
 
 Validates string contains only digits (0-9). Empty strings skip validation.
 
 ---
 
-### 21. @contains(substring) - Contains Substring
+### 25. @contains(substring) - Contains Substring
 
 Validates string contains specified substring.
 
 ---
 
-### 22. @excludes(substring) - Excludes Substring
+### 26. @excludes(substring) - Excludes Substring
 
 Validates string does not contain specified substring.
 
 ---
 
-### 23. @startswith(prefix) - Prefix Match
+### 27. @startswith(prefix) - Prefix Match
 
 Validates string starts with specified prefix.
 
 ---
 
-### 24. @endswith(suffix) - Suffix Match
+### 28. @endswith(suffix) - Suffix Match
 
 Validates string ends with specified suffix.
 
 ---
 
-### 25. @regex(pattern) - Regular Expression
+### 29. @regex(pattern) - Regular Expression
 
 Validates string matches specified regex pattern. Empty strings skip validation.
 
@@ -281,7 +345,7 @@ type Product struct {
 
 ---
 
-### 26. @format(type) - Format Validation
+### 30. @format(type) - Format Validation
 
 Validates string is valid specified format. Supports `json`, `yaml`, `toml`, `csv`. Empty strings skip validation.
 
@@ -294,7 +358,7 @@ Validates string is valid specified format. Supports `json`, `yaml`, `toml`, `cs
 
 ---
 
-### 27. @method(MethodName) - Call Validation Method
+### 31. @method(MethodName) - Call Validation Method
 
 Calls validation method on nested struct or custom type. For pointer types, nil check is performed first.
 
@@ -543,6 +607,9 @@ func main() {
 | `@ip` | - | string | IP address (v4 or v6) |
 | `@ipv4` | - | string | IPv4 address |
 | `@ipv6` | - | string | IPv6 address |
+| `@duration` | - | string | Duration format (e.g., 1h30m, 500ms) |
+| `@duration_min(d)` | duration | string | Minimum duration |
+| `@duration_max(d)` | duration | string | Maximum duration |
 | `@alpha` | - | string | Letters only |
 | `@alphanum` | - | string | Alphanumeric |
 | `@numeric` | - | string | Numbers only |
@@ -675,6 +742,16 @@ ginkgo --json-report=benchmark_report.json --junit-report=benchmark_report.xml .
 | `@ip` (ipv6) | 42µs | 42ns | IPv6 parsing slower |
 | `@ipv4` | 15.6µs | 15.6ns | IPv4 + To4() check |
 | `@ipv6` | 43.6µs | 43.6ns | IPv6 + To4() check |
+
+#### Duration Validation Annotations
+
+| Annotation | Mean (1000x) | Per-op | Description |
+|------------|--------------|--------|-------------|
+| `@duration` (valid) | 25.45µs | 25.45ns | `time.ParseDuration` |
+| `@duration` (invalid) | 67.56µs | 67.56ns | Parse failure |
+| `@duration_min` | 11.78µs | 11.78ns | Parse then compare nanoseconds |
+| `@duration_max` | ~11µs | ~11ns | Parse then compare nanoseconds |
+| Combined | ~11µs | ~11ns | Parse once, compare multiple times |
 
 ### Performance Analysis
 

@@ -394,7 +394,71 @@ type NetworkConfig struct {
 
 ---
 
-### 18. @alpha - 纯字母
+### 18. @duration - 时间间隔格式
+
+验证字符串是有效的 Go duration 格式（如 `1h30m`、`500ms`）。空字符串会跳过验证。
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@duration
+    Timeout string  // 必须是有效的 duration 格式
+}
+```
+
+---
+
+### 19. @duration_min(duration) - 最小时间间隔
+
+验证 duration 字符串的值不小于指定值。空字符串会跳过验证。
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@duration_min(1s)
+    Timeout string  // 超时时间至少 1 秒
+
+    // validategen:@duration_min(100ms)
+    RetryInterval string  // 重试间隔至少 100 毫秒
+}
+```
+
+---
+
+### 20. @duration_max(duration) - 最大时间间隔
+
+验证 duration 字符串的值不大于指定值。空字符串会跳过验证。
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@duration_max(1h)
+    Timeout string  // 超时时间最多 1 小时
+
+    // validategen:@duration_max(30s)
+    RetryInterval string  // 重试间隔最多 30 秒
+}
+```
+
+---
+
+### 21. @duration + @duration_min + @duration_max 组合
+
+可以组合使用这三个注解，生成的代码会合并为一个代码块，只解析一次：
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@duration
+    // validategen:@duration_min(1s)
+    // validategen:@duration_max(1h)
+    RetryInterval string  // 有效 duration，范围 1s ~ 1h
+}
+```
+
+---
+
+### 22. @alpha - 纯字母
 
 验证字符串只包含字母（a-zA-Z）。空字符串会跳过验证。
 
@@ -408,7 +472,7 @@ type Person struct {
 
 ---
 
-### 19. @alphanum - 字母数字
+### 23. @alphanum - 字母数字
 
 验证字符串只包含字母和数字（a-zA-Z0-9）。空字符串会跳过验证。
 
@@ -426,7 +490,7 @@ type User struct {
 
 ---
 
-### 20. @numeric - 纯数字
+### 24. @numeric - 纯数字
 
 验证字符串只包含数字（0-9）。空字符串会跳过验证。
 
@@ -440,7 +504,7 @@ type Contact struct {
 
 ---
 
-### 21. @contains(substring) - 包含子串
+### 25. @contains(substring) - 包含子串
 
 验证字符串包含指定的子串。
 
@@ -457,7 +521,7 @@ type Email struct {
 
 ---
 
-### 22. @excludes(substring) - 不包含子串
+### 26. @excludes(substring) - 不包含子串
 
 验证字符串不包含指定的子串。
 
@@ -474,7 +538,7 @@ type User struct {
 
 ---
 
-### 23. @startswith(prefix) - 前缀匹配
+### 27. @startswith(prefix) - 前缀匹配
 
 验证字符串以指定前缀开头。
 
@@ -491,7 +555,7 @@ type URL struct {
 
 ---
 
-### 24. @endswith(suffix) - 后缀匹配
+### 28. @endswith(suffix) - 后缀匹配
 
 验证字符串以指定后缀结尾。
 
@@ -508,7 +572,7 @@ type Domain struct {
 
 ---
 
-### 25. @regex(pattern) - 正则表达式
+### 29. @regex(pattern) - 正则表达式
 
 验证字符串匹配指定的正则表达式。空字符串会跳过验证。
 
@@ -525,7 +589,7 @@ type Product struct {
 
 ---
 
-### 26. @format(type) - 格式验证
+### 30. @format(type) - 格式验证
 
 验证字符串是有效的指定格式。支持 `json`、`yaml`、`toml`、`csv` 四种格式。空字符串会跳过验证。
 
@@ -555,7 +619,7 @@ type Config struct {
 
 ---
 
-### 27. @method(MethodName) - 调用验证方法
+### 31. @method(MethodName) - 调用验证方法
 
 调用嵌套结构体或自定义类型的验证方法。对于指针类型，会先检查 nil。
 
@@ -905,6 +969,16 @@ ginkgo --json-report=benchmark_report.json --junit-report=benchmark_report.xml .
 | `@ipv4` | 15.6µs | 15.6ns | IPv4 + To4() 检查 |
 | `@ipv6` | 43.6µs | 43.6ns | IPv6 + To4() 检查 |
 
+#### Duration 验证注解
+
+| 注解 | Mean (1000次) | 单次约 | 说明 |
+|------|---------------|--------|------|
+| `@duration` (valid) | 25.45µs | 25.45ns | `time.ParseDuration` |
+| `@duration` (invalid) | 67.56µs | 67.56ns | 解析失败 |
+| `@duration_min` | 11.78µs | 11.78ns | 解析后比较纳秒值 |
+| `@duration_max` | ~11µs | ~11ns | 解析后比较纳秒值 |
+| 组合使用 | ~11µs | ~11ns | 只解析一次，多次比较 |
+
 ### 性能分析
 
 **性能亮点**：
@@ -943,6 +1017,9 @@ ginkgo --json-report=benchmark_report.json --junit-report=benchmark_report.xml .
 | `@ip` | - | string | IP 地址（v4 或 v6） |
 | `@ipv4` | - | string | IPv4 地址 |
 | `@ipv6` | - | string | IPv6 地址 |
+| `@duration` | - | string | 时间间隔格式（如 1h30m, 500ms） |
+| `@duration_min(d)` | duration | string | 最小时间间隔 |
+| `@duration_max(d)` | duration | string | 最大时间间隔 |
 | `@alpha` | - | string | 纯字母 |
 | `@alphanum` | - | string | 字母数字 |
 | `@numeric` | - | string | 纯数字 |
