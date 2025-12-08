@@ -246,6 +246,11 @@ export async function activate(context: vscode.ExtensionContext) {
             updateDiagnostics(doc);
         }
     });
+
+    // Run global dry-run validation on startup if enabled
+    if (isDryRunEnabled()) {
+        runGlobalDryRunValidation();
+    }
 }
 
 export function deactivate() {
@@ -271,6 +276,94 @@ function getDevgenPath(): string {
 
 // Dry-run validation using devgen CLI
 let dryRunDiagnosticCollection: vscode.DiagnosticCollection | undefined;
+
+/**
+ * Run global dry-run validation for the entire workspace
+ */
+async function runGlobalDryRunValidation(): Promise<void> {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        return;
+    }
+
+    const devgenPath = getDevgenPath();
+
+    for (const folder of workspaceFolders) {
+        const workspaceDir = folder.uri.fsPath;
+
+        try {
+            outputChannel.appendLine(`[DryRun] Running global validation: ${devgenPath} --dry-run --json ./...`);
+
+            const { stdout, stderr } = await execAsync(
+                `${devgenPath} --dry-run --json ./...`,
+                {
+                    cwd: workspaceDir,
+                    timeout: 60000,  // 60 seconds for global scan
+                    env: getEnvWithGoPath()
+                }
+            );
+
+            if (stderr) {
+                outputChannel.appendLine(`[DryRun] stderr: ${stderr}`);
+            }
+
+            const result: DryRunResult = JSON.parse(stdout);
+            outputChannel.appendLine(`[DryRun] Global result: success=${result.success}, errors=${result.stats.errorCount}, warnings=${result.stats.warningCount}`);
+
+            // Initialize dry-run diagnostic collection if needed
+            if (!dryRunDiagnosticCollection) {
+                dryRunDiagnosticCollection = vscode.languages.createDiagnosticCollection('devgen-dryrun');
+            }
+
+            if (!result.diagnostics || result.diagnostics.length === 0) {
+                continue;
+            }
+
+            // Group diagnostics by file
+            const diagnosticsByFile = new Map<string, vscode.Diagnostic[]>();
+
+            for (const d of result.diagnostics) {
+                if (!d.file) continue;
+
+                const filePath = path.isAbsolute(d.file) ? d.file : path.join(workspaceDir, d.file);
+                const fileUri = vscode.Uri.file(filePath);
+
+                const range = new vscode.Range(
+                    Math.max(0, d.line - 1), Math.max(0, d.column - 1),
+                    Math.max(0, (d.endLine || d.line) - 1), Math.max(0, (d.endColumn || d.column) - 1)
+                );
+
+                const severity = d.severity === 'error'
+                    ? vscode.DiagnosticSeverity.Error
+                    : d.severity === 'warning'
+                    ? vscode.DiagnosticSeverity.Warning
+                    : vscode.DiagnosticSeverity.Information;
+
+                const diagnostic = new vscode.Diagnostic(range, d.message, severity);
+                diagnostic.source = `devgen/${d.tool}`;
+                if (d.code) {
+                    diagnostic.code = d.code;
+                }
+
+                const key = fileUri.toString();
+                if (!diagnosticsByFile.has(key)) {
+                    diagnosticsByFile.set(key, []);
+                }
+                diagnosticsByFile.get(key)!.push(diagnostic);
+            }
+
+            // Set diagnostics for each file
+            for (const [uriString, diagnostics] of diagnosticsByFile) {
+                dryRunDiagnosticCollection.set(vscode.Uri.parse(uriString), diagnostics);
+            }
+
+        } catch (error) {
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            outputChannel.appendLine(`[DryRun] Global validation error: ${errorMsg}`);
+            // Don't show error to user for dry-run failures - it's optional
+        }
+    }
+}
 
 async function runDryRunValidation(document: vscode.TextDocument): Promise<void> {
     const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
