@@ -64,6 +64,10 @@ type Options struct {
 	// "// Code generated" comment. This is useful for ignoring generated
 	// files that may have syntax errors.
 	IgnoreGeneratedFiles bool
+
+	// IncludeTests when true, tools should also generate *_test.go files.
+	// Tools can check this option via Generator.IncludeTests() method.
+	IncludeTests bool
 }
 
 // New creates a new Generator.
@@ -75,6 +79,11 @@ func New(opts ...Options) *Generator {
 		g.opts = opts[0]
 	}
 	return g
+}
+
+// IncludeTests returns whether tools should generate *_test.go files.
+func (g *Generator) IncludeTests() bool {
+	return g.opts.IncludeTests
 }
 
 // Load loads packages matching the given patterns.
