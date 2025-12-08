@@ -139,6 +139,7 @@ make vscode   # Build VSCode extension
 
 ## Release Notes
 
+- [v0.2.2](docs/release/v0.2.2_EN.md) - 2025-12-08
 - [v0.2.1](docs/release/v0.2.1_EN.md) - 2025-12-07
 - [v0.2.0](docs/release/v0.2.0_EN.md) - 2025-12-07
 - [v0.1.3](docs/release/v0.1.3_EN.md) - 2025-12-07
