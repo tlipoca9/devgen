@@ -135,7 +135,13 @@ type NetworkConfig struct {
 	Timeout string
 
 	// validategen:@duration
+	// validategen:@duration_min(1s)
+	// validategen:@duration_max(1h)
 	RetryInterval string
+
+	// validategen:@duration_min(100ms)
+	// validategen:@duration_max(30s)
+	RequestTimeout string
 }
 
 // Product demonstrates numeric comparison annotations.

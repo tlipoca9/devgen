@@ -1228,6 +1228,101 @@ type Duration struct {
 					Expect(code).To(ContainSubstring("valid duration"))
 				}
 			})
+
+			It("should generate duration_min validation", func() {
+				testFile := filepath.Join(tempDir, "duration_min.go")
+				content := `package testpkg
+
+// DurationMin has duration_min validation.
+// validategen:@validate
+type DurationMin struct {
+	// validategen:@duration_min(1s)
+	Timeout string
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("time.ParseDuration"))
+					Expect(code).To(ContainSubstring("_dur <"))
+					Expect(code).To(ContainSubstring("at least 1s"))
+				}
+			})
+
+			It("should generate duration_max validation", func() {
+				testFile := filepath.Join(tempDir, "duration_max.go")
+				content := `package testpkg
+
+// DurationMax has duration_max validation.
+// validategen:@validate
+type DurationMax struct {
+	// validategen:@duration_max(1h)
+	Timeout string
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("time.ParseDuration"))
+					Expect(code).To(ContainSubstring("_dur >"))
+					Expect(code).To(ContainSubstring("at most 1h"))
+				}
+			})
+
+			It("should generate combined duration validations", func() {
+				testFile := filepath.Join(tempDir, "duration_range.go")
+				content := `package testpkg
+
+// DurationRange has duration range validation.
+// validategen:@validate
+type DurationRange struct {
+	// validategen:@duration
+	// validategen:@duration_min(100ms)
+	// validategen:@duration_max(30s)
+	Timeout string
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("valid duration"))
+					Expect(code).To(ContainSubstring("at least 100ms"))
+					Expect(code).To(ContainSubstring("at most 30s"))
+				}
+			})
 		})
 
 		Describe("Pattern validations (alpha, alphanum, numeric)", func() {
