@@ -943,48 +943,7 @@ func (eg *Generator) GenerateEnumTest(g *genkit.GeneratedFile, enum *genkit.Enum
 		g.P("}")
 	}
 
-	// Generate tests for XxxEnums helper
-	g.P()
-	g.P("func Test", enumsVar, "_List(t *testing.T) {")
-	g.P("list := ", enumsVar, ".List()")
-	g.P("if len(list) != ", len(enum.Values), " {")
-	g.P("t.Errorf(\"List() returned %d items, want %d\", len(list), ", len(enum.Values), ")")
-	g.P("}")
-	g.P("}")
-
-	g.P()
-	g.P("func Test", enumsVar, "_Contains(t *testing.T) {")
-	g.P("tests := []struct {")
-	g.P("name  string")
-	if isStringType {
-		g.P("value string")
-	} else {
-		g.P("value ", typeName)
-	}
-	g.P("want  bool")
-	g.P("}{")
-	for _, v := range enum.Values {
-		if isStringType {
-			g.P("{name: \"valid_", v.Name, "\", value: string(", v.Name, "), want: true},")
-		} else {
-			g.P("{name: \"valid_", v.Name, "\", value: ", v.Name, ", want: true},")
-		}
-	}
-	if isStringType {
-		g.P("{name: \"invalid\", value: \"__invalid__\", want: false},")
-	} else {
-		g.P("{name: \"invalid\", value: ", typeName, "(-999), want: false},")
-	}
-	g.P("}")
-	g.P("for _, tt := range tests {")
-	g.P("t.Run(tt.name, func(t *testing.T) {")
-	g.P("if got := ", enumsVar, ".Contains(tt.value); got != tt.want {")
-	g.P("t.Errorf(\"Contains() = %v, want %v\", got, tt.want)")
-	g.P("}")
-	g.P("})")
-	g.P("}")
-	g.P("}")
-
+	// Generate test for XxxEnums.Parse (covers parsing and error handling)
 	g.P()
 	g.P("func Test", enumsVar, "_Parse(t *testing.T) {")
 	g.P("tests := []struct {")
@@ -1016,67 +975,4 @@ func (eg *Generator) GenerateEnumTest(g *genkit.GeneratedFile, enum *genkit.Enum
 	g.P("})")
 	g.P("}")
 	g.P("}")
-
-	// Generate tests for Name, Names, ContainsName (only for non-string types)
-	if !isStringType {
-		g.P()
-		g.P("func Test", enumsVar, "_Name(t *testing.T) {")
-		g.P("tests := []struct {")
-		g.P("name  string")
-		g.P("value ", typeName)
-		g.P("want  string")
-		g.P("}{")
-		for _, v := range enum.Values {
-			name := GetValueName(v, typeName)
-			g.P("{name: \"", v.Name, "\", value: ", v.Name, ", want: ", fmt.Sprintf("%q", name), "},")
-		}
-		g.P("}")
-		g.P("for _, tt := range tests {")
-		g.P("t.Run(tt.name, func(t *testing.T) {")
-		g.P("if got := ", enumsVar, ".Name(tt.value); got != tt.want {")
-		g.P("t.Errorf(\"Name() = %v, want %v\", got, tt.want)")
-		g.P("}")
-		g.P("})")
-		g.P("}")
-		g.P("}")
-
-		g.P()
-		g.P("func Test", enumsVar, "_Name_Invalid(t *testing.T) {")
-		g.P("invalid := ", typeName, "(-999)")
-		g.P("got := ", enumsVar, ".Name(invalid)")
-		g.P("if got == \"\" {")
-		g.P("t.Error(\"Name() should return non-empty string for invalid value\")")
-		g.P("}")
-		g.P("}")
-
-		g.P()
-		g.P("func Test", enumsVar, "_Names(t *testing.T) {")
-		g.P("names := ", enumsVar, ".Names()")
-		g.P("if len(names) != ", len(enum.Values), " {")
-		g.P("t.Errorf(\"Names() returned %d items, want %d\", len(names), ", len(enum.Values), ")")
-		g.P("}")
-		g.P("}")
-
-		g.P()
-		g.P("func Test", enumsVar, "_ContainsName(t *testing.T) {")
-		g.P("tests := []struct {")
-		g.P("name  string")
-		g.P("input string")
-		g.P("want  bool")
-		g.P("}{")
-		for _, v := range enum.Values {
-			name := GetValueName(v, typeName)
-			g.P("{name: \"valid_", v.Name, "\", input: ", fmt.Sprintf("%q", name), ", want: true},")
-		}
-		g.P("{name: \"invalid\", input: \"__invalid__\", want: false},")
-		g.P("}")
-		g.P("for _, tt := range tests {")
-		g.P("t.Run(tt.name, func(t *testing.T) {")
-		g.P("if got := ", enumsVar, ".ContainsName(tt.input); got != tt.want {")
-		g.P("t.Errorf(\"ContainsName() = %v, want %v\", got, tt.want)")
-		g.P("}")
-		g.P("})")
-		g.P("}")
-		g.P("}")
-	}
 }

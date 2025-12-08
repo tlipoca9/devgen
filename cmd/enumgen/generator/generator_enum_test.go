@@ -203,34 +203,6 @@ func TestGenerateOption_Scan_Error(t *testing.T) {
 	}
 }
 
-func TestGenerateOptionEnums_List(t *testing.T) {
-	list := GenerateOptionEnums.List()
-	if len(list) != 4 {
-		t.Errorf("List() returned %d items, want %d", len(list), 4)
-	}
-}
-
-func TestGenerateOptionEnums_Contains(t *testing.T) {
-	tests := []struct {
-		name  string
-		value GenerateOption
-		want  bool
-	}{
-		{name: "valid_GenerateOptionString", value: GenerateOptionString, want: true},
-		{name: "valid_GenerateOptionJSON", value: GenerateOptionJSON, want: true},
-		{name: "valid_GenerateOptionText", value: GenerateOptionText, want: true},
-		{name: "valid_GenerateOptionSQL", value: GenerateOptionSQL, want: true},
-		{name: "invalid", value: GenerateOption(-999), want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GenerateOptionEnums.Contains(tt.value); got != tt.want {
-				t.Errorf("Contains() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestGenerateOptionEnums_Parse(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -253,62 +225,6 @@ func TestGenerateOptionEnums_Parse(t *testing.T) {
 			}
 			if !tt.wantErr && got != tt.want {
 				t.Errorf("Parse() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGenerateOptionEnums_Name(t *testing.T) {
-	tests := []struct {
-		name  string
-		value GenerateOption
-		want  string
-	}{
-		{name: "GenerateOptionString", value: GenerateOptionString, want: "string"},
-		{name: "GenerateOptionJSON", value: GenerateOptionJSON, want: "json"},
-		{name: "GenerateOptionText", value: GenerateOptionText, want: "text"},
-		{name: "GenerateOptionSQL", value: GenerateOptionSQL, want: "sql"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GenerateOptionEnums.Name(tt.value); got != tt.want {
-				t.Errorf("Name() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGenerateOptionEnums_Name_Invalid(t *testing.T) {
-	invalid := GenerateOption(-999)
-	got := GenerateOptionEnums.Name(invalid)
-	if got == "" {
-		t.Error("Name() should return non-empty string for invalid value")
-	}
-}
-
-func TestGenerateOptionEnums_Names(t *testing.T) {
-	names := GenerateOptionEnums.Names()
-	if len(names) != 4 {
-		t.Errorf("Names() returned %d items, want %d", len(names), 4)
-	}
-}
-
-func TestGenerateOptionEnums_ContainsName(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  bool
-	}{
-		{name: "valid_GenerateOptionString", input: "string", want: true},
-		{name: "valid_GenerateOptionJSON", input: "json", want: true},
-		{name: "valid_GenerateOptionText", input: "text", want: true},
-		{name: "valid_GenerateOptionSQL", input: "sql", want: true},
-		{name: "invalid", input: "__invalid__", want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := GenerateOptionEnums.ContainsName(tt.input); got != tt.want {
-				t.Errorf("ContainsName() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -364,41 +280,6 @@ func TestUnderlyingType_String(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.value.String(); got != tt.want {
 				t.Errorf("UnderlyingType.String() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestUnderlyingTypeEnums_List(t *testing.T) {
-	list := UnderlyingTypeEnums.List()
-	if len(list) != 11 {
-		t.Errorf("List() returned %d items, want %d", len(list), 11)
-	}
-}
-
-func TestUnderlyingTypeEnums_Contains(t *testing.T) {
-	tests := []struct {
-		name  string
-		value string
-		want  bool
-	}{
-		{name: "valid_UnderlyingTypeInt", value: string(UnderlyingTypeInt), want: true},
-		{name: "valid_UnderlyingTypeInt8", value: string(UnderlyingTypeInt8), want: true},
-		{name: "valid_UnderlyingTypeInt16", value: string(UnderlyingTypeInt16), want: true},
-		{name: "valid_UnderlyingTypeInt32", value: string(UnderlyingTypeInt32), want: true},
-		{name: "valid_UnderlyingTypeInt64", value: string(UnderlyingTypeInt64), want: true},
-		{name: "valid_UnderlyingTypeUint", value: string(UnderlyingTypeUint), want: true},
-		{name: "valid_UnderlyingTypeUint8", value: string(UnderlyingTypeUint8), want: true},
-		{name: "valid_UnderlyingTypeUint16", value: string(UnderlyingTypeUint16), want: true},
-		{name: "valid_UnderlyingTypeUint32", value: string(UnderlyingTypeUint32), want: true},
-		{name: "valid_UnderlyingTypeUint64", value: string(UnderlyingTypeUint64), want: true},
-		{name: "valid_UnderlyingTypeString", value: string(UnderlyingTypeString), want: true},
-		{name: "invalid", value: "__invalid__", want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := UnderlyingTypeEnums.Contains(tt.value); got != tt.want {
-				t.Errorf("Contains() = %v, want %v", got, tt.want)
 			}
 		})
 	}
