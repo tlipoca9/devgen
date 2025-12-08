@@ -1,0 +1,241 @@
+---
+description: devgen 项目 Makefile 使用指南。当用户需要构建、测试、安装或发布 devgen 时使用此规则。
+alwaysApply: true
+enabled: true
+updatedAt: 2025-12-08T17:22:38.973Z
+provider: 
+---
+
+# devgen Makefile 使用指南
+
+本项目使用 Makefile 管理构建、测试、发布等任务。所有命令都在项目根目录执行。
+
+---
+
+## make（默认）
+
+**作用**：完整的代码检查流程，依次执行 tidy → lint → test → build。
+
+```bash
+make
+```
+
+**什么时候用**：提交代码前，确保代码质量。
+
+---
+
+## make build
+
+**作用**：编译所有命令行工具，输出到 `_output/bin/` 目录。
+
+```bash
+make build
+```
+
+**产出文件**：
+- `_output/bin/devgen` - 主程序
+- `_output/bin/enumgen` - 枚举生成器
+- `_output/bin/validategen` - 验证生成器
+
+**什么时候用**：想在本地测试编译后的二进制文件。
+
+---
+
+## make install
+
+**作用**：编译并安装到 `$GOPATH/bin`，这样可以在任何地方直接运行 `devgen` 命令。
+
+```bash
+make install
+```
+
+**安装位置**：`~/go/bin/devgen`（或你的 `$GOPATH/bin`）
+
+**什么时候用**：想全局使用 devgen 命令。
+
+**前提**：确保 `$GOPATH/bin` 在你的 `$PATH` 中：
+```bash
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+---
+
+## make test
+
+**作用**：运行所有测试，生成覆盖率报告。
+
+```bash
+make test
+```
+
+**覆盖率报告**：`_output/tests/coverage.out`
+
+**测试框架**：优先使用 ginkgo（如果安装了），否则用 go test。
+
+**什么时候用**：修改代码后验证功能是否正常。
+
+---
+
+## make lint
+
+**作用**：运行代码检查工具 golangci-lint，自动修复可修复的问题。
+
+```bash
+make lint
+```
+
+**什么时候用**：提交代码前检查代码风格。
+
+**前提**：需要安装 golangci-lint，运行 `make tools` 安装。
+
+---
+
+## make tidy
+
+**作用**：整理 go.mod 依赖，移除未使用的依赖，添加缺失的依赖。
+
+```bash
+make tidy
+```
+
+**什么时候用**：添加或删除 import 后。
+
+---
+
+## make clean
+
+**作用**：删除所有构建产物。
+
+```bash
+make clean
+```
+
+**删除内容**：
+- `_output/` 目录
+- Go 编译缓存
+
+**什么时候用**：想从头开始干净构建。
+
+---
+
+## make vscode
+
+**作用**：构建 VSCode 扩展，生成 `.vsix` 安装包。
+
+```bash
+make vscode
+```
+
+**产出文件**：`vscode-devgen/devgen-x.y.z.vsix`
+
+**什么时候用**：只想打包扩展，不安装。
+
+---
+
+## make vscode-install
+
+**作用**：构建 VSCode 扩展并安装到当前 IDE。
+
+```bash
+# 自动检测当前 IDE（根据 TERM_PROGRAM 环境变量）
+make vscode-install
+
+# 手动指定 IDE
+make vscode-install IDE=code      # 安装到 VSCode
+make vscode-install IDE=buddycn   # 安装到 CodeBuddy
+```
+
+**自动检测逻辑**：
+1. 如果指定了 `IDE=xxx`，用指定的
+2. 如果 `TERM_PROGRAM=vscode`，用 `code` 命令
+3. 如果 `TERM_PROGRAM=codebuddy`，用 `buddycn` 命令
+4. 如果系统有 `buddycn` 命令，用它
+5. 如果系统有 `code` 命令，用它
+6. 都没有就报错
+
+**什么时候用**：修改了扩展代码，想测试效果。
+
+---
+
+## make publish
+
+**作用**：发布新版本。自动完成：更新 package.json 版本号 → 构建扩展 → 修改 commit → 打 tag。
+
+```bash
+make publish RELEASE_VERSION=0.2.4
+```
+
+**必须参数**：`RELEASE_VERSION=x.y.z`
+
+**执行后还需要**：
+```bash
+# 推送到远程（包括 tag）
+git push origin main --tags --force-with-lease
+```
+
+**什么时候用**：准备发布新版本。
+
+**注意**：这个命令会修改 git 历史（amend commit），只在本地 commit 还没 push 时使用。
+
+---
+
+## make tools
+
+**作用**：安装开发所需的工具。
+
+```bash
+make tools
+```
+
+**安装的工具**：
+- `golangci-lint` - 代码检查工具
+- `ginkgo` - BDD 测试框架
+
+**什么时候用**：首次 clone 项目后，或者 `make lint` / `make test` 报错找不到命令。
+
+---
+
+## make help
+
+**作用**：显示所有可用命令的简要说明。
+
+```bash
+make help
+```
+
+---
+
+## 常见场景
+
+### 首次 clone 项目
+
+```bash
+make tools    # 安装开发工具
+make          # 完整构建检查
+make install  # 安装到系统
+```
+
+### 日常开发
+
+```bash
+# 修改代码后
+make test     # 跑测试
+make lint     # 检查代码
+make install  # 安装新版本
+```
+
+### 修改 VSCode 扩展
+
+```bash
+make vscode-install  # 构建并安装到当前 IDE
+# 然后重启 IDE 或重新加载窗口
+```
+
+### 发布新版本
+
+```bash
+make                              # 确保代码没问题
+git add -A && git commit -m "feat: xxx"
+make publish RELEASE_VERSION=0.2.4
+git push origin main --tags --force-with-lease
+```

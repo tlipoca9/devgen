@@ -139,6 +139,13 @@ let outputChannel: vscode.OutputChannel;
 let configLoader: ConfigLoader;
 const CACHE_TTL = 5000; // 5 seconds
 
+// AI IDE to agent name mapping
+const AI_IDE_AGENT_MAP: { [key: string]: string } = {
+    'Cursor': 'cursor',
+    'Windsurf': 'windsurf',
+    'CodeBuddy': 'codebuddy',
+};
+
 export async function activate(context: vscode.ExtensionContext) {
     console.log('DevGen extension activated');
     
@@ -146,6 +153,9 @@ export async function activate(context: vscode.ExtensionContext) {
     outputChannel = vscode.window.createOutputChannel('DevGen');
     context.subscriptions.push(outputChannel);
     outputChannel.appendLine('DevGen extension activating...');
+    
+    // Detect AI IDE and auto-generate rules
+    await detectAndGenerateRules();
 
     // Initialize config loader and load dynamic configuration
     configLoader = getConfigLoader();
@@ -256,6 +266,66 @@ export async function activate(context: vscode.ExtensionContext) {
 export function deactivate() {
     if (diagnosticCollection) {
         diagnosticCollection.dispose();
+    }
+}
+
+/**
+ * Detect AI IDE and auto-generate rules if applicable
+ */
+async function detectAndGenerateRules(): Promise<void> {
+    const appName = vscode.env.appName;
+    outputChannel.appendLine(`[Rules] Detected IDE: ${appName}`);
+    
+    // Find matching agent
+    let agentName: string | undefined;
+    for (const [ideName, agent] of Object.entries(AI_IDE_AGENT_MAP)) {
+        if (appName.includes(ideName)) {
+            agentName = agent;
+            break;
+        }
+    }
+    
+    if (!agentName) {
+        outputChannel.appendLine('[Rules] Not an AI IDE, skipping rules generation');
+        return;
+    }
+    
+    outputChannel.appendLine(`[Rules] AI IDE detected, using agent: ${agentName}`);
+    
+    // Get workspace folder
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders || workspaceFolders.length === 0) {
+        outputChannel.appendLine('[Rules] No workspace folder, skipping rules generation');
+        return;
+    }
+    
+    const workspaceDir = workspaceFolders[0].uri.fsPath;
+    const devgenPath = getDevgenPath();
+    
+    try {
+        outputChannel.appendLine(`[Rules] Running: ${devgenPath} rules --agent ${agentName} -w --no-color`);
+        
+        const { stdout, stderr } = await execAsync(
+            `${devgenPath} rules --agent ${agentName} -w --no-color`,
+            {
+                cwd: workspaceDir,
+                timeout: 30000,
+                env: getEnvWithGoPath()
+            }
+        );
+        
+        if (stdout) {
+            outputChannel.appendLine(`[Rules] ${stdout}`);
+        }
+        if (stderr) {
+            outputChannel.appendLine(`[Rules] stderr: ${stderr}`);
+        }
+        
+        outputChannel.appendLine('[Rules] Rules generated successfully');
+    } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        outputChannel.appendLine(`[Rules] Error generating rules: ${errorMsg}`);
+        // Don't show error to user - this is optional functionality
     }
 }
 
