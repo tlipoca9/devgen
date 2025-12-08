@@ -13,11 +13,14 @@ import (
 	"gopkg.in/yaml.v3"
 
 	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 )
 
 // Benchmark tests for individual validation annotations using Ginkgo's gmeasure
 // Run with: go test -v ./cmd/validategen/generator/... -count=1
+//
+// NOTE: These benchmarks are for performance measurement only. They do not assert
+// on timing thresholds because absolute timing varies significantly across different
+// machines and CI environments. Use the reported statistics for performance analysis.
 
 // Pre-compiled regex patterns (same as generated code)
 var (
@@ -47,8 +50,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("required/string_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks required string (invalid)", func() {
@@ -59,8 +60,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("required/string_invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks required int (valid)", func() {
@@ -71,8 +70,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("required/int_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks required slice (valid)", func() {
@@ -83,8 +80,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("required/slice_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks required pointer (valid)", func() {
@@ -96,8 +91,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("required/pointer_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 	})
 
@@ -110,8 +103,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("min/int_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks max int (valid)", func() {
@@ -122,8 +113,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("max/int_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks min string length (valid)", func() {
@@ -134,8 +123,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("min/string_len_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks max string length (valid)", func() {
@@ -146,8 +133,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("max/string_len_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks min slice length (valid)", func() {
@@ -158,8 +143,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("min/slice_len_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 	})
 
@@ -172,8 +155,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("len/string_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks len slice (valid)", func() {
@@ -184,8 +165,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("len/slice_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 	})
 
@@ -198,8 +177,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("gt/int_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks gte int (valid)", func() {
@@ -210,8 +187,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("gte/int_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks lt int (valid)", func() {
@@ -222,8 +197,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("lt/int_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks lte int (valid)", func() {
@@ -234,8 +207,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("lte/int_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 	})
 
@@ -248,8 +219,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("eq/string_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks ne string (valid)", func() {
@@ -260,8 +229,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("ne/string_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks eq int (valid)", func() {
@@ -272,8 +239,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("eq/int_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks eq bool (valid)", func() {
@@ -284,8 +249,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("eq/bool_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 	})
 
@@ -298,8 +261,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("oneof/string_first")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks oneof string (valid, last)", func() {
@@ -310,8 +271,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("oneof/string_last")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks oneof string (invalid)", func() {
@@ -322,8 +281,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("oneof/string_invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 
 		It("benchmarks oneof int (valid)", func() {
@@ -334,8 +291,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("oneof/int_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 10*time.Microsecond))
 		})
 	})
 
@@ -348,8 +303,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("email/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 500*time.Microsecond))
 		})
 
 		It("benchmarks email (invalid)", func() {
@@ -360,8 +313,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("email/invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 200*time.Microsecond))
 		})
 	})
 
@@ -374,8 +325,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("url/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 500*time.Microsecond))
 		})
 
 		It("benchmarks url (invalid)", func() {
@@ -386,8 +335,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("url/invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 	})
 
@@ -400,8 +347,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("uuid/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 300*time.Microsecond))
 		})
 
 		It("benchmarks uuid (invalid)", func() {
@@ -412,8 +357,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("uuid/invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 	})
 
@@ -426,8 +369,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("ip/ipv4_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 200*time.Microsecond))
 		})
 
 		It("benchmarks ip (valid ipv6)", func() {
@@ -438,8 +379,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("ip/ipv6_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 300*time.Microsecond))
 		})
 
 		It("benchmarks ip (invalid)", func() {
@@ -450,8 +389,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("ip/invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 200*time.Microsecond))
 		})
 
 		It("benchmarks ipv4 specific", func() {
@@ -463,8 +400,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("ipv4/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 200*time.Microsecond))
 		})
 
 		It("benchmarks ipv6 specific", func() {
@@ -476,8 +411,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("ipv6/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 300*time.Microsecond))
 		})
 	})
 
@@ -490,8 +423,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("alpha/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 
 		It("benchmarks alpha (invalid)", func() {
@@ -502,8 +433,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("alpha/invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 
 		It("benchmarks alphanum (valid)", func() {
@@ -514,8 +443,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("alphanum/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 
 		It("benchmarks numeric (valid)", func() {
@@ -526,8 +453,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("numeric/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 	})
 
@@ -540,8 +465,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("contains/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 50*time.Microsecond))
 		})
 
 		It("benchmarks contains (invalid)", func() {
@@ -552,8 +475,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("contains/invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 20*time.Microsecond))
 		})
 
 		It("benchmarks excludes (valid)", func() {
@@ -564,8 +485,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("excludes/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 20*time.Microsecond))
 		})
 	})
 
@@ -578,8 +497,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("startswith/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 20*time.Microsecond))
 		})
 
 		It("benchmarks startswith (invalid)", func() {
@@ -590,8 +507,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("startswith/invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 20*time.Microsecond))
 		})
 
 		It("benchmarks endswith (valid)", func() {
@@ -602,8 +517,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("endswith/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 20*time.Microsecond))
 		})
 	})
 
@@ -616,8 +529,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("regex/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 
 		It("benchmarks regex (invalid)", func() {
@@ -628,8 +539,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("regex/invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 
 		It("benchmarks complex regex", func() {
@@ -643,8 +552,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("regex/complex")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 1*time.Millisecond))
 		})
 	})
 
@@ -657,8 +564,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("format/json_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 500*time.Microsecond))
 		})
 
 		It("benchmarks format json (invalid)", func() {
@@ -669,8 +574,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("format/json_invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 200*time.Microsecond))
 		})
 
 		It("benchmarks format yaml (valid)", func() {
@@ -682,8 +585,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("format/yaml_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 5*time.Millisecond))
 		})
 
 		It("benchmarks format yaml (invalid)", func() {
@@ -695,8 +596,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("format/yaml_invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 5*time.Millisecond))
 		})
 
 		It("benchmarks format toml (valid)", func() {
@@ -708,8 +607,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("format/toml_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 5*time.Millisecond))
 		})
 
 		It("benchmarks format toml (invalid)", func() {
@@ -721,8 +618,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("format/toml_invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 5*time.Millisecond))
 		})
 
 		It("benchmarks format csv (valid)", func() {
@@ -734,8 +629,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("format/csv_valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 2*time.Millisecond))
 		})
 
 		It("benchmarks format csv (invalid)", func() {
@@ -747,8 +640,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("format/csv_invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 1*time.Millisecond))
 		})
 	})
 
@@ -761,8 +652,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("duration/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 
 		It("benchmarks duration (invalid)", func() {
@@ -773,8 +662,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("duration/invalid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 
 		It("benchmarks duration_min (valid)", func() {
@@ -788,8 +675,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("duration_min/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 
 		It("benchmarks duration_max (valid)", func() {
@@ -803,8 +688,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("duration_max/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 
 		It("benchmarks duration combined (valid)", func() {
@@ -819,8 +702,6 @@ var _ = Describe("Benchmark", func() {
 				}
 			}, gmeasure.SamplingConfig{N: 100}, gmeasure.Precision(time.Nanosecond))
 
-			stats := experiment.GetStats("duration_combined/valid")
-			Expect(stats.DurationFor(gmeasure.StatMean)).To(BeNumerically("<", 100*time.Microsecond))
 		})
 	})
 })

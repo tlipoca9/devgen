@@ -94,15 +94,106 @@ func configCmd() *cobra.Command {
 		Use:   "config",
 		Short: "Output tools configuration",
 		Long: `Output the configuration of all tools (built-in and plugins).
-This is used by the VSCode extension to get annotation metadata.`,
-		Example: `  devgen config          # output config in TOML format
-  devgen config --json   # output config in JSON format`,
+
+This command displays all available annotations and their metadata for each tool.
+The VSCode extension uses this to provide autocomplete and validation.
+
+WHAT THIS COMMAND SHOWS:
+  • All available tools (enumgen, validategen, golangcilint, and plugins)
+  • Annotations supported by each tool
+  • Parameter types and allowed values for each annotation
+  • Documentation for each annotation
+
+OUTPUT FORMAT:
+  TOML (default): Human-readable format for understanding the configuration
+  JSON (--json):  Machine-readable format for IDE/tool integration
+
+CONFIGURATION FILES:
+  devgen looks for devgen.toml in the current directory (and parent directories)
+  to load plugin configurations. Example devgen.toml:
+
+    [[plugins]]
+    name = "customgen"
+    path = "./tools/customgen"
+    type = "source"
+
+UNDERSTANDING THE OUTPUT:
+  Each tool section shows:
+    • output_suffix: Generated file suffix (e.g., "_enum.go")
+    • annotations: List of supported annotations with:
+        - name: Annotation name (e.g., "enum", "required")
+        - type: Where to use ("type" for types, "field" for struct fields)
+        - doc: Description of what the annotation does
+        - params: Parameter configuration (if the annotation takes arguments)
+            - type: Expected type ("string", "number", "bool", "list", "enum")
+            - values: Allowed values for enum type
+            - placeholder: Hint text for the parameter`,
+		Example: `  # View all tool configurations in human-readable TOML format
+  devgen config
+
+  # View configurations in JSON format (for IDE integration)
+  devgen config --json
+
+  # Pipe to less for easier reading
+  devgen config | less
+
+  # Search for specific annotation
+  devgen config | grep -A5 "required"
+
+  # Pretty print JSON output
+  devgen config --json | jq .
+
+  # List all available annotations for validategen
+  devgen config --json | jq '.validategen.annotations | keys'
+
+  # Get details about a specific annotation
+  devgen config --json | jq '.validategen.annotations.email'
+
+EXAMPLE OUTPUT (TOML):
+  [tools.enumgen]
+  output_suffix = "_enum.go"
+
+  [[tools.enumgen.annotations]]
+  name = "enum"
+  type = "type"
+  doc = "Generate enum helper methods (options: string, json, text, sql)"
+
+  [tools.enumgen.annotations.params]
+  values = ["string", "json", "text", "sql"]
+
+EXAMPLE OUTPUT (JSON):
+  {
+    "enumgen": {
+      "outputSuffix": "_enum.go",
+      "typeAnnotations": ["enum"],
+      "fieldAnnotations": ["name"],
+      "annotations": {
+        "enum": {
+          "doc": "Generate enum helper methods",
+          "paramType": "enum",
+          "values": ["string", "json", "text", "sql"]
+        }
+      }
+    }
+  }
+
+HOW TO USE ANNOTATIONS:
+  Type annotations (applied to type declarations):
+    // enumgen:@enum(string, json)
+    type Status int
+
+  Field annotations (applied to struct fields):
+    type User struct {
+        // validategen:@required
+        // validategen:@email
+        Email string
+    }`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConfig(cmd.Context(), jsonOutput)
 		},
 	}
 
-	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format (for IDE/tool integration)")
 
 	return cmd
 }

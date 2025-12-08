@@ -1016,6 +1016,96 @@ type OneofNum struct {
 					Expect(code).To(ContainSubstring("must be one of"))
 				}
 			})
+
+			It("should generate oneof_enum validation with enum values comment", func() {
+				testFile := filepath.Join(tempDir, "oneofenum.go")
+				content := `package testpkg
+
+// Status is an enum type.
+// enumgen:@enum(string)
+type Status int
+
+const (
+	StatusPending Status = iota
+	StatusActive
+	StatusInactive
+)
+
+// StatusEnums is the enum helper (simulated).
+var StatusEnums = struct {
+	Contains func(Status) bool
+}{
+	Contains: func(s Status) bool { return s >= 0 && s <= 2 },
+}
+
+// OneofEnum has oneof_enum validation.
+// validategen:@validate
+type OneofEnum struct {
+	// validategen:@oneof_enum(Status)
+	Status Status
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("StatusEnums"))
+					// Non-string enum uses ContainsName/Names
+					Expect(code).To(ContainSubstring("ContainsName"))
+					Expect(code).To(ContainSubstring(".Names()"))
+					Expect(code).To(ContainSubstring("must be one of %v, got %v"))
+					// Should have comment with enum values for code review (multi-line format)
+					Expect(code).To(ContainSubstring("// Valid values:"))
+					Expect(code).To(ContainSubstring("//   - StatusPending"))
+					Expect(code).To(ContainSubstring("//   - StatusActive"))
+					Expect(code).To(ContainSubstring("//   - StatusInactive"))
+				}
+			})
+
+			It("should generate oneof_enum validation with full import path", func() {
+				// Test that full import path format generates correct import
+				testFile := filepath.Join(tempDir, "oneofenum_fullpath.go")
+				content := `package testpkg
+
+// FullPathEnum has oneof_enum with full import path.
+// validategen:@validate
+type FullPathEnum struct {
+	// validategen:@oneof_enum(github.com/example/pkg/types.Status)
+	Status int
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					// Should have import statement
+					Expect(code).To(ContainSubstring(`"github.com/example/pkg/types"`))
+					// Cross-package enum (unknown type) defaults to non-string behavior
+					Expect(code).To(ContainSubstring("types.StatusEnums"))
+					// Error message format
+					Expect(code).To(ContainSubstring("must be one of %v, got %v"))
+				}
+			})
 		})
 
 		Describe("Format validations (email, url, uuid, ip)", func() {
@@ -2393,6 +2483,92 @@ type PtrNumeric struct {
 
 				diagnostics := gen.Validate(gk, genkit.NewLoggerWithWriter(io.Discard))
 				Expect(diagnostics).To(BeEmpty(), "Expected no diagnostics for pointer to numeric types")
+			})
+
+			It("should report error for oneof_enum with invalid field type", func() {
+				testFile := filepath.Join(tempDir, "oneofenum_invalid.go")
+				content := `package testpkg
+
+// Status is an enum type.
+type Status int
+
+// InvalidOneofEnum has oneof_enum on wrong field type.
+// validategen:@validate
+type InvalidOneofEnum struct {
+	// validategen:@oneof_enum(Status)
+	Value int  // Error: field type is int, not Status
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				diagnostics := gen.Validate(gk, genkit.NewLoggerWithWriter(io.Discard))
+				Expect(diagnostics).To(HaveLen(1))
+				Expect(diagnostics[0].Code).To(Equal(generator.ErrCodeInvalidFieldType))
+				Expect(diagnostics[0].Message).To(ContainSubstring("@oneof_enum(Status)"))
+			})
+
+			It("should not report error for oneof_enum with matching enum type", func() {
+				testFile := filepath.Join(tempDir, "oneofenum_valid.go")
+				content := `package testpkg
+
+// Role is an enum type.
+// enumgen:@enum
+type Role int
+
+const (
+	RoleAdmin Role = iota
+	RoleUser
+)
+
+// ValidOneofEnum has oneof_enum on correct field type.
+// validategen:@validate
+type ValidOneofEnum struct {
+	// validategen:@oneof_enum(Role)
+	Role Role  // OK: field type matches enum type
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				diagnostics := gen.Validate(gk, genkit.NewLoggerWithWriter(io.Discard))
+				Expect(diagnostics).To(BeEmpty())
+			})
+
+			It("should not report error for oneof_enum with string underlying type", func() {
+				testFile := filepath.Join(tempDir, "oneofenum_string.go")
+				content := `package testpkg
+
+// Status is an enum type.
+// enumgen:@enum
+type Status int
+
+const (
+	StatusPending Status = iota
+	StatusActive
+)
+
+// StringOneofEnum has oneof_enum on string field.
+// validategen:@validate
+type StringOneofEnum struct {
+	// validategen:@oneof_enum(Status)
+	StatusStr string  // OK: string underlying type is allowed
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				diagnostics := gen.Validate(gk, genkit.NewLoggerWithWriter(io.Discard))
+				Expect(diagnostics).To(BeEmpty())
 			})
 		})
 	})
