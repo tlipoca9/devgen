@@ -148,6 +148,7 @@ func (vg *Generator) Config() genkit.ToolConfig {
 			{Name: "ip", Type: "field", Doc: "Must be a valid IP address"},
 			{Name: "ipv4", Type: "field", Doc: "Must be a valid IPv4 address"},
 			{Name: "ipv6", Type: "field", Doc: "Must be a valid IPv6 address"},
+			{Name: "duration", Type: "field", Doc: "Must be a valid time.Duration string (e.g., 1h30m, 500ms)"},
 			{Name: "alpha", Type: "field", Doc: "Must contain only letters"},
 			{Name: "alphanum", Type: "field", Doc: "Must contain only letters and numbers"},
 			{Name: "numeric", Type: "field", Doc: "Must contain only numbers"},
@@ -570,6 +571,7 @@ func (vg *Generator) findImportedPackage(pkg *genkit.Package, alias string) *typ
 //   - validategen:@ip
 //   - validategen:@ipv4
 //   - validategen:@ipv6
+//   - validategen:@duration
 //   - validategen:@alpha
 //   - validategen:@alphanum
 //   - validategen:@numeric
@@ -723,6 +725,8 @@ func (vg *Generator) generateFieldValidation(g *genkit.GeneratedFile, fv *fieldV
 			vg.genIPv4(g, fieldName)
 		case "ipv6":
 			vg.genIPv6(g, fieldName)
+		case "duration":
+			vg.genDuration(g, fieldName)
 		case "method":
 			vg.genMethod(g, fv.Field, rule.Param)
 		case "regex":
@@ -1405,6 +1409,23 @@ func (vg *Generator) genIPv6(g *genkit.GeneratedFile, fieldName string) {
 	g.P("}")
 }
 
+func (vg *Generator) genDuration(g *genkit.GeneratedFile, fieldName string) {
+	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
+	g.P("if x.", fieldName, " != \"\" {")
+	g.P("if _, err := ", genkit.GoImportPath("time").Ident("ParseDuration"), "(x.", fieldName, "); err != nil {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" must be a valid duration (e.g., 1h30m, 500ms), got %q\", x.",
+		fieldName,
+		"))",
+	)
+	g.P("}")
+	g.P("}")
+}
+
 func (vg *Generator) genMethod(g *genkit.GeneratedFile, field *genkit.Field, methodName string) {
 	// Validation already done in validateRule, skip if invalid
 	if methodName == "" {
@@ -1803,7 +1824,7 @@ func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, typ *genkit.Typ
 		}
 
 	// IP validation annotations - require string underlying type
-	case "ip", "ipv4", "ipv6":
+	case "ip", "ipv4", "ipv6", "duration":
 		if !isStringType(underlyingType) {
 			c.Errorf(
 				ErrCodeInvalidFieldType,

@@ -1198,6 +1198,36 @@ type IPv6 struct {
 					Expect(code).To(ContainSubstring("valid IPv6 address"))
 				}
 			})
+
+			It("should generate duration validation", func() {
+				testFile := filepath.Join(tempDir, "duration.go")
+				content := `package testpkg
+
+// Duration has duration validation.
+// validategen:@validate
+type Duration struct {
+	// validategen:@duration
+	Timeout string
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				for _, content := range files {
+					code := string(content)
+					Expect(code).To(ContainSubstring("time.ParseDuration"))
+					Expect(code).To(ContainSubstring("valid duration"))
+				}
+			})
 		})
 
 		Describe("Pattern validations (alpha, alphanum, numeric)", func() {
