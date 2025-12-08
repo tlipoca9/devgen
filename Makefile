@@ -1,4 +1,4 @@
-.PHONY: all build test lint clean tidy help vscode publish
+.PHONY: all build test lint clean tidy help vscode publish generate
 
 # Build variables
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
@@ -10,7 +10,7 @@ LDFLAGS := -X main.version=$(VERSION) -X main.commit=$(COMMIT) -X main.date=$(DA
 VSCODE_VERSION := $(shell tag=$$(git tag --points-at HEAD 2>/dev/null | sort -V | tail -1); if [ -n "$$tag" ]; then echo "$$tag"; else git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0"; fi | sed 's/^v//')
 
 # Default target
-all: tidy lint test build
+all: tidy generate lint test build
 
 # Build all packages
 build:
@@ -35,6 +35,10 @@ lint:
 # Tidy dependencies
 tidy:
 	go mod tidy
+
+# Run code generation
+generate:
+	go run ./cmd/devgen --include-tests ./...
 
 # Clean build artifacts
 clean:
@@ -93,8 +97,9 @@ tools:
 # Help
 help:
 	@echo "Available targets:"
-	@echo "  all           - Run lint, test, and build (default)"
+	@echo "  all           - Run tidy, generate, lint, test, and build (default)"
 	@echo "  build         - Build all packages"
+	@echo "  generate      - Run code generation (go generate)"
 	@echo "  test          - Run tests with coverage (ginkgo or go test)"
 	@echo "  lint          - Run golangci-lint"
 	@echo "  tidy          - Tidy dependencies"
