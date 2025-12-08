@@ -809,8 +809,8 @@ var _ = Describe("Benchmark", func() {
 
 		It("benchmarks duration combined (valid)", func() {
 			s := "30m"
-			minNanos := int64(time.Minute)  // 1m
-			maxNanos := int64(time.Hour)    // 1h
+			minNanos := int64(time.Minute) // 1m
+			maxNanos := int64(time.Hour)   // 1h
 			experiment.SampleDuration("duration_combined/valid", func(_ int) {
 				for i := 0; i < 1000; i++ {
 					if dur, err := time.ParseDuration(s); err == nil {

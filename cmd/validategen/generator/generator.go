@@ -649,19 +649,19 @@ var rulePriority = map[string]int{
 	"oneof": 32,
 
 	// 4. Format checks
-	"email":    40,
-	"url":      41,
-	"uuid":     42,
+	"email":        40,
+	"url":          41,
+	"uuid":         42,
 	"ip":           43,
 	"ipv4":         44,
 	"ipv6":         45,
 	"duration_min": 46,
 	"duration_max": 47,
-	"alpha":    46,
-	"alphanum": 47,
-	"numeric":  48,
-	"regex":    49,
-	"format":   50,
+	"alpha":        46,
+	"alphanum":     47,
+	"numeric":      48,
+	"regex":        49,
+	"format":       50,
 
 	// 5. String content checks
 	"contains":   60,
@@ -762,7 +762,15 @@ func (vg *Generator) generateFieldValidation(g *genkit.GeneratedFile, fv *fieldV
 		case "duration", "duration_min", "duration_max":
 			// Generate all duration validations together, only once
 			if !durationGenerated {
-				vg.genDurationCombined(g, fieldName, hasDuration, hasDurationMin, durationMinParam, hasDurationMax, durationMaxParam)
+				vg.genDurationCombined(
+					g,
+					fieldName,
+					hasDuration,
+					hasDurationMin,
+					durationMinParam,
+					hasDurationMax,
+					durationMaxParam,
+				)
 				durationGenerated = true
 			}
 		case "method":
@@ -1447,7 +1455,14 @@ func (vg *Generator) genIPv6(g *genkit.GeneratedFile, fieldName string) {
 	g.P("}")
 }
 
-func (vg *Generator) genDurationCombined(g *genkit.GeneratedFile, fieldName string, checkFormat, hasMin bool, minParam string, hasMax bool, maxParam string) {
+func (vg *Generator) genDurationCombined(
+	g *genkit.GeneratedFile,
+	fieldName string,
+	checkFormat, hasMin bool,
+	minParam string,
+	hasMax bool,
+	maxParam string,
+) {
 	// Parse min/max durations at generation time
 	var minNanos, maxNanos int64
 	if hasMin && minParam != "" {
@@ -1894,7 +1909,12 @@ func (vg *Generator) validateType(c *genkit.DiagnosticCollector, typ *genkit.Typ
 }
 
 // validateRule validates a single rule and collects diagnostics.
-func (vg *Generator) validateRule(c *genkit.DiagnosticCollector, typ *genkit.Type, field *genkit.Field, rule *validateRule) {
+func (vg *Generator) validateRule(
+	c *genkit.DiagnosticCollector,
+	typ *genkit.Type,
+	field *genkit.Field,
+	rule *validateRule,
+) {
 	// Use UnderlyingType for validation (supports custom types like `type Email string`)
 	underlyingType := field.UnderlyingType
 
