@@ -2,7 +2,7 @@
   "name": "devgen",
   "displayName": "DevGen - Go Code Generator Helper",
   "description": "Syntax highlighting, diagnostics and auto-completion for devgen annotations (enumgen, validategen)",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "publisher": "tlipoca9",
   "repository": {
     "type": "git",
