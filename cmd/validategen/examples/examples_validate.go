@@ -181,10 +181,10 @@ func (x NetworkConfig) Validate() error {
 		if _dur, _err := time.ParseDuration(x.RetryInterval); _err != nil {
 			errs = append(errs, fmt.Sprintf("RetryInterval must be a valid duration (e.g., 1h30m, 500ms), got %q", x.RetryInterval))
 		} else {
-			if _dur < 1000000000 {
+			if _dur < time.Second {
 				errs = append(errs, fmt.Sprintf("RetryInterval must be at least 1s, got %s", x.RetryInterval))
 			}
-			if _dur > 3600000000000 {
+			if _dur > time.Hour {
 				errs = append(errs, fmt.Sprintf("RetryInterval must be at most 1h, got %s", x.RetryInterval))
 			}
 		}
@@ -192,10 +192,10 @@ func (x NetworkConfig) Validate() error {
 	if x.RequestTimeout != "" {
 		if _dur, _err := time.ParseDuration(x.RequestTimeout); _err != nil {
 		} else {
-			if _dur < 100000000 {
+			if _dur < 100*time.Millisecond {
 				errs = append(errs, fmt.Sprintf("RequestTimeout must be at least 100ms, got %s", x.RequestTimeout))
 			}
-			if _dur > 30000000000 {
+			if _dur > 30*time.Second {
 				errs = append(errs, fmt.Sprintf("RequestTimeout must be at most 30s, got %s", x.RequestTimeout))
 			}
 		}
