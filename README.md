@@ -1,10 +1,34 @@
+<div align="center">
+
 # devgen
+
+**Go 代码生成工具集，专为现代开发工作流设计**
+
+[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/tlipoca9.devgen?style=flat&logo=visualstudiocode&label=VS%20Code)](https://marketplace.visualstudio.com/items?itemName=tlipoca9.devgen)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 中文 | [English](README_EN.md)
 
-Go 代码生成工具集，通过注解自动生成样板代码，减少手写重复代码的工作量。
+</div>
 
-## 安装
+---
+
+## 为什么选择 devgen？
+
+| 特性 | 描述 |
+|------|------|
+| 🤖 **AI 原生** | 内置 AI Rules 系统，让 AI 编程助手（CodeBuddy、Cursor、Copilot）理解你的代码生成规则 |
+| 🧩 **插件架构** | 基于 genkit 框架的插件系统，轻松开发自定义代码生成器 |
+| 💡 **智能 IDE** | VSCode 扩展提供语法高亮、智能补全、实时诊断，注解错误即时反馈 |
+| ⚡ **零配置** | 插件自描述注解元数据，IDE 自动识别，即插即用 |
+| 🔧 **开箱即用** | 内置 enumgen、validategen，覆盖最常见的代码生成场景 |
+
+---
+
+## 快速开始
+
+### 安装
 
 ```bash
 # 安装 devgen（包含所有工具）
@@ -15,21 +39,175 @@ go install github.com/tlipoca9/devgen/cmd/enumgen@latest
 go install github.com/tlipoca9/devgen/cmd/validategen@latest
 ```
 
-## 使用
+### 使用
 
 ```bash
 devgen ./...                    # 运行所有生成器
-devgen --dry-run ./...          # 验证注解但不写入文件
-devgen --dry-run --json ./...   # JSON 格式输出，用于 IDE 集成
+devgen --dry-run ./...          # 验证注解（不写入文件）
 enumgen ./...                   # 仅运行枚举生成器
 validategen ./...               # 仅运行验证生成器
 ```
 
-## 工具
+---
 
-### enumgen - 枚举代码生成器
+## 核心特性
 
-为 Go 枚举类型自动生成序列化、反序列化和验证方法。
+```mermaid
+block-beta
+    columns 4
+    
+    devgen["devgen CLI"]:4
+    space down1<["加载"]>(down):2 space
+    enumgen validategen custom["自定义插件"]:2
+    space down2<["实现"]>(down):2 space
+    genkit["genkit 框架"]:4
+    Tool ConfigurableTool ValidatableTool RuleTool
+    space down3<["驱动"]>(down):2 space
+    vscode["VSCode 扩展"]:2 ai["AI 助手"]:2
+    highlight["语法高亮"] complete["智能补全"] rules["读取 Rules"] suggest["代码建议"]
+```
+
+### 🤖 AI 原生集成
+
+devgen 是首个内置 AI Rules 系统的 Go 代码生成工具。通过 `RuleTool` 接口，你的代码生成器可以自动生成 AI 编程助手能理解的文档。
+
+```bash
+# 为 CodeBuddy/Cursor 生成 AI Rules
+devgen rules --agent codebuddy -w
+```
+
+生成的 rules 文件让 AI 助手能够：
+- 理解你的注解语法和参数
+- 提供准确的代码补全建议
+- 在你编写代码时给出正确的使用示例
+
+支持的 AI 助手：CodeBuddy、Cursor、GitHub Copilot、Windsurf
+
+---
+
+### 🧩 插件系统
+
+基于 **genkit** 框架的插件架构，让你轻松开发自定义代码生成器：
+
+```go
+// 只需实现 Tool 接口
+type MyGenerator struct{}
+
+func (m *MyGenerator) Name() string { return "mygen" }
+
+func (m *MyGenerator) Run(gen *genkit.Generator, log *genkit.Logger) error {
+    for _, pkg := range gen.Packages {
+        for _, typ := range pkg.Types {
+            if genkit.HasAnnotation(typ.Doc, "mygen", "gen") {
+                // 生成代码...
+            }
+        }
+    }
+    return nil
+}
+
+var Tool genkit.Tool = &MyGenerator{}
+```
+
+**两种插件模式**：
+| 类型 | 说明 | 适用场景 |
+|------|------|----------|
+| `source` | Go 源码，运行时编译 | 开发调试、快速迭代 |
+| `plugin` | 预编译 .so 文件 | 高性能、生产环境 |
+
+详见 [插件开发文档](docs/plugin.md)
+
+---
+
+### 💡 智能 IDE 支持
+
+VSCode 扩展提供完整的开发体验：
+
+- **语法高亮** - 注解关键字、参数值醒目显示
+- **智能补全** - 输入 `@` 自动提示可用注解（基于 `ConfigurableTool`）
+- **实时诊断** - 注解错误、参数校验即时反馈（基于 `ValidatableTool`）
+- **插件感知** - 自动识别自定义插件的注解配置
+
+[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/tlipoca9.devgen)](https://marketplace.visualstudio.com/items?itemName=tlipoca9.devgen)
+
+在 VSCode 扩展商店搜索 `devgen` 或点击上方徽章安装。
+
+---
+
+### ⚡ 可扩展接口
+
+插件通过实现不同接口获得对应能力：
+
+| 接口 | 能力 | 说明 |
+|------|------|------|
+| `Tool` | 代码生成 | 必须实现，核心生成逻辑 |
+| `ConfigurableTool` | 智能补全 | 自描述注解元数据，IDE 自动识别 |
+| `ValidatableTool` | 实时诊断 | 返回诊断信息，IDE 即时反馈错误 |
+| `RuleTool` | AI Rules | 生成 AI 助手能理解的文档 |
+
+示例 - 实现 `ConfigurableTool`：
+
+```go
+func (m *MyGenerator) Config() genkit.ToolConfig {
+    return genkit.ToolConfig{
+        OutputSuffix: "_gen.go",
+        Annotations: []genkit.AnnotationConfig{
+            {Name: "gen", Type: "type", Doc: "Generate code"},
+        },
+    }
+}
+```
+
+VSCode 扩展通过 `devgen config --json` 获取注解元数据，提供智能补全。
+
+示例 - 实现 `ValidatableTool`：
+
+```go
+func (m *MyGenerator) Validate(gen *genkit.Generator, log *genkit.Logger) []genkit.Diagnostic {
+    var diags []genkit.Diagnostic
+    for _, pkg := range gen.Packages {
+        for _, typ := range pkg.Types {
+            if err := validateAnnotation(typ); err != nil {
+                diags = append(diags, genkit.Diagnostic{
+                    Pos:      typ.Pos,
+                    End:      typ.End,
+                    Severity: genkit.SeverityError,
+                    Message:  err.Error(),
+                })
+            }
+        }
+    }
+    return diags
+}
+```
+
+VSCode 扩展通过 `devgen --dry-run --json` 获取诊断信息，实时显示注解错误。
+
+示例 - 实现 `RuleTool`：
+
+```go
+func (m *MyGenerator) Rules() []genkit.Rule {
+    return []genkit.Rule{
+        {
+            Name:        "mygen",
+            Description: "MyGenerator 使用指南",
+            Content:     "# MyGenerator\n\n使用 `@gen` 注解标记类型...",
+        },
+    }
+}
+```
+
+通过 `devgen rules --agent codebuddy -w` 生成 AI Rules 文件，让 AI 助手理解你的注解语法。
+
+> VSCode 扩展激活时会自动检测 AI IDE（Cursor、Windsurf、CodeBuddy），并自动运行此命令生成规则文件。
+
+---
+
+## 内置工具
+
+### enumgen - 枚举生成器
+
+为 Go 枚举类型生成序列化、反序列化和验证方法。
 
 ```go
 // Status 表示状态
@@ -39,106 +217,54 @@ type Status int
 const (
     StatusPending Status = iota + 1
     StatusActive
-    // enumgen:@name(Cancelled)
-    StatusCanceled  // 自定义名称
+    StatusCanceled
 )
 ```
 
-**支持的选项**：
-- `string` - 生成 `String()` 方法
-- `json` - 生成 `MarshalJSON()` / `UnmarshalJSON()`
-- `text` - 生成 `MarshalText()` / `UnmarshalText()`
-- `sql` - 生成 `Value()` / `Scan()` 用于数据库操作
+**生成**：`String()` `MarshalJSON()` `UnmarshalJSON()` `Value()` `Scan()` `IsValid()` 等方法
 
-**生成的辅助方法**：
-- `IsValid()` - 验证枚举值是否有效
-- `{Type}Enums.List()` - 返回所有有效枚举值
-- `{Type}Enums.Parse(s)` - 从字符串解析枚举
-- `{Type}Enums.Name(v)` - 获取枚举值的字符串名称
-
-详见 [enumgen README](cmd/enumgen/README.md)
+详见 [enumgen 文档](cmd/enumgen/README.md)
 
 ---
 
-### validategen - 验证代码生成器
+### validategen - 验证生成器
 
-为 Go 结构体自动生成 `Validate()` 方法。
+为 Go 结构体生成 `Validate()` 方法。
 
 ```go
 // User 用户模型
 // validategen:@validate
 type User struct {
     // validategen:@required
-    // validategen:@min(2)
-    // validategen:@max(50)
-    Name string
-
-    // validategen:@required
     // validategen:@email
     Email string
 
-    // validategen:@gte(0)
-    // validategen:@lte(150)
+    // validategen:@gte(0) @lte(150)
     Age int
-
-    // validategen:@oneof(admin, user, guest)
-    Role string
 }
 ```
 
-**验证注解**：
+**支持**：`@required` `@email` `@url` `@min` `@max` `@oneof` `@regex` 等 20+ 验证规则
 
-| 类别 | 注解 |
-|------|------|
-| 必填 | `@required` |
-| 范围 | `@min(n)` `@max(n)` `@len(n)` `@gt(n)` `@gte(n)` `@lt(n)` `@lte(n)` |
-| 等值 | `@eq(v)` `@ne(v)` `@oneof(a, b, c)` |
-| 格式 | `@email` `@url` `@uuid` `@ip` `@ipv4` `@ipv6` |
-| 字符 | `@alpha` `@alphanum` `@numeric` |
-| 字符串 | `@contains(s)` `@excludes(s)` `@startswith(s)` `@endswith(s)` |
-| 正则 | `@regex(pattern)` |
-| 数据格式 | `@format(json\|yaml\|toml\|csv)` |
-| 嵌套 | `@method(MethodName)` |
-
-**高级特性**：
-- `postValidate(errs []string) error` 钩子实现自定义验证逻辑
-
-详见 [validategen README](cmd/validategen/README.md)
+详见 [validategen 文档](cmd/validategen/README.md)
 
 ---
-
-### vscode-devgen - VSCode 扩展
-
-提供 devgen 注解的编辑器支持：语法高亮、自动补全、参数验证提示。
-
-[![VS Marketplace](https://img.shields.io/visual-studio-marketplace/v/tlipoca9.devgen)](https://marketplace.visualstudio.com/items?itemName=tlipoca9.devgen)
-
-从 [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=tlipoca9.devgen) 安装。
-
----
-
-### 插件系统
-
-devgen 支持通过插件机制扩展功能，允许用户使用 genkit 框架开发自定义代码生成工具。
-
-支持两种插件类型：
-- **source** - Go 源码，运行时编译（推荐）
-- **plugin** - 预编译 Go plugin (.so)
-
-插件可以实现 `ConfigurableTool` 接口来自描述配置，VSCode 扩展会通过 `devgen config --json` 自动获取注解元数据。
-
-详见 [插件开发文档](docs/plugin.md) 和 [示例](examples/plugin/)。
 
 ## 构建
 
 ```bash
 make build    # 构建所有工具
 make test     # 运行测试
+make install  # 安装到 $GOPATH/bin
 make vscode   # 构建 VSCode 扩展
 ```
 
-## Release Notes
+## 更新日志
 
+<details>
+<summary>点击展开</summary>
+
+- [v0.3.0](docs/release/v0.3.0.md) - 2025-12-08
 - [v0.2.3](docs/release/v0.2.3.md) - 2025-12-08
 - [v0.2.2](docs/release/v0.2.2.md) - 2025-12-08
 - [v0.2.1](docs/release/v0.2.1.md) - 2025-12-07
@@ -148,6 +274,8 @@ make vscode   # 构建 VSCode 扩展
 - [v0.1.1](docs/release/v0.1.1.md) - 2025-12-07
 - [v0.1.0](docs/release/v0.1.0.md) - 2025-12-07
 
-## License
+</details>
+
+## 许可证
 
 MIT
