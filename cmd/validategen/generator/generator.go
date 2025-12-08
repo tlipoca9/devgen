@@ -2289,17 +2289,17 @@ func (vg *Generator) genDurationCombined(
 	maxParam string,
 ) {
 	// Parse min/max durations at generation time
-	var minNanos, maxNanos int64
+	var minDur, maxDur time.Duration
 	if hasMin && minParam != "" {
 		if dur, err := time.ParseDuration(minParam); err == nil {
-			minNanos = dur.Nanoseconds()
+			minDur = dur
 		} else {
 			hasMin = false // Invalid duration, skip
 		}
 	}
 	if hasMax && maxParam != "" {
 		if dur, err := time.ParseDuration(maxParam); err == nil {
-			maxNanos = dur.Nanoseconds()
+			maxDur = dur
 		} else {
 			hasMax = false // Invalid duration, skip
 		}
@@ -2343,7 +2343,11 @@ func (vg *Generator) genDurationCombined(
 	}
 	g.P("} else {")
 	if hasMin {
-		g.P("if _dur < ", minNanos, " {")
+		// Build the condition line with duration expression
+		minArgs := []any{"if _dur < "}
+		minArgs = append(minArgs, durationToExpr(minDur)...)
+		minArgs = append(minArgs, " {")
+		g.P(minArgs...)
 		g.P(
 			"errs = append(errs, ",
 			fmtSprintf,
@@ -2358,7 +2362,11 @@ func (vg *Generator) genDurationCombined(
 		g.P("}")
 	}
 	if hasMax {
-		g.P("if _dur > ", maxNanos, " {")
+		// Build the condition line with duration expression
+		maxArgs := []any{"if _dur > "}
+		maxArgs = append(maxArgs, durationToExpr(maxDur)...)
+		maxArgs = append(maxArgs, " {")
+		g.P(maxArgs...)
 		g.P(
 			"errs = append(errs, ",
 			fmtSprintf,
@@ -2374,6 +2382,57 @@ func (vg *Generator) genDurationCombined(
 	}
 	g.P("}")
 	g.P("}")
+}
+
+// durationToExpr converts a duration to a readable Go expression using time package constants.
+// Returns a slice of values that can be passed to g.P().
+// Examples:
+//   - 1s -> time.Second
+//   - 100ms -> 100*time.Millisecond
+//   - 1h30m -> 90*time.Minute
+func durationToExpr(d time.Duration) []any {
+	timePkg := genkit.GoImportPath("time")
+
+	// Try to express in the most readable unit
+	switch {
+	case d%time.Hour == 0:
+		hours := int64(d / time.Hour)
+		if hours == 1 {
+			return []any{timePkg.Ident("Hour")}
+		}
+		return []any{hours, "*", timePkg.Ident("Hour")}
+	case d%time.Minute == 0:
+		minutes := int64(d / time.Minute)
+		if minutes == 1 {
+			return []any{timePkg.Ident("Minute")}
+		}
+		return []any{minutes, "*", timePkg.Ident("Minute")}
+	case d%time.Second == 0:
+		seconds := int64(d / time.Second)
+		if seconds == 1 {
+			return []any{timePkg.Ident("Second")}
+		}
+		return []any{seconds, "*", timePkg.Ident("Second")}
+	case d%time.Millisecond == 0:
+		ms := int64(d / time.Millisecond)
+		if ms == 1 {
+			return []any{timePkg.Ident("Millisecond")}
+		}
+		return []any{ms, "*", timePkg.Ident("Millisecond")}
+	case d%time.Microsecond == 0:
+		us := int64(d / time.Microsecond)
+		if us == 1 {
+			return []any{timePkg.Ident("Microsecond")}
+		}
+		return []any{us, "*", timePkg.Ident("Microsecond")}
+	default:
+		// Fall back to nanoseconds
+		ns := d.Nanoseconds()
+		if ns == 1 {
+			return []any{timePkg.Ident("Nanosecond")}
+		}
+		return []any{ns, "*", timePkg.Ident("Nanosecond")}
+	}
 }
 
 func (vg *Generator) genMethod(g *genkit.GeneratedFile, field *genkit.Field, methodName string) {
