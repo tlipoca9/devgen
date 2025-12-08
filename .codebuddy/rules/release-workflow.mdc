@@ -76,7 +76,8 @@ git push origin main --tags --force-with-lease
 ### Step 6: 创建 GitHub Release
 
 ```bash
-cat docs/release/v<version>.md > /tmp/release_notes.md
+# 转义 @ 符号避免被识别为 GitHub mention
+sed 's/@/`@`/g' docs/release/v<version>.md > /tmp/release_notes.md
 echo -e "\n\n---\n\n[English](https://github.com/tlipoca9/devgen/blob/main/docs/release/v<version>_EN.md)" >> /tmp/release_notes.md
 gh release create v<version> --notes-file /tmp/release_notes.md vscode-devgen/devgen-<version>.vsix
 ```
