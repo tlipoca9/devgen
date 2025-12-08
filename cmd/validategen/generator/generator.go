@@ -1960,9 +1960,9 @@ func (vg *Generator) genOneofEnum(g *genkit.GeneratedFile, field *genkit.Field, 
 	// - Cross-package with alias: "alias:github.com/user/pkg/common.Status" -> alias.StatusEnums.Contains
 	//   (imports with alias: import alias "github.com/user/pkg/common")
 
-	var enumsVar string      // Variable name for the enums instance (e.g., "StatusEnums")
-	var enumValues []string  // For generating comment with enum values
-	var isStringEnum bool    // Whether the enum's underlying type is string
+	var enumsVar string     // Variable name for the enums instance (e.g., "StatusEnums")
+	var enumValues []string // For generating comment with enum values
+	var isStringEnum bool   // Whether the enum's underlying type is string
 
 	// Check for alias format: "alias:import/path.Type"
 	var importAlias string
