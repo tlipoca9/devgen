@@ -584,51 +584,59 @@ async function getMethodsForType(
 
     const methods: MethodInfo[] = [];
 
+    // Handle qualified type names (e.g., "common.NetworkConfiguration" -> "NetworkConfiguration")
+    // For cross-package types, we need to search by the simple type name
+    const simpleTypeName = typeName.includes('.') ? typeName.split('.').pop()! : typeName;
+    const isQualifiedType = typeName.includes('.');
+
     try {
         // Method 1: Parse current document directly for method definitions
-        // This is the most reliable way for local types
-        const text = document.getText();
-        // Match: func (x Type) MethodName() or func (x *Type) MethodName()
-        const methodRegex = new RegExp(
-            `func\\s*\\(\\s*\\w+\\s+\\*?${typeName}\\s*\\)\\s*(\\w+)\\s*\\(([^)]*)\\)\\s*([^{]*)`,
-            'g'
-        );
-        
-        let match;
-        while ((match = methodRegex.exec(text)) !== null) {
-            const methodName = match[1];
-            const params = match[2] || '';
-            const returnType = match[3]?.trim() || '';
+        // This is the most reliable way for local types (skip for qualified types)
+        if (!isQualifiedType) {
+            const text = document.getText();
+            // Match: func (x Type) MethodName() or func (x *Type) MethodName()
+            const methodRegex = new RegExp(
+                `func\\s*\\(\\s*\\w+\\s+\\*?${simpleTypeName}\\s*\\)\\s*(\\w+)\\s*\\(([^)]*)\\)\\s*([^{]*)`,
+                'g'
+            );
             
-            if (!methods.some(m => m.name === methodName)) {
-                const pos = document.positionAt(match.index);
-                methods.push({
-                    name: methodName,
-                    signature: `func(${params}) ${returnType}`.trim(),
-                    receiverType: typeName,
-                    location: new vscode.Location(document.uri, pos)
-                });
+            let match;
+            while ((match = methodRegex.exec(text)) !== null) {
+                const methodName = match[1];
+                const params = match[2] || '';
+                const returnType = match[3]?.trim() || '';
+                
+                if (!methods.some(m => m.name === methodName)) {
+                    const pos = document.positionAt(match.index);
+                    methods.push({
+                        name: methodName,
+                        signature: `func(${params}) ${returnType}`.trim(),
+                        receiverType: simpleTypeName,
+                        location: new vscode.Location(document.uri, pos)
+                    });
+                }
             }
         }
 
-        // Method 2: Use document symbols from gopls as fallback
-        if (methods.length === 0) {
+        // Method 2: Use document symbols from gopls as fallback (for local types)
+        if (methods.length === 0 && !isQualifiedType) {
             const documentSymbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
                 'vscode.executeDocumentSymbolProvider',
                 document.uri
             );
 
             if (documentSymbols) {
-                findMethodsInSymbols(documentSymbols, typeName, document.uri, methods);
+                findMethodsInSymbols(documentSymbols, simpleTypeName, document.uri, methods);
             }
         }
 
         // Method 3: Try workspace symbol search for cross-package types
+        // Use simple type name for search since gopls returns symbols without package prefix
         if (methods.length === 0) {
             const searchPatterns = [
-                `${typeName}.`,
-                `(*${typeName}).`,
-                `(${typeName}).`,
+                `(*${simpleTypeName}).`,
+                `(${simpleTypeName}).`,
+                `${simpleTypeName}.`,
             ];
 
             for (const pattern of searchPatterns) {
@@ -642,13 +650,13 @@ async function getMethodsForType(
                         if (symbol.kind === vscode.SymbolKind.Method || 
                             symbol.kind === vscode.SymbolKind.Function) {
                             const methodMatch = symbol.name.match(/\(\*?(\w+)\)\.(\w+)/);
-                            if (methodMatch && methodMatch[1] === typeName) {
+                            if (methodMatch && methodMatch[1] === simpleTypeName) {
                                 const methodName = methodMatch[2];
                                 if (!methods.some(m => m.name === methodName)) {
                                     methods.push({
                                         name: methodName,
                                         signature: '',
-                                        receiverType: typeName,
+                                        receiverType: simpleTypeName,
                                         location: symbol.location
                                     });
                                 }
@@ -658,6 +666,50 @@ async function getMethodsForType(
                 }
                 
                 if (methods.length > 0) break;
+            }
+        }
+
+        // Method 4: For qualified types, find the type definition file and search there
+        if (methods.length === 0 && isQualifiedType) {
+            const typeLocation = await findTypeDefinition(document, simpleTypeName);
+            if (typeLocation) {
+                const typeDoc = await vscode.workspace.openTextDocument(typeLocation.uri);
+                const typeText = typeDoc.getText();
+                
+                // Search for methods in the type's file
+                const methodRegex = new RegExp(
+                    `func\\s*\\(\\s*\\w+\\s+\\*?${simpleTypeName}\\s*\\)\\s*(\\w+)\\s*\\(([^)]*)\\)\\s*([^{]*)`,
+                    'g'
+                );
+                
+                let match;
+                while ((match = methodRegex.exec(typeText)) !== null) {
+                    const methodName = match[1];
+                    const params = match[2] || '';
+                    const returnType = match[3]?.trim() || '';
+                    
+                    if (!methods.some(m => m.name === methodName)) {
+                        const pos = typeDoc.positionAt(match.index);
+                        methods.push({
+                            name: methodName,
+                            signature: `func(${params}) ${returnType}`.trim(),
+                            receiverType: simpleTypeName,
+                            location: new vscode.Location(typeDoc.uri, pos)
+                        });
+                    }
+                }
+
+                // Also try document symbols from the type's file
+                if (methods.length === 0) {
+                    const documentSymbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+                        'vscode.executeDocumentSymbolProvider',
+                        typeLocation.uri
+                    );
+
+                    if (documentSymbols) {
+                        findMethodsInSymbols(documentSymbols, simpleTypeName, typeLocation.uri, methods);
+                    }
+                }
             }
         }
 
@@ -824,45 +876,6 @@ async function findTypeDefinition(
         console.error('Error finding type definition:', error);
     }
     return undefined;
-}
-
-/**
- * Validate if a method exists and matches required signature
- */
-async function validateMethod(
-    document: vscode.TextDocument,
-    typeName: string,
-    methodName: string,
-    requiredSignature?: string
-): Promise<{ exists: boolean; valid: boolean; actualSignature?: string; message?: string }> {
-    const methods = await getMethodsForType(document, typeName);
-    
-    const method = methods.find(m => m.name === methodName);
-    
-    if (!method) {
-        return {
-            exists: false,
-            valid: false,
-            message: `Method '${methodName}' not found on type '${typeName}'`
-        };
-    }
-
-    if (requiredSignature && method.signature) {
-        // Normalize signatures for comparison
-        const normalizedRequired = normalizeSignature(requiredSignature);
-        const normalizedActual = normalizeSignature(method.signature);
-        
-        if (normalizedActual && !signatureMatches(normalizedActual, normalizedRequired)) {
-            return {
-                exists: true,
-                valid: false,
-                actualSignature: method.signature,
-                message: `Method '${methodName}' has signature '${method.signature}', expected '${requiredSignature}'`
-            };
-        }
-    }
-
-    return { exists: true, valid: true, actualSignature: method.signature };
 }
 
 function normalizeSignature(sig: string): string {
@@ -1033,61 +1046,9 @@ async function updateDiagnostics(document: vscode.TextDocument) {
         }
     }
 
-    // LSP-based validation for @method annotations
-    await validateMethodAnnotations(document, types, diagnostics);
+    // Note: @method validation is now done by validategen CLI, not VSCode plugin
 
     diagnosticCollection.set(document.uri, diagnostics);
-}
-
-/**
- * Validate @method annotations using LSP
- */
-async function validateMethodAnnotations(
-    document: vscode.TextDocument,
-    types: TypeInfo[],
-    diagnostics: vscode.Diagnostic[]
-): Promise<void> {
-    for (const type of types) {
-        for (const field of type.fields) {
-            for (const ann of field.annotations) {
-                const toolConfig = toolsConfig[ann.tool];
-                if (!toolConfig) continue;
-
-                const annMeta = toolConfig.annotations[ann.name];
-                if (!annMeta?.lsp?.enabled || annMeta.lsp.feature !== 'method') continue;
-
-                const methodName = ann.params?.trim();
-                if (!methodName) continue;
-
-                // Get the base type to validate against (strip slice/map/pointer prefixes)
-                // field.typeName already contains the base type extracted by parseFieldType
-                const targetType = field.typeName;
-                const displayType = field.fullType || field.typeName;
-
-                // Validate method exists and has correct signature
-                const validation = await validateMethod(
-                    document,
-                    targetType,
-                    methodName,
-                    annMeta.lsp.signature
-                );
-
-                if (!validation.exists) {
-                    diagnostics.push(new vscode.Diagnostic(
-                        ann.range,
-                        validation.message || `Method '${methodName}' not found on type '${displayType}'`,
-                        vscode.DiagnosticSeverity.Error
-                    ));
-                } else if (!validation.valid) {
-                    diagnostics.push(new vscode.Diagnostic(
-                        ann.range,
-                        validation.message || `Method '${methodName}' has invalid signature`,
-                        vscode.DiagnosticSeverity.Warning
-                    ));
-                }
-            }
-        }
-    }
 }
 
 // ============================================================================
@@ -1350,7 +1311,7 @@ class DevGenHoverProvider implements vscode.HoverProvider {
             markdown.appendMarkdown(`\n\n**Options:** ${annMeta.values.join(', ')}`);
         }
 
-        // Show LSP info for @method
+        // Show LSP info for @method (completion still works, but validation is done by CLI)
         if (annMeta?.lsp?.enabled && params) {
             markdown.appendMarkdown(`\n\n---\n`);
             markdown.appendMarkdown(`**LSP Integration:** ${annMeta.lsp.provider}\n\n`);
@@ -1358,29 +1319,8 @@ class DevGenHoverProvider implements vscode.HoverProvider {
             if (annMeta.lsp.signature) {
                 markdown.appendMarkdown(`Required signature: \`${annMeta.lsp.signature}\`\n`);
             }
-
-            // Try to get method info
-            const fieldInfo = this.findFieldAtPosition(document, position);
-            if (fieldInfo && params) {
-                const validation = await validateMethod(
-                    document,
-                    fieldInfo.typeName,
-                    params.trim(),
-                    annMeta.lsp.signature
-                );
-
-                if (validation.exists) {
-                    markdown.appendMarkdown(`\n✅ Method found`);
-                    if (validation.actualSignature) {
-                        markdown.appendMarkdown(`: \`${validation.actualSignature}\``);
-                    }
-                    if (!validation.valid) {
-                        markdown.appendMarkdown(`\n⚠️ ${validation.message}`);
-                    }
-                } else {
-                    markdown.appendMarkdown(`\n❌ ${validation.message}`);
-                }
-            }
+            markdown.appendMarkdown(`\nMethod: \`${params.trim()}\``);
+            markdown.appendMarkdown(`\n\n_Note: Method validation is performed by validategen CLI_`);
         }
 
         return new vscode.Hover(markdown, wordRange);
