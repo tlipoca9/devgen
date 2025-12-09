@@ -142,7 +142,6 @@ const CACHE_TTL = 5000; // 5 seconds
 // AI IDE to agent name mapping
 const AI_IDE_AGENT_MAP: { [key: string]: string } = {
     'Cursor': 'cursor',
-    'Windsurf': 'windsurf',
     'CodeBuddy': 'codebuddy',
     'Kiro': 'kiro',
 };

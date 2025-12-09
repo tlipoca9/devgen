@@ -82,7 +82,7 @@ devgen rules --agent codebuddy -w
 - 提供准确的代码补全建议
 - 在你编写代码时给出正确的使用示例
 
-支持的 AI 助手：CodeBuddy、Cursor、GitHub Copilot、Windsurf
+支持的 AI 助手：CodeBuddy、Cursor、Kiro、GitHub Copilot
 
 ---
 
@@ -200,7 +200,7 @@ func (m *MyGenerator) Rules() []genkit.Rule {
 
 通过 `devgen rules --agent codebuddy -w` 生成 AI Rules 文件，让 AI 助手理解你的注解语法。
 
-> VSCode 扩展激活时会自动检测 AI IDE（Cursor、Windsurf、CodeBuddy），并自动运行此命令生成规则文件。
+> VSCode 扩展激活时会自动检测 AI IDE（Cursor、Kiro、CodeBuddy），并自动运行此命令生成规则文件。
 
 ---
 

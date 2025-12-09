@@ -50,10 +50,10 @@ type RuleTool interface {
 
 // Rule represents an AI rule configuration.
 // This structure is designed to be compatible with multiple AI agents:
-// - CodeBuddy: .codebuddy/rules/*.md
+// - CodeBuddy: .codebuddy/rules/*.mdc
 // - Cursor: .cursor/rules/*.mdc
+// - Kiro: .kiro/steering/*.md
 // - GitHub Copilot: .github/copilot-instructions.md
-// - Windsurf: .windsurfrules
 type Rule struct {
 	// Name is the rule file name (without extension).
 	// Example: "enumgen", "validategen-basics"
