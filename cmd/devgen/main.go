@@ -611,16 +611,21 @@ var supportedAgents = map[string]AgentConfig{
 	"codebuddy": {
 		Name:              "codebuddy",
 		RulesDir:          ".codebuddy/rules",
+		FileExt:           ".mdc",
+		FrontmatterFormat: "yaml",
+	},
+	"cursor": {
+		Name:              "cursor",
+		RulesDir:          ".cursor/rules",
+		FileExt:           ".mdc",
+		FrontmatterFormat: "yaml",
+	},
+	"kiro": {
+		Name:              "kiro",
+		RulesDir:          ".kiro/steering",
 		FileExt:           ".md",
 		FrontmatterFormat: "yaml",
 	},
-	// Future agents can be added here:
-	// "cursor": {
-	// 	Name:              "cursor",
-	// 	RulesDir:          ".cursor/rules",
-	// 	FileExt:           ".mdc",
-	// 	FrontmatterFormat: "yaml",
-	// },
 }
 
 func rulesCmd() *cobra.Command {
@@ -639,7 +644,9 @@ understand how to use devgen tools correctly. Each tool provides detailed,
 step-by-step documentation with examples.
 
 SUPPORTED AGENTS:
-  codebuddy    Tencent CodeBuddy (.codebuddy/rules/*.md)
+  codebuddy    Tencent CodeBuddy (.codebuddy/rules/*.mdc)
+  cursor       Cursor AI (.cursor/rules/*.mdc)
+  kiro         Kiro AI (.kiro/steering/*.md)
 
 WHAT GETS GENERATED:
   Each tool that implements the RuleTool interface will generate a rule file
