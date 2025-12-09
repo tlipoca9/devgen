@@ -2709,6 +2709,44 @@ func isMapType(t string) bool {
 	return strings.HasPrefix(t, "map[")
 }
 
+// ensureTypeImport checks if a type string contains a cross-package reference (e.g., "common.Priority")
+// and adds the necessary import. It returns the type string with proper package reference.
+// For types like "[]common.Priority" or "map[string]common.Level", it extracts the package
+// and ensures it's imported.
+func ensureTypeImport(g *genkit.GeneratedFile, fieldType string, pkg *genkit.Package) {
+	// Extract the element type from slice/map
+	elemType := fieldType
+	if strings.HasPrefix(elemType, "[]") {
+		elemType = strings.TrimPrefix(elemType, "[]")
+	} else if strings.HasPrefix(elemType, "map[") {
+		elemType = extractMapValueType(elemType)
+	}
+	// Strip pointer
+	elemType = strings.TrimPrefix(elemType, "*")
+
+	// Check if it's a cross-package type (contains ".")
+	if dotIdx := strings.Index(elemType, "."); dotIdx != -1 {
+		pkgAlias := elemType[:dotIdx]
+		// Find the import path for this alias
+		if pkg != nil && pkg.TypesPkg != nil {
+			for _, imp := range pkg.TypesPkg.Imports() {
+				// Check if the import name matches the alias
+				if imp.Name() == pkgAlias {
+					g.Import(genkit.GoImportPath(imp.Path()))
+					return
+				}
+				// Also check the last part of the path (default import name)
+				path := imp.Path()
+				parts := strings.Split(path, "/")
+				if len(parts) > 0 && parts[len(parts)-1] == pkgAlias {
+					g.Import(genkit.GoImportPath(imp.Path()))
+					return
+				}
+			}
+		}
+	}
+}
+
 // extractMapValueType extracts the value type from a map type string.
 // e.g., "map[string]Address" -> "Address", "map[int]*User" -> "*User"
 func extractMapValueType(t string) string {
@@ -3185,6 +3223,11 @@ func (vg *Generator) GenerateValidateTest(g *genkit.GeneratedFile, typ *genkit.T
 		return
 	}
 
+	// Ensure imports for all cross-package field types used in tests
+	for _, fv := range validatedFields {
+		ensureTypeImport(g, fv.Field.Type, typ.Pkg)
+	}
+
 	// Always test _validate() method
 	methodName := "_validate"
 	testFuncName := "Test" + typeName + "__validate"
@@ -3503,7 +3546,12 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 // It handles both same-package and cross-package enum types, adding imports as needed.
 // For valid values (value > 0), it uses the first enum constant.
 // For invalid values (value like 99999), it generates an invalid value with proper type conversion.
-func (vg *Generator) generateEnumTestValue(g *genkit.GeneratedFile, fieldName, fieldType, enumParam string, value int, pkg *genkit.Package) {
+func (vg *Generator) generateEnumTestValue(
+	g *genkit.GeneratedFile,
+	fieldName, fieldType, enumParam string,
+	value int,
+	pkg *genkit.Package,
+) {
 	// Parse enum type parameter to determine if import is needed
 	enumType := strings.TrimSpace(enumParam)
 

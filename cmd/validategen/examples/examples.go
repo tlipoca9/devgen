@@ -3,6 +3,8 @@ package examples
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tlipoca9/devgen/cmd/validategen/examples/common"
 )
 
 // Status is a custom int type with validation.
@@ -350,4 +352,13 @@ type EnumExample struct {
 type StringEnumExample struct {
 	// validategen:@oneof_enum(OrderStatus)
 	StatusStr string
+}
+
+// CrossPackageFieldOnlyExample demonstrates validation with only cross-package field types (no oneof_enum).
+// validategen:@validate
+type CrossPackageFieldOnlyExample struct {
+	// validategen:@required
+	// validategen:@min(1)
+	// validategen:@max(10)
+	Scores []common.Priority
 }
