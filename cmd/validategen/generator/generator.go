@@ -3204,7 +3204,7 @@ func (vg *Generator) GenerateValidateTest(g *genkit.GeneratedFile, typ *genkit.T
 	g.P("name: \"valid\",")
 	g.P("input: ", typeName, "{")
 	for _, fv := range validatedFields {
-		vg.generateValidFieldValue(g, fv)
+		vg.generateValidFieldValue(g, fv, typ.Pkg)
 	}
 	g.P("},")
 	g.P("wantErr: false,")
@@ -3212,7 +3212,7 @@ func (vg *Generator) GenerateValidateTest(g *genkit.GeneratedFile, typ *genkit.T
 
 	// Generate invalid cases for each field with validation rules
 	for _, fv := range validatedFields {
-		vg.generateInvalidTestCases(g, typeName, fv, validatedFields)
+		vg.generateInvalidTestCases(g, typeName, fv, validatedFields, typ.Pkg)
 	}
 
 	g.P("}")
@@ -3233,7 +3233,7 @@ func (vg *Generator) GenerateValidateTest(g *genkit.GeneratedFile, typ *genkit.T
 
 // generateValidFieldValue generates a valid value for a field in test cases.
 // Note: @method fields are already filtered out before calling this function.
-func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldValidation) {
+func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldValidation, pkg *genkit.Package) {
 	fieldName := fv.Field.Name
 	fieldType := fv.Field.Type
 	underlyingType := fv.Field.UnderlyingType
@@ -3250,6 +3250,7 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 	var oneofValues, containsVal, startsWithVal, endsWithVal string
 	var eqVal, neVal, regexVal, formatVal string
 	var durationMinVal, durationMaxVal string
+	var oneofEnumParam string
 
 	for _, rule := range fv.Rules {
 		switch rule.Name {
@@ -3307,6 +3308,7 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 			oneofValues = rule.Param
 		case "oneof_enum":
 			hasOneofEnum = true
+			oneofEnumParam = rule.Param
 		case "contains":
 			hasContains = true
 			containsVal = rule.Param
@@ -3336,7 +3338,11 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 	// Generate value based on type and rules
 	if isStringType(underlyingType) {
 		var value string
-		if hasEmail {
+		if hasOneofEnum {
+			// For oneof_enum with string underlying type, use proper type conversion
+			vg.generateEnumTestValue(g, fieldName, fieldType, oneofEnumParam, 1, pkg)
+			return
+		} else if hasEmail {
 			value = "test@example.com"
 		} else if hasURL {
 			value = "https://example.com"
@@ -3404,7 +3410,11 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 		g.P(fieldName, ": \"", value, "\",")
 	} else if isNumericType(underlyingType) {
 		var value string
-		if hasOneof || hasOneofEnum {
+		if hasOneofEnum {
+			// For oneof_enum with numeric underlying type, use proper type conversion
+			vg.generateEnumTestValue(g, fieldName, fieldType, oneofEnumParam, 1, pkg)
+			return
+		} else if hasOneof {
 			// Use first value from oneof
 			parts := strings.Split(oneofValues, " ")
 			if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
@@ -3483,8 +3493,123 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 			g.P(fieldName, ": &", elemType, "{},")
 		}
 	} else if hasOneofEnum {
-		// For enum types, use the type's first valid value (assume 1 is valid)
-		g.P(fieldName, ": 1,")
+		// For enum types, use the field type with a valid value
+		// Handle cross-package enum types by adding import
+		vg.generateEnumTestValue(g, fieldName, fieldType, oneofEnumParam, 1, pkg)
+	}
+}
+
+// generateEnumTestValue generates a test value for enum fields.
+// It handles both same-package and cross-package enum types, adding imports as needed.
+// For valid values (value > 0), it uses the first enum constant.
+// For invalid values (value like 99999), it generates an invalid value with proper type conversion.
+func (vg *Generator) generateEnumTestValue(g *genkit.GeneratedFile, fieldName, fieldType, enumParam string, value int, pkg *genkit.Package) {
+	// Parse enum type parameter to determine if import is needed
+	enumType := strings.TrimSpace(enumParam)
+
+	// Strip alias prefix if present: "alias:import/path.Type" -> "import/path.Type"
+	var importAlias string
+	if colonIdx := strings.Index(enumType, ":"); colonIdx != -1 {
+		importAlias = enumType[:colonIdx]
+		enumType = enumType[colonIdx+1:]
+	}
+
+	// Check if field type is a basic type (string, int, etc.) rather than the enum type itself
+	isBasicFieldType := isStringType(fieldType) || isNumericType(fieldType)
+
+	if lastDot := strings.LastIndex(enumType, "."); lastDot != -1 && strings.Contains(enumType[:lastDot], "/") {
+		// Cross-package enum: "github.com/user/pkg/common.Status"
+		beforeDot := enumType[:lastDot]
+		typeName := enumType[lastDot+1:]
+
+		importPath := genkit.GoImportPath(beforeDot)
+
+		// Determine package name and ensure import is added
+		var pkgName string
+		if importAlias != "" {
+			// Use specified alias
+			g.ImportAs(importPath, genkit.GoPackageName(importAlias))
+			pkgName = importAlias
+		} else {
+			// Use default package name and add import
+			pkgName = string(g.Import(importPath))
+		}
+
+		// Look up enum to get first valid value
+		enum := vg.findEnum(importPath, typeName)
+
+		if isBasicFieldType {
+			// Field type is string/int, not the enum type itself
+			if isStringType(fieldType) {
+				if value > 0 && value < 100 && enum != nil && len(enum.Values) > 0 {
+					// Use first enum value's String() method (generated by enumgen)
+					g.P(fieldName, ": ", pkgName, ".", enum.Values[0].Name, ".String(),")
+				} else {
+					g.P(fieldName, ": \"__invalid__\",")
+				}
+			} else {
+				// Numeric field type
+				if value > 0 && value < 100 && enum != nil && len(enum.Values) > 0 {
+					g.P(fieldName, ": int(", pkgName, ".", enum.Values[0].Name, "),")
+				} else {
+					g.P(fieldName, ": ", value, ",")
+				}
+			}
+		} else {
+			// Field type is the enum type itself
+			if enum != nil && len(enum.Values) > 0 && value > 0 && value < 100 {
+				// Use first enum constant for valid value
+				g.P(fieldName, ": ", pkgName, ".", enum.Values[0].Name, ",")
+			} else {
+				// Generate invalid value with proper type conversion
+				if enum != nil && isStringType(enum.UnderlyingType) {
+					g.P(fieldName, ": ", pkgName, ".", typeName, "(\"__invalid__\"),")
+				} else {
+					g.P(fieldName, ": ", pkgName, ".", typeName, "(", value, "),")
+				}
+			}
+		}
+	} else {
+		// Same package enum - look up enum to get first valid value
+		var enum *genkit.Enum
+		for _, e := range pkg.Enums {
+			if e.Name == enumType {
+				enum = e
+				break
+			}
+		}
+
+		if isBasicFieldType {
+			// Field type is string/int, not the enum type itself
+			if isStringType(fieldType) {
+				if value > 0 && value < 100 && enum != nil && len(enum.Values) > 0 {
+					// Use first enum value's String() method (generated by enumgen)
+					g.P(fieldName, ": ", enum.Values[0].Name, ".String(),")
+				} else {
+					g.P(fieldName, ": \"__invalid__\",")
+				}
+			} else {
+				// Numeric field type
+				if value > 0 && value < 100 && enum != nil && len(enum.Values) > 0 {
+					g.P(fieldName, ": int(", enum.Values[0].Name, "),")
+				} else {
+					g.P(fieldName, ": ", value, ",")
+				}
+			}
+		} else {
+			// Field type is the enum type itself
+			if enum != nil && len(enum.Values) > 0 && value > 0 && value < 100 {
+				// Use first enum constant for valid value
+				g.P(fieldName, ": ", enum.Values[0].Name, ",")
+			} else {
+				// Generate invalid value with proper type conversion
+				if enum != nil && isStringType(enum.UnderlyingType) {
+					g.P(fieldName, ": ", fieldType, "(\"__invalid__\"),")
+				} else {
+					g.P(fieldName, ": ", fieldType, "(", value, "),")
+				}
+			}
+		}
 	}
 }
 
@@ -3529,6 +3654,7 @@ func (vg *Generator) generateInvalidTestCases(
 	typeName string,
 	fv *fieldValidation,
 	allFields []*fieldValidation,
+	pkg *genkit.Package,
 ) {
 	fieldName := fv.Field.Name
 	fieldType := fv.Field.Type
@@ -3543,7 +3669,7 @@ func (vg *Generator) generateInvalidTestCases(
 			// Fill other fields with valid values, leave this one empty
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				}
 				// Skip the field being tested - it will be zero value
 			}
@@ -3560,7 +3686,7 @@ func (vg *Generator) generateInvalidTestCases(
 					g.P("input: ", typeName, "{")
 					for _, otherFv := range allFields {
 						if otherFv.Field.Name != fieldName {
-							vg.generateValidFieldValue(g, otherFv)
+							vg.generateValidFieldValue(g, otherFv, pkg)
 						} else {
 							// Generate string shorter than min
 							g.P(fieldName, ": \"", strings.Repeat("a", n-1), "\",")
@@ -3577,7 +3703,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						g.P(fieldName, ": ", fmt.Sprintf("%v", int(n)-1), ",")
 					}
@@ -3593,7 +3719,7 @@ func (vg *Generator) generateInvalidTestCases(
 					g.P("input: ", typeName, "{")
 					for _, otherFv := range allFields {
 						if otherFv.Field.Name != fieldName {
-							vg.generateValidFieldValue(g, otherFv)
+							vg.generateValidFieldValue(g, otherFv, pkg)
 						} else {
 							// Generate slice/map with fewer elements
 							g.P(fieldName, ": make(", fieldType, ", ", n-1, "),")
@@ -3613,7 +3739,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						// Generate string longer than max
 						g.P(fieldName, ": \"", strings.Repeat("a", n+1), "\",")
@@ -3629,7 +3755,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						g.P(fieldName, ": ", fmt.Sprintf("%v", int(n)+1), ",")
 					}
@@ -3644,7 +3770,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						// Generate slice/map with more elements
 						g.P(fieldName, ": make(", fieldType, ", ", n+1, "),")
@@ -3663,7 +3789,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						// Generate string with wrong length
 						g.P(fieldName, ": \"", strings.Repeat("a", n+1), "\",")
@@ -3679,7 +3805,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						// Generate slice/map with wrong length
 						g.P(fieldName, ": make(", fieldType, ", ", n+1, "),")
@@ -3696,7 +3822,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					if isStringType(underlyingType) {
 						g.P(fieldName, ": \"__wrong_value__\",")
@@ -3724,7 +3850,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					if isStringType(underlyingType) {
 						g.P(fieldName, ": \"", rule.Param, "\",")
@@ -3745,7 +3871,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"invalid-email\",")
 				}
@@ -3760,7 +3886,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"not-a-url\",")
 				}
@@ -3775,7 +3901,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"not-a-uuid\",")
 				}
@@ -3790,7 +3916,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"not-an-ip\",")
 				}
@@ -3805,7 +3931,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"invalid-duration\",")
 				}
@@ -3820,7 +3946,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					// Generate a duration smaller than min
 					g.P(fieldName, ": \"1ns\",")
@@ -3836,7 +3962,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					// Generate a duration larger than max
 					g.P(fieldName, ": \"1000h\",")
@@ -3852,7 +3978,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"abc123\",") // Contains numbers
 				}
@@ -3867,7 +3993,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"abc-123\",") // Contains special char
 				}
@@ -3882,7 +4008,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"12a34\",") // Contains letter
 				}
@@ -3897,7 +4023,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"no_match_here\",")
 				}
@@ -3912,7 +4038,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"contains_", rule.Param, "_here\",")
 				}
@@ -3927,7 +4053,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"wrong_prefix\",")
 				}
@@ -3942,7 +4068,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"wrong_suffix\",")
 				}
@@ -3957,7 +4083,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					g.P(fieldName, ": \"!@#$%invalid\",")
 				}
@@ -3972,7 +4098,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					// Generate invalid format content
 					switch strings.ToLower(rule.Param) {
@@ -3999,7 +4125,7 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
 					if isStringType(underlyingType) {
 						g.P(fieldName, ": \"__invalid_value__\",")
@@ -4018,10 +4144,11 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("input: ", typeName, "{")
 			for _, otherFv := range allFields {
 				if otherFv.Field.Name != fieldName {
-					vg.generateValidFieldValue(g, otherFv)
+					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
-					// Use an invalid enum value (typically 0 or a large number)
-					g.P(fieldName, ": 99999,")
+					// Use an invalid enum value (typically a large number)
+					// Handle cross-package enum types by adding import
+					vg.generateEnumTestValue(g, fieldName, fieldType, rule.Param, 99999, pkg)
 				}
 			}
 			g.P("},")
@@ -4036,7 +4163,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						g.P(fieldName, ": ", fmt.Sprintf("%v", int(n)), ",") // Equal to, not greater than
 					}
@@ -4051,7 +4178,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						if isStringType(underlyingType) {
 							g.P(fieldName, ": \"", strings.Repeat("a", n), "\",") // Equal length
@@ -4073,7 +4200,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						g.P(fieldName, ": ", fmt.Sprintf("%v", int(n)-1), ",") // Less than
 					}
@@ -4089,7 +4216,7 @@ func (vg *Generator) generateInvalidTestCases(
 					g.P("input: ", typeName, "{")
 					for _, otherFv := range allFields {
 						if otherFv.Field.Name != fieldName {
-							vg.generateValidFieldValue(g, otherFv)
+							vg.generateValidFieldValue(g, otherFv, pkg)
 						} else {
 							g.P(fieldName, ": \"", strings.Repeat("a", n-1), "\",")
 						}
@@ -4108,7 +4235,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						g.P(fieldName, ": ", fmt.Sprintf("%v", int(n)), ",") // Equal to, not less than
 					}
@@ -4123,7 +4250,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						if isStringType(underlyingType) {
 							g.P(fieldName, ": \"", strings.Repeat("a", n), "\",") // Equal length
@@ -4145,7 +4272,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						g.P(fieldName, ": ", fmt.Sprintf("%v", int(n)+1), ",") // Greater than
 					}
@@ -4160,7 +4287,7 @@ func (vg *Generator) generateInvalidTestCases(
 				g.P("input: ", typeName, "{")
 				for _, otherFv := range allFields {
 					if otherFv.Field.Name != fieldName {
-						vg.generateValidFieldValue(g, otherFv)
+						vg.generateValidFieldValue(g, otherFv, pkg)
 					} else {
 						g.P(fieldName, ": \"", strings.Repeat("a", n+1), "\",")
 					}

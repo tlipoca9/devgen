@@ -1504,14 +1504,46 @@ func TestEnumExample__validate(t *testing.T) {
 		{
 			name: "valid",
 			input: EnumExample{
-				Status: 1,
+				Status: OrderStatusPending,
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid_Status_oneof_enum",
 			input: EnumExample{
-				Status: 99999,
+				Status: OrderStatus(99999),
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestStringEnumExample__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   StringEnumExample
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: StringEnumExample{
+				StatusStr: OrderStatusPending.String(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid_StatusStr_oneof_enum",
+			input: StringEnumExample{
+				StatusStr: "__invalid__",
 			},
 			wantErr: true,
 		},
