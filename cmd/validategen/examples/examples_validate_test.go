@@ -3,6 +3,7 @@
 package examples
 
 import (
+	"github.com/tlipoca9/devgen/cmd/validategen/examples/common"
 	"testing"
 )
 
@@ -1544,6 +1545,50 @@ func TestStringEnumExample__validate(t *testing.T) {
 			name: "invalid_StatusStr_oneof_enum",
 			input: StringEnumExample{
 				StatusStr: "__invalid__",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCrossPackageFieldOnlyExample__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   CrossPackageFieldOnlyExample
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: CrossPackageFieldOnlyExample{
+				Scores: make([]common.Priority, 1),
+			},
+			wantErr: false,
+		},
+		{
+			name:    "invalid_Scores_required",
+			input:   CrossPackageFieldOnlyExample{},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Scores_min",
+			input: CrossPackageFieldOnlyExample{
+				Scores: make([]common.Priority, 0),
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Scores_max",
+			input: CrossPackageFieldOnlyExample{
+				Scores: make([]common.Priority, 11),
 			},
 			wantErr: true,
 		},

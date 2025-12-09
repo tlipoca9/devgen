@@ -634,3 +634,30 @@ func (x StringEnumExample) Validate() error {
 	}
 	return nil
 }
+
+// _validate performs field-level validation for CrossPackageFieldOnlyExample.
+// This method excludes @method validations for easier testing.
+func (x CrossPackageFieldOnlyExample) _validate() []string {
+	var errs []string
+
+	if len(x.Scores) == 0 {
+		errs = append(errs, "Scores is required")
+	}
+	if len(x.Scores) < 1 {
+		errs = append(errs, fmt.Sprintf("Scores must have at least 1 elements, got %d", len(x.Scores)))
+	}
+	if len(x.Scores) > 10 {
+		errs = append(errs, fmt.Sprintf("Scores must have at most 10 elements, got %d", len(x.Scores)))
+	}
+
+	return errs
+}
+
+// Validate validates the CrossPackageFieldOnlyExample fields.
+func (x CrossPackageFieldOnlyExample) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
