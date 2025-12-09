@@ -8,6 +8,43 @@ provider:
 
 # devgen 发布流程
 
+## 重要：AI 执行指南
+
+**当用户要求发布新版本时，AI 必须按以下方式执行：**
+
+### 1. 创建任务清单
+
+在开始发布前，**必须**使用 `todo_write` 工具创建任务清单，跟踪发布进度：
+
+```
+任务清单模板：
+1. [pending] 检查 Config 接口
+2. [pending] 检查 Rules 接口
+3. [pending] 检查文档更新
+4. [pending] 代码质量检查 (make)
+5. [pending] 提交代码
+6. [pending] 发布版本 (make publish)
+7. [pending] 创建 Release Notes
+8. [pending] 合并文档到发布 commit
+9. [pending] 推送到远程
+10. [pending] 创建 GitHub Release
+11. [pending] 发布到 VSCode Marketplace
+```
+
+### 2. 逐步执行
+
+**每个步骤执行前**，必须：
+1. 将当前任务标记为 `in_progress`
+2. **重新阅读本规则**中对应步骤的详细说明
+3. 按说明执行
+4. 完成后标记为 `completed`
+
+### 3. 步骤间确认
+
+每完成一个主要步骤后，向用户简要汇报进度，然后继续下一步。
+
+---
+
 ## 前置条件（首次设置）
 
 ```bash
@@ -27,9 +64,7 @@ npm install -g @vscode/vsce
 
 ## 发布步骤
 
-### Step 1: 前置检查
-
-#### 1.1 检查 Config 接口是否需要更新
+### Step 1: 检查 Config 接口
 
 `Config()` 方法返回 `genkit.ToolConfig`，定义了工具的注解配置，供 VSCode 插件用于语法高亮和自动补全。**只有当注解语法发生变化时才需要更新。**
 
@@ -71,7 +106,7 @@ git diff HEAD~5 -- cmd/enumgen/generator/generator.go cmd/validategen/generator/
 
 **注意**：`Config()` 返回的 `ToolConfig.Annotations` 会被 VSCode 插件读取，用于提供注解的语法高亮和自动补全。
 
-#### 1.2 检查 Rules 接口是否需要更新
+### Step 2: 检查 Rules 接口
 
 Rules 是给 AI 看的工具使用文档，存放在 `cmd/<tool>/rules/` 目录下。**只有当工具的「用户接口」发生变化时才需要更新。**
 
@@ -105,7 +140,7 @@ devgen rules --agent codebuddy -w
 
 **注意**：`devgen rules` 命令只是从源码中提取 rules 并生成到 `.codebuddy/rules/` 目录，它不会自动判断是否需要更新。你需要先人工判断是否需要修改 `cmd/<tool>/rules/*.md` 源文件。
 
-#### 1.3 更新文档
+### Step 3: 检查文档更新
 
 检查以下文档是否需要更新：
 
@@ -118,7 +153,7 @@ devgen rules --agent codebuddy -w
 git diff --name-only HEAD~5
 ```
 
-#### 1.4 确保代码质量
+### Step 4: 代码质量检查
 
 完成上述检查和修复后，运行完整检查：
 
@@ -127,14 +162,14 @@ git diff --name-only HEAD~5
 make
 ```
 
-### Step 2: 提交代码
+### Step 5: 提交代码
 
 ```bash
 git status
 git add -A && git commit -m "<type>: <description>"
 ```
 
-### Step 3: 发布版本
+### Step 6: 发布版本
 
 ```bash
 # 查看当前版本
@@ -144,7 +179,7 @@ git tag --sort=-v:refname | head -3
 make publish RELEASE_VERSION=x.y.z
 ```
 
-### Step 4: 更新文档
+### Step 7: 创建 Release Notes
 
 ```bash
 # 查看变更
@@ -158,7 +193,7 @@ git diff v<prev>..v<curr> --stat
 - `README.md` / `README_EN.md` - 添加版本链接
 - `cmd/<tool>/README.md` / `README_EN.md` - 如有工具变更
 
-### Step 5: 合并文档到发布 commit
+### Step 8: 合并文档到发布 commit
 
 ```bash
 git add README.md README_EN.md docs/release/ cmd/*/README*.md
@@ -166,13 +201,13 @@ git commit --amend --no-edit
 git tag -d v<version> && git tag -a v<version> -m "Release v<version>"
 ```
 
-### Step 6: 推送到远程
+### Step 9: 推送到远程
 
 ```bash
 git push origin main --tags --force-with-lease
 ```
 
-### Step 7: 创建 GitHub Release
+### Step 10: 创建 GitHub Release
 
 ```bash
 cat docs/release/v<version>.md > /tmp/release_notes.md
@@ -180,7 +215,7 @@ echo -e "\n\n---\n\n[English](https://github.com/tlipoca9/devgen/blob/main/docs/
 gh release create v<version> --notes-file /tmp/release_notes.md vscode-devgen/devgen-<version>.vsix
 ```
 
-### Step 8: 发布到 VSCode Marketplace
+### Step 11: 发布到 VSCode Marketplace
 
 ```bash
 cd vscode-devgen
