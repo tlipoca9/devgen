@@ -144,6 +144,7 @@ const AI_IDE_AGENT_MAP: { [key: string]: string } = {
     'Cursor': 'cursor',
     'Windsurf': 'windsurf',
     'CodeBuddy': 'codebuddy',
+    'Kiro': 'kiro',
 };
 
 export async function activate(context: vscode.ExtensionContext) {
