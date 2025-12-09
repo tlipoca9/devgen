@@ -1,3 +1,8 @@
+---
+inclusion: always
+fileMatchPattern: ['**/*.go']
+---
+
 # devgen AI Rules System
 
 devgen provides an AI Rules system for generating documentation that AI coding assistants (like Kiro, CodeBuddy, Cursor, etc.) can understand.

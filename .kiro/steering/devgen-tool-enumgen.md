@@ -1,3 +1,8 @@
+---
+inclusion: fileMatch
+fileMatchPattern: ['*.go']
+---
+
 # enumgen - Go Enum Code Generator
 
 enumgen is part of the devgen toolkit, used to automatically generate helper methods for Go enum types.

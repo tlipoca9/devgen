@@ -225,6 +225,101 @@ values = ["json", "xml", "yaml"]
 
 完整示例请参考 [examples/plugin](../examples/plugin/)。
 
+### AI Rules 集成（可选）
+
+为了让 AI 助手（Kiro、CodeBuddy、Cursor）理解你的插件，实现 `genkit.RuleTool` 接口：
+
+```go
+type RuleTool interface {
+    Tool
+    Rules() []Rule
+}
+```
+
+示例：
+
+```go
+func (m *MyGenerator) Rules() []genkit.Rule {
+    return []genkit.Rule{
+        {
+            Name:        "mygen",
+            Description: "MyGenerator 使用指南",
+            Globs:       []string{"**/*.go"},
+            AlwaysApply: false,
+            Content:     mygenRuleContent,
+        },
+    }
+}
+```
+
+**最佳实践**：将规则内容存储在单独的 markdown 文件中并嵌入：
+
+```go
+// rules/embed.go
+package rules
+
+import _ "embed"
+
+//go:embed mygen.md
+var MygenRule string
+```
+
+然后在插件中引用：
+
+```go
+import "myapp/plugins/mygen/rules"
+
+func (m *MyGenerator) Rules() []genkit.Rule {
+    return []genkit.Rule{
+        {
+            Name:        "mygen",
+            Description: "MyGenerator 使用指南",
+            Globs:       []string{"**/*.go"},
+            Content:     rules.MygenRule,
+        },
+    }
+}
+```
+
+**生成 AI Rules**：
+
+```bash
+# 预览规则
+devgen rules --agent kiro
+
+# 为 Kiro 生成规则
+devgen rules --agent kiro -w
+
+# 为 CodeBuddy 生成规则
+devgen rules --agent codebuddy -w
+
+# 为 Cursor 生成规则
+devgen rules --agent cursor -w
+```
+
+**规则内容结构**：
+
+你的规则 markdown 应包含：
+1. **何时使用** - 使用场景和案例
+2. **快速开始** - 分步入门指南
+3. **注解参考** - 详细的注解文档
+4. **完整示例** - 完整的工作示例
+5. **常见错误** - 故障排除指南，包含 ❌/✅ 对比
+
+参考 [enumgen 规则](../cmd/enumgen/rules/enumgen.md) 和 [validategen 规则](../cmd/validategen/rules/validategen.md) 的实现。
+
+**规则如何与不同 AI 助手协作**：
+
+每个 AI 助手使用不同的 frontmatter 格式。devgen 会自动适配你的规则：
+
+| 助手 | Frontmatter 格式 |
+|------|-----------------|
+| **Kiro** | `inclusion: fileMatch` + `fileMatchPattern: ['**/*.go']` |
+| **CodeBuddy** | `description: "..."` + `globs: **/*.go` + `alwaysApply: false` |
+| **Cursor** | `description: "..."` + `globs: **/*.go` + `alwaysApply: false` |
+
+适配器系统会自动处理转换 - 你只需提供一次内容。
+
 ## API 参考
 
 ### genkit.Tool
@@ -242,6 +337,23 @@ type Tool interface {
 type ConfigurableTool interface {
     Tool
     Config() ToolConfig
+}
+```
+
+### genkit.RuleTool
+
+```go
+type RuleTool interface {
+    Tool
+    Rules() []Rule
+}
+
+type Rule struct {
+    Name        string   // 规则文件名（不含扩展名）
+    Description string   // 简短描述，用于 AI 上下文加载
+    Globs       []string // 触发自动加载的文件模式
+    AlwaysApply bool     // 是否始终包含在上下文中
+    Content     string   // 完整的 markdown 文档
 }
 ```
 

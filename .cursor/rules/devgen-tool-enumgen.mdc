@@ -1,3 +1,9 @@
+---
+description: Go 枚举代码生成工具 enumgen 的使用指南。当用户需要定义类型安全的枚举、生成枚举辅助方法（String、JSON、SQL等）时使用此规则。
+globs: *.go
+alwaysApply: false
+---
+
 # enumgen - Go Enum Code Generator
 
 enumgen is part of the devgen toolkit, used to automatically generate helper methods for Go enum types.

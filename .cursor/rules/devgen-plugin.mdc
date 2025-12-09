@@ -1,3 +1,9 @@
+---
+description: devgen plugin development guide. How to use genkit framework to develop custom code generation plugins.
+globs: **/*.go
+alwaysApply: false
+---
+
 # devgen Plugin Development Guide
 
 This document explains how to develop custom code generation plugins for devgen.

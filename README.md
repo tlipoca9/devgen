@@ -72,17 +72,86 @@ block-beta
 
 devgen 是首个内置 AI Rules 系统的 Go 代码生成工具。通过 `RuleTool` 接口，你的代码生成器可以自动生成 AI 编程助手能理解的文档。
 
+#### 支持的 AI 助手
+
+| 助手 | 输出目录 | 文件扩展名 | 格式 |
+|------|---------|-----------|------|
+| **Kiro** | `.kiro/steering/` | `.md` | YAML frontmatter，包含 `inclusion` 和 `fileMatchPattern` |
+| **CodeBuddy** | `.codebuddy/rules/` | `.mdc` | YAML frontmatter，包含 `description`、`globs`、`alwaysApply` |
+| **Cursor** | `.cursor/rules/` | `.mdc` | YAML frontmatter，包含 `description`、`globs`、`alwaysApply` |
+
+#### AI Rules 快速开始
+
+**列出可用的 AI 助手：**
 ```bash
-# 为 CodeBuddy/Cursor 生成 AI Rules
-devgen rules --agent codebuddy -w
+devgen rules --list-agents
 ```
 
-生成的 rules 文件让 AI 助手能够：
-- 理解你的注解语法和参数
-- 提供准确的代码补全建议
-- 在你编写代码时给出正确的使用示例
+**预览规则（不写入文件）：**
+```bash
+devgen rules --agent kiro
+```
 
-支持的 AI 助手：CodeBuddy、Cursor、Kiro
+**为你的 AI 助手生成规则：**
+```bash
+# 为 Kiro 生成
+devgen rules --agent kiro -w
+
+# 为 CodeBuddy 生成
+devgen rules --agent codebuddy -w
+
+# 为 Cursor 生成
+devgen rules --agent cursor -w
+```
+
+#### AI Rules 提供的能力
+
+生成的 rules 文件让 AI 助手能够：
+- ✅ 理解你的注解语法和参数
+- ✅ 提供准确的代码补全建议
+- ✅ 在你编写代码时给出正确的使用示例
+- ✅ 建议正确的错误处理模式
+- ✅ 展示完整的工作示例
+
+#### 示例：生成的 Kiro 规则
+
+```markdown
+---
+inclusion: fileMatch
+fileMatchPattern: ['**/*.go']
+---
+
+# enumgen - Go 枚举代码生成器
+
+## 何时使用 enumgen？
+
+在以下场景使用 enumgen：
+- 为枚举类型生成 String() 方法
+- 添加 JSON/SQL 序列化支持
+- 实现验证方法
+
+## 快速开始
+
+### 步骤 1：定义枚举类型
+\`\`\`go
+// Status 表示订单状态
+// enumgen:@enum(string, json)
+type Status int
+
+const (
+    StatusPending Status = iota + 1
+    StatusActive
+)
+\`\`\`
+
+### 步骤 2：运行生成
+\`\`\`bash
+devgen ./...
+\`\`\`
+...
+```
+
+详见 [AI Rules 系统文档](cmd/devgen/rules/devgen-rules.md)。
 
 ---
 
