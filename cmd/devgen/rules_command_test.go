@@ -76,7 +76,11 @@ func TestRulesCommand_Execute_Preview(t *testing.T) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("Chdir() error = %v", err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
 
 	log := genkit.NewLogger()
 	cmd := NewRulesCommand(log)
@@ -105,7 +109,11 @@ func TestRulesCommand_Execute_Write(t *testing.T) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("Chdir() error = %v", err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
 
 	log := genkit.NewLogger()
 	cmd := NewRulesCommand(log)
@@ -181,7 +189,11 @@ func TestRulesCommand_Execute_Write_CodeBuddy(t *testing.T) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("Chdir() error = %v", err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
 
 	log := genkit.NewLogger()
 	cmd := NewRulesCommand(log)
@@ -205,7 +217,7 @@ func TestRulesCommand_Execute_Write_CodeBuddy(t *testing.T) {
 	}
 
 	// Verify file content has CodeBuddy frontmatter format
-	testFile := filepath.Join(outputDir, "devgen.md")
+	testFile := filepath.Join(outputDir, "devgen.mdc")
 	content, err := os.ReadFile(testFile)
 	if err != nil {
 		t.Fatalf("ReadFile(%s) error = %v", testFile, err)
@@ -238,7 +250,11 @@ func TestRulesCommand_CollectRules(t *testing.T) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("Chdir() error = %v", err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
 
 	log := genkit.NewLogger()
 	cmd := NewRulesCommand(log)
@@ -301,7 +317,11 @@ func TestRulesCommand_WriteRules_CreateDirectory(t *testing.T) {
 	if err := os.Chdir(tmpDir); err != nil {
 		t.Fatalf("Chdir() error = %v", err)
 	}
-	defer os.Chdir(originalWd)
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
 
 	log := genkit.NewLogger()
 	cmd := NewRulesCommand(log)
