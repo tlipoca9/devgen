@@ -608,3 +608,29 @@ func (x EnumExample) Validate() error {
 	}
 	return nil
 }
+
+// _validate performs field-level validation for StringEnumExample.
+// This method excludes @method validations for easier testing.
+func (x StringEnumExample) _validate() []string {
+	var errs []string
+
+	// Valid values:
+	//   - OrderStatusPending
+	//   - OrderStatusPaid
+	//   - OrderStatusShipped
+	//   - OrderStatusDelivered
+	if !OrderStatusEnums.ContainsName(fmt.Sprintf("%v", x.StatusStr)) {
+		errs = append(errs, fmt.Sprintf("StatusStr must be one of %v, got %v", OrderStatusEnums.Names(), x.StatusStr))
+	}
+
+	return errs
+}
+
+// Validate validates the StringEnumExample fields.
+func (x StringEnumExample) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}

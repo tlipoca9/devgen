@@ -344,3 +344,10 @@ type EnumExample struct {
 	// validategen:@oneof_enum(OrderStatus)
 	Status OrderStatus
 }
+
+// StringEnumExample demonstrates oneof_enum validation with string field type.
+// validategen:@validate
+type StringEnumExample struct {
+	// validategen:@oneof_enum(OrderStatus)
+	StatusStr string
+}
