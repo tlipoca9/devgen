@@ -18,7 +18,7 @@
 
 | 特性 | 描述 |
 |------|------|
-| 🤖 **AI 原生** | 内置 AI Rules 系统，让 AI 编程助手（CodeBuddy、Cursor、Copilot）理解你的代码生成规则 |
+| 🤖 **AI 原生** | 内置 AI Rules 系统，让 AI 编程助手（CodeBuddy、Cursor、Kiro）理解你的代码生成规则 |
 | 🧩 **插件架构** | 基于 genkit 框架的插件系统，轻松开发自定义代码生成器 |
 | 💡 **智能 IDE** | VSCode 扩展提供语法高亮、智能补全、实时诊断，注解错误即时反馈 |
 | ⚡ **零配置** | 插件自描述注解元数据，IDE 自动识别，即插即用 |
@@ -82,7 +82,7 @@ devgen rules --agent codebuddy -w
 - 提供准确的代码补全建议
 - 在你编写代码时给出正确的使用示例
 
-支持的 AI 助手：CodeBuddy、Cursor、Kiro、GitHub Copilot
+支持的 AI 助手：CodeBuddy、Cursor、Kiro
 
 ---
 

@@ -37,7 +37,7 @@ type ValidatableTool interface {
 
 // RuleTool extends Tool with AI rules generation capability.
 // Implement this interface to provide AI-friendly documentation
-// that can be used by AI coding assistants (CodeBuddy, Cursor, Copilot, etc.)
+// that can be used by AI coding assistants (CodeBuddy, Cursor, Kiro, etc.)
 type RuleTool interface {
 	Tool
 
@@ -53,7 +53,6 @@ type RuleTool interface {
 // - CodeBuddy: .codebuddy/rules/*.mdc
 // - Cursor: .cursor/rules/*.mdc
 // - Kiro: .kiro/steering/*.md
-// - GitHub Copilot: .github/copilot-instructions.md
 type Rule struct {
 	// Name is the rule file name (without extension).
 	// Example: "enumgen", "validategen-basics"

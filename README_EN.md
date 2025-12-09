@@ -18,7 +18,7 @@
 
 | Feature | Description |
 |---------|-------------|
-| 🤖 **AI Native** | Built-in AI Rules system lets AI assistants (CodeBuddy, Cursor, Copilot) understand your code generation rules |
+| 🤖 **AI Native** | Built-in AI Rules system lets AI assistants (CodeBuddy, Cursor, Kiro) understand your code generation rules |
 | 🧩 **Plugin Architecture** | genkit-based plugin system for easily developing custom code generators |
 | 💡 **Smart IDE** | VSCode extension with syntax highlighting, auto-completion, real-time diagnostics |
 | ⚡ **Zero Config** | Plugins self-describe annotation metadata, IDE auto-discovers, plug-and-play |
@@ -82,7 +82,7 @@ Generated rules enable AI assistants to:
 - Provide accurate code completion suggestions
 - Give correct usage examples while you code
 
-Supported AI assistants: CodeBuddy, Cursor, Kiro, GitHub Copilot
+Supported AI assistants: CodeBuddy, Cursor, Kiro
 
 ---
 
