@@ -82,7 +82,7 @@ Generated rules enable AI assistants to:
 - Provide accurate code completion suggestions
 - Give correct usage examples while you code
 
-Supported AI assistants: CodeBuddy, Cursor, GitHub Copilot, Windsurf
+Supported AI assistants: CodeBuddy, Cursor, Kiro, GitHub Copilot
 
 ---
 
@@ -200,7 +200,7 @@ func (m *MyGenerator) Rules() []genkit.Rule {
 
 Run `devgen rules --agent codebuddy -w` to generate AI Rules files, helping AI assistants understand your annotation syntax.
 
-> VSCode extension auto-detects AI IDEs (Cursor, Windsurf, CodeBuddy) on activation and automatically runs this command to generate rules.
+> VSCode extension auto-detects AI IDEs (Cursor, Kiro, CodeBuddy) on activation and automatically runs this command to generate rules.
 
 ---
 
