@@ -1,3 +1,8 @@
+---
+inclusion: fileMatch
+fileMatchPattern: ['*.go']
+---
+
 # validategen - Go Struct Validation Code Generator
 
 validategen is part of the devgen toolkit, used to automatically generate Validate() methods for Go structs.

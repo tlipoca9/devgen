@@ -1,3 +1,8 @@
+---
+inclusion: fileMatch
+fileMatchPattern: ['**/*.go']
+---
+
 # genkit API Reference
 
 genkit is the code generation framework for devgen, providing package loading, code generation, annotation parsing, and more.

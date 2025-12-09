@@ -1,3 +1,9 @@
+---
+description: devgen code generation toolkit usage guide. Includes installation, CLI usage, configuration, and troubleshooting.
+globs: **/devgen.toml, **/*.go
+alwaysApply: false
+---
+
 # devgen - Go Code Generation Toolkit
 
 devgen is a Go code generation toolkit that automatically generates boilerplate code through annotations.

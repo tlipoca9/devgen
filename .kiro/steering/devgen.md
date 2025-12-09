@@ -1,3 +1,8 @@
+---
+inclusion: fileMatch
+fileMatchPattern: ['**/devgen.toml', '**/*.go']
+---
+
 # devgen - Go Code Generation Toolkit
 
 devgen is a Go code generation toolkit that automatically generates boilerplate code through annotations.

@@ -1,3 +1,9 @@
+---
+description: genkit API reference. Includes Generator, GeneratedFile, Package, Type data structures and annotation parsing functions.
+globs: **/*.go
+alwaysApply: false
+---
+
 # genkit API Reference
 
 genkit is the code generation framework for devgen, providing package loading, code generation, annotation parsing, and more.

@@ -225,6 +225,101 @@ values = ["json", "xml", "yaml"]
 
 For complete examples, see [examples/plugin](../examples/plugin/).
 
+### AI Rules Integration (Optional)
+
+To enable AI assistants (Kiro, CodeBuddy, Cursor) to understand your plugin, implement the `genkit.RuleTool` interface:
+
+```go
+type RuleTool interface {
+    Tool
+    Rules() []Rule
+}
+```
+
+Example:
+
+```go
+func (m *MyGenerator) Rules() []genkit.Rule {
+    return []genkit.Rule{
+        {
+            Name:        "mygen",
+            Description: "MyGenerator usage guide",
+            Globs:       []string{"**/*.go"},
+            AlwaysApply: false,
+            Content:     mygenRuleContent,
+        },
+    }
+}
+```
+
+**Best Practice**: Store rule content in a separate markdown file and embed it:
+
+```go
+// rules/embed.go
+package rules
+
+import _ "embed"
+
+//go:embed mygen.md
+var MygenRule string
+```
+
+Then reference it in your plugin:
+
+```go
+import "myapp/plugins/mygen/rules"
+
+func (m *MyGenerator) Rules() []genkit.Rule {
+    return []genkit.Rule{
+        {
+            Name:        "mygen",
+            Description: "MyGenerator usage guide",
+            Globs:       []string{"**/*.go"},
+            Content:     rules.MygenRule,
+        },
+    }
+}
+```
+
+**Generate AI Rules**:
+
+```bash
+# Preview rules
+devgen rules --agent kiro
+
+# Generate rules for Kiro
+devgen rules --agent kiro -w
+
+# Generate rules for CodeBuddy
+devgen rules --agent codebuddy -w
+
+# Generate rules for Cursor
+devgen rules --agent cursor -w
+```
+
+**Rule Content Structure**:
+
+Your rule markdown should include:
+1. **When to Use** - Use cases and scenarios
+2. **Quick Start** - Step-by-step getting started guide
+3. **Annotation Reference** - Detailed annotation documentation
+4. **Complete Example** - Full working example
+5. **Common Errors** - Troubleshooting guide with ❌/✅ comparisons
+
+See [enumgen rules](../cmd/enumgen/rules/enumgen.md) and [validategen rules](../cmd/validategen/rules/validategen.md) as reference implementations.
+
+**How Rules Work with Different Agents**:
+
+Each AI assistant uses different frontmatter formats. devgen automatically adapts your rules:
+
+| Agent | Frontmatter Format |
+|-------|-------------------|
+| **Kiro** | `inclusion: fileMatch` + `fileMatchPattern: ['**/*.go']` |
+| **CodeBuddy** | `description: "..."` + `globs: **/*.go` + `alwaysApply: false` |
+| **Cursor** | `description: "..."` + `globs: **/*.go` + `alwaysApply: false` |
+
+The adapter system handles the transformation automatically - you just provide the content once.
+
 ## API Reference
 
 ### genkit.Tool
@@ -242,6 +337,23 @@ type Tool interface {
 type ConfigurableTool interface {
     Tool
     Config() ToolConfig
+}
+```
+
+### genkit.RuleTool
+
+```go
+type RuleTool interface {
+    Tool
+    Rules() []Rule
+}
+
+type Rule struct {
+    Name        string   // Rule filename (without extension)
+    Description string   // Brief description for AI context loading
+    Globs       []string // File patterns that trigger auto-loading
+    AlwaysApply bool     // Whether to always include in context
+    Content     string   // Full markdown documentation
 }
 ```
 

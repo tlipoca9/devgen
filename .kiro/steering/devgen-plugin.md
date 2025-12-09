@@ -1,3 +1,8 @@
+---
+inclusion: fileMatch
+fileMatchPattern: ['**/*.go']
+---
+
 # devgen Plugin Development Guide
 
 This document explains how to develop custom code generation plugins for devgen.

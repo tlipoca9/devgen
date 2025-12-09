@@ -72,17 +72,86 @@ block-beta
 
 devgen is the first Go code generation tool with a built-in AI Rules system. Through the `RuleTool` interface, your generators can automatically produce documentation that AI assistants understand.
 
+#### Supported AI Assistants
+
+| Agent | Output Directory | File Extension | Format |
+|-------|-----------------|----------------|--------|
+| **Kiro** | `.kiro/steering/` | `.md` | YAML frontmatter with `inclusion` and `fileMatchPattern` |
+| **CodeBuddy** | `.codebuddy/rules/` | `.mdc` | YAML frontmatter with `description`, `globs`, `alwaysApply` |
+| **Cursor** | `.cursor/rules/` | `.mdc` | YAML frontmatter with `description`, `globs`, `alwaysApply` |
+
+#### Quick Start with AI Rules
+
+**List available agents:**
 ```bash
-# Generate AI Rules for CodeBuddy/Cursor
-devgen rules --agent codebuddy -w
+devgen rules --list-agents
 ```
 
-Generated rules enable AI assistants to:
-- Understand your annotation syntax and parameters
-- Provide accurate code completion suggestions
-- Give correct usage examples while you code
+**Preview rules (without writing files):**
+```bash
+devgen rules --agent kiro
+```
 
-Supported AI assistants: CodeBuddy, Cursor, Kiro
+**Generate rules for your AI assistant:**
+```bash
+# For Kiro
+devgen rules --agent kiro -w
+
+# For CodeBuddy
+devgen rules --agent codebuddy -w
+
+# For Cursor
+devgen rules --agent cursor -w
+```
+
+#### What AI Rules Provide
+
+Generated rules enable AI assistants to:
+- ✅ Understand your annotation syntax and parameters
+- ✅ Provide accurate code completion suggestions
+- ✅ Give correct usage examples while you code
+- ✅ Suggest proper error handling patterns
+- ✅ Show complete working examples
+
+#### Example: Generated Kiro Rule
+
+```markdown
+---
+inclusion: fileMatch
+fileMatchPattern: ['**/*.go']
+---
+
+# enumgen - Go Enum Code Generator
+
+## When to Use enumgen?
+
+Use enumgen when you need to:
+- Generate String() methods for enum types
+- Add JSON/SQL serialization support
+- Implement validation methods
+
+## Quick Start
+
+### Step 1: Define Enum Type
+\`\`\`go
+// Status represents order status
+// enumgen:@enum(string, json)
+type Status int
+
+const (
+    StatusPending Status = iota + 1
+    StatusActive
+)
+\`\`\`
+
+### Step 2: Run Generation
+\`\`\`bash
+devgen ./...
+\`\`\`
+...
+```
+
+See [AI Rules System Documentation](cmd/devgen/rules/devgen-rules.md) for more details.
 
 ---
 
