@@ -334,6 +334,7 @@ make vscode   # Build VSCode extension
 <details>
 <summary>Click to expand</summary>
 
+- [v0.3.3](docs/release/v0.3.3_EN.md) - 2025-12-09
 - [v0.3.2](docs/release/v0.3.2_EN.md) - 2025-12-09
 - [v0.3.1](docs/release/v0.3.1_EN.md) - 2025-12-08
 - [v0.3.0](docs/release/v0.3.0_EN.md) - 2025-12-08

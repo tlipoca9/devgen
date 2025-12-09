@@ -334,6 +334,7 @@ make vscode   # 构建 VSCode 扩展
 <details>
 <summary>点击展开</summary>
 
+- [v0.3.3](docs/release/v0.3.3.md) - 2025-12-09
 - [v0.3.2](docs/release/v0.3.2.md) - 2025-12-09
 - [v0.3.1](docs/release/v0.3.1.md) - 2025-12-08
 - [v0.3.0](docs/release/v0.3.0.md) - 2025-12-08

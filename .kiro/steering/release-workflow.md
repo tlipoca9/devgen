@@ -1,9 +1,5 @@
 ---
-description: devgen 项目发布流程指南。当用户需要发布新版本时，按此流程执行。
-alwaysApply: false
-enabled: true
-updatedAt: 2025-12-08T17:26:56.477Z
-provider: 
+inclusion: manual
 ---
 
 # devgen Release Workflow
