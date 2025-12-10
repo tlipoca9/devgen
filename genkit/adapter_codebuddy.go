@@ -30,17 +30,24 @@ func (c *CodeBuddyAdapter) OutputDir() string {
 // Transform converts a Rule to CodeBuddy format with YAML frontmatter.
 // It maps Rule fields directly to CodeBuddy's frontmatter format.
 func (c *CodeBuddyAdapter) Transform(rule Rule) (string, string, error) {
-	// Format globs as comma-separated string
-	globsStr := formatGlobsComma(rule.Globs)
-
 	// Build YAML frontmatter
-	frontmatter := fmt.Sprintf(`---
+	var frontmatter string
+	if len(rule.Globs) > 0 {
+		frontmatter = fmt.Sprintf(`---
 description: %s
 globs: %s
 alwaysApply: %t
 ---
 
-`, rule.Description, globsStr, rule.AlwaysApply)
+`, rule.Description, formatGlobsComma(rule.Globs), rule.AlwaysApply)
+	} else {
+		frontmatter = fmt.Sprintf(`---
+description: %s
+alwaysApply: %t
+---
+
+`, rule.Description, rule.AlwaysApply)
+	}
 
 	// Combine frontmatter with content
 	content := frontmatter + rule.Content
@@ -52,13 +59,10 @@ alwaysApply: %t
 }
 
 // formatGlobsComma formats a slice of globs as a comma-separated string.
-// Examples:
-//   - Single glob: "**/*.go"
-//   - Multiple globs: "**/*.go, **/devgen.toml"
-//   - Empty: "**/*.go" (default)
+// Returns empty string if no globs provided.
 func formatGlobsComma(globs []string) string {
 	if len(globs) == 0 {
-		return "**/*.go"
+		return ""
 	}
 	return strings.Join(globs, ", ")
 }

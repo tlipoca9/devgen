@@ -608,6 +608,7 @@ understand how to use devgen tools correctly. Each tool provides detailed,
 step-by-step documentation with examples.
 
 SUPPORTED AGENTS:
+  all          All supported agents (generate for all at once)
   codebuddy    Tencent CodeBuddy (.codebuddy/rules/*.mdc)
   cursor       Cursor AI (.cursor/rules/*.mdc)
   kiro         Kiro AI (.kiro/steering/*.md)
@@ -633,6 +634,9 @@ OUTPUT:
   # Generate and write rules for CodeBuddy
   devgen rules --agent codebuddy -w
 
+  # Generate and write rules for all agents
+  devgen rules --agent all -w
+
   # Generate and write rules for Kiro
   devgen rules --agent kiro -w`,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -645,11 +649,14 @@ OUTPUT:
 			if agentName == "" {
 				return fmt.Errorf("--agent is required. Use --list-agents to see supported agents")
 			}
+			if agentName == "all" {
+				return rulesCmd.ExecuteAll(cmd.Context(), writeFiles)
+			}
 			return rulesCmd.Execute(cmd.Context(), agentName, writeFiles)
 		},
 	}
 
-	cmd.Flags().StringVar(&agentName, "agent", "", "Target AI agent (e.g., codebuddy, kiro)")
+	cmd.Flags().StringVar(&agentName, "agent", "", "Target AI agent (e.g., codebuddy, kiro, all)")
 	cmd.Flags().BoolVarP(&writeFiles, "write", "w", false, "Write rules to files instead of stdout")
 	cmd.Flags().BoolVar(&listAgents, "list-agents", false, "List supported AI agents")
 	cmd.Flags().BoolVar(&noColor, "no-color", false, "Disable colored output")

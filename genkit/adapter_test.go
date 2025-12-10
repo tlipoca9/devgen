@@ -94,9 +94,9 @@ func TestKiroAdapter(t *testing.T) {
 			t.Fatalf("Transform() error = %v", err)
 		}
 
-		// Should default to **/*.go
-		if !strings.Contains(content, "fileMatchPattern: ['**/*.go']") {
-			t.Error("content missing default fileMatchPattern")
+		// FileMatch mode with no globs should default to match all files
+		if !strings.Contains(content, "fileMatchPattern: ['**/*']") {
+			t.Error("content should have default fileMatchPattern ['**/*'] for fileMatch mode")
 		}
 	})
 }
@@ -162,9 +162,9 @@ func TestCodeBuddyAdapter(t *testing.T) {
 			t.Fatalf("Transform() error = %v", err)
 		}
 
-		// Should default to **/*.go
-		if !strings.Contains(content, "globs: **/*.go") {
-			t.Error("content missing default globs")
+		// Should not have globs when empty
+		if strings.Contains(content, "globs:") {
+			t.Error("content should not have globs when empty")
 		}
 	})
 }
@@ -353,7 +353,7 @@ func TestFormatGlobsComma(t *testing.T) {
 		{
 			name:  "empty",
 			globs: []string{},
-			want:  "**/*.go",
+			want:  "",
 		},
 		{
 			name:  "single",

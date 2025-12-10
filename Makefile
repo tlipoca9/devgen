@@ -39,6 +39,7 @@ tidy:
 # Run code generation
 generate:
 	go run ./cmd/devgen --include-tests ./...
+	go run ./cmd/devgen rules --agent all -w
 
 # Clean build artifacts
 clean:

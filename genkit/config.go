@@ -16,6 +16,38 @@ type Config struct {
 
 	// Tools contains tool-specific configurations (annotations, output suffix, etc.)
 	Tools map[string]ToolConfig `toml:"tools"`
+
+	// Rules contains AI rules configuration.
+	Rules RulesConfig `toml:"rules"`
+}
+
+// RulesConfig defines AI rules generation configuration.
+type RulesConfig struct {
+	// SourceDir is the directory containing project-level rule files.
+	// If not set, project rules will not be loaded.
+	SourceDir string `toml:"source_dir"`
+
+	// IncludeBuiltin indicates whether to include devgen's built-in rules.
+	// Default: true
+	IncludeBuiltin *bool `toml:"include_builtin"`
+}
+
+// HasSourceDir returns true if a source directory is explicitly configured.
+func (rc *RulesConfig) HasSourceDir() bool {
+	return rc.SourceDir != ""
+}
+
+// GetSourceDir returns the configured source directory.
+func (rc *RulesConfig) GetSourceDir() string {
+	return rc.SourceDir
+}
+
+// ShouldIncludeBuiltin returns whether to include built-in rules, defaulting to true.
+func (rc *RulesConfig) ShouldIncludeBuiltin() bool {
+	if rc.IncludeBuiltin == nil {
+		return true
+	}
+	return *rc.IncludeBuiltin
 }
 
 // PluginConfig defines an external plugin to load.

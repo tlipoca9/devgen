@@ -55,19 +55,52 @@ func (c *RulesCommand) Execute(ctx context.Context, agent string, write bool) er
 	return c.preview(adapter, rules)
 }
 
+// ExecuteAll runs the rules command for all supported agents.
+// Only supports write mode (preview mode for all agents would be too verbose).
+func (c *RulesCommand) ExecuteAll(ctx context.Context, write bool) error {
+	if !write {
+		return fmt.Errorf("--agent all requires -w/--write flag")
+	}
+
+	// Collect rules once
+	rules, err := c.collectRules(ctx)
+	if err != nil {
+		return fmt.Errorf("collect rules: %w", err)
+	}
+
+	if len(rules) == 0 {
+		c.log.Warn("No rules found (no tools implement RuleTool interface)")
+		return nil
+	}
+
+	// Write rules for all agents
+	agents := c.registry.List()
+	for _, agentName := range agents {
+		adapter, ok := c.registry.Get(agentName)
+		if !ok {
+			continue
+		}
+		if err := c.writeRules(adapter, rules); err != nil {
+			return fmt.Errorf("write rules for %s: %w", agentName, err)
+		}
+	}
+
+	return nil
+}
+
 // ListAgents returns all available agent names.
 func (c *RulesCommand) ListAgents() []string {
 	return c.registry.List()
 }
 
-// collectRules gathers rules from all tools (built-in and plugins).
+// collectRules gathers rules from all sources:
+// 1. Project-level rules from .devgen/rules/ directory
+// 2. Built-in devgen rules (if enabled)
+// 3. Plugin rules (from tools implementing RuleTool)
 func (c *RulesCommand) collectRules(ctx context.Context) ([]genkit.Rule, error) {
 	var allRules []genkit.Rule
 
-	// Add devgen's own rules first
-	allRules = append(allRules, devgenRules()...)
-
-	// Load config to get plugins
+	// Load config
 	configSearchDir, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("get working directory: %w", err)
@@ -78,7 +111,25 @@ func (c *RulesCommand) collectRules(ctx context.Context) ([]genkit.Rule, error) 
 		cfg = &genkit.Config{}
 	}
 
-	// Collect all tools
+	// 1. Load project-level rules from source directory (only if explicitly configured)
+	if cfg.Rules.HasSourceDir() {
+		sourceDir := cfg.Rules.GetSourceDir()
+		projectRules, err := genkit.LoadRulesFromDir(sourceDir)
+		if err != nil {
+			return nil, fmt.Errorf("load project rules from %s: %w", sourceDir, err)
+		}
+		if len(projectRules) > 0 {
+			c.log.Info("Loaded %v project rule(s) from %s", len(projectRules), sourceDir)
+			allRules = append(allRules, projectRules...)
+		}
+	}
+
+	// 2. Add devgen's own rules (if enabled)
+	if cfg.Rules.ShouldIncludeBuiltin() {
+		allRules = append(allRules, devgenRules()...)
+	}
+
+	// 3. Collect rules from plugins
 	tools := make([]genkit.Tool, 0, len(builtinTools)+len(cfg.Plugins))
 	toolNames := make(map[string]bool)
 

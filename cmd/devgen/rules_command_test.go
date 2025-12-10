@@ -366,3 +366,328 @@ func TestRulesCommand_WriteRules_CreateDirectory(t *testing.T) {
 		t.Errorf("writeRules() did not create file %s", testFile)
 	}
 }
+
+// TestRulesCommand_CollectRules_ProjectRules tests loading project-level rules
+func TestRulesCommand_CollectRules_ProjectRules(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir() error = %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
+
+	// Create config to enable project rules
+	config := `[rules]
+source_dir = ".devgen/rules"
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "devgen.toml"), []byte(config), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	// Create project rules directory
+	rulesDir := filepath.Join(tmpDir, ".devgen", "rules")
+	if err := os.MkdirAll(rulesDir, 0755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	// Create a project rule file
+	projectRule := `---
+description: Project coding standards
+globs:
+  - "**/*.go"
+alwaysApply: true
+---
+
+# Coding Standards
+
+Follow these coding standards.
+`
+	if err := os.WriteFile(filepath.Join(rulesDir, "coding-standards.md"), []byte(projectRule), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	log := genkit.NewLogger()
+	cmd := NewRulesCommand(log)
+	ctx := context.Background()
+
+	rules, err := cmd.collectRules(ctx)
+	if err != nil {
+		t.Fatalf("collectRules() error = %v", err)
+	}
+
+	// Check that project rule is included
+	found := false
+	for _, rule := range rules {
+		if rule.Name == "coding-standards" {
+			found = true
+			if rule.Description != "Project coding standards" {
+				t.Errorf("Project rule description = %q, want %q", rule.Description, "Project coding standards")
+			}
+			if !rule.AlwaysApply {
+				t.Error("Project rule alwaysApply = false, want true")
+			}
+			break
+		}
+	}
+
+	if !found {
+		t.Error("collectRules() did not include project rule 'coding-standards'")
+	}
+}
+
+// TestRulesCommand_CollectRules_NoConfigNoProjectRules tests that project rules are not loaded without config
+func TestRulesCommand_CollectRules_NoConfigNoProjectRules(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir() error = %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
+
+	// Create project rules directory WITHOUT config
+	rulesDir := filepath.Join(tmpDir, ".devgen", "rules")
+	if err := os.MkdirAll(rulesDir, 0755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	// Create a project rule file
+	projectRule := `---
+description: Should not be loaded
+alwaysApply: true
+---
+
+# Should Not Load
+`
+	if err := os.WriteFile(filepath.Join(rulesDir, "should-not-load.md"), []byte(projectRule), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	log := genkit.NewLogger()
+	cmd := NewRulesCommand(log)
+	ctx := context.Background()
+
+	rules, err := cmd.collectRules(ctx)
+	if err != nil {
+		t.Fatalf("collectRules() error = %v", err)
+	}
+
+	// Check that project rule is NOT included (no config)
+	for _, rule := range rules {
+		if rule.Name == "should-not-load" {
+			t.Error("collectRules() should not include project rules without config")
+		}
+	}
+}
+
+// TestRulesCommand_CollectRules_DisableBuiltin tests disabling built-in rules
+func TestRulesCommand_CollectRules_DisableBuiltin(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir() error = %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
+
+	// Create config to disable built-in rules and enable project rules
+	config := `[rules]
+source_dir = ".devgen/rules"
+include_builtin = false
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "devgen.toml"), []byte(config), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	// Create project rules directory with a rule
+	rulesDir := filepath.Join(tmpDir, ".devgen", "rules")
+	if err := os.MkdirAll(rulesDir, 0755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	projectRule := `---
+description: My only rule
+globs:
+  - "**/*.go"
+alwaysApply: false
+---
+
+# My Rule
+`
+	if err := os.WriteFile(filepath.Join(rulesDir, "my-rule.md"), []byte(projectRule), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	log := genkit.NewLogger()
+	cmd := NewRulesCommand(log)
+	ctx := context.Background()
+
+	rules, err := cmd.collectRules(ctx)
+	if err != nil {
+		t.Fatalf("collectRules() error = %v", err)
+	}
+
+	// Should not include devgen built-in rules
+	for _, rule := range rules {
+		if rule.Name == "devgen" || rule.Name == "devgen-plugin" || rule.Name == "devgen-genkit" ||
+			rule.Name == "devgen-rules" {
+			t.Errorf("collectRules() should not include built-in rule %q when include_builtin=false", rule.Name)
+		}
+	}
+
+	// Should include project rule
+	found := false
+	for _, rule := range rules {
+		if rule.Name == "my-rule" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("collectRules() should include project rule 'my-rule'")
+	}
+}
+
+// TestRulesCommand_CollectRules_CustomSourceDir tests custom source directory
+func TestRulesCommand_CollectRules_CustomSourceDir(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir() error = %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
+
+	// Create config with custom source dir
+	config := `[rules]
+source_dir = "custom/rules"
+include_builtin = false
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "devgen.toml"), []byte(config), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	// Create custom rules directory
+	rulesDir := filepath.Join(tmpDir, "custom", "rules")
+	if err := os.MkdirAll(rulesDir, 0755); err != nil {
+		t.Fatalf("MkdirAll() error = %v", err)
+	}
+
+	customRule := `---
+description: Custom location rule
+globs:
+  - "**/*.ts"
+alwaysApply: false
+---
+
+# Custom Rule
+`
+	if err := os.WriteFile(filepath.Join(rulesDir, "custom-rule.md"), []byte(customRule), 0644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	log := genkit.NewLogger()
+	cmd := NewRulesCommand(log)
+	ctx := context.Background()
+
+	rules, err := cmd.collectRules(ctx)
+	if err != nil {
+		t.Fatalf("collectRules() error = %v", err)
+	}
+
+	// Should include rule from custom directory
+	found := false
+	for _, rule := range rules {
+		if rule.Name == "custom-rule" {
+			found = true
+			if rule.Description != "Custom location rule" {
+				t.Errorf("Custom rule description = %q, want %q", rule.Description, "Custom location rule")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Error("collectRules() should include rule from custom source_dir")
+	}
+}
+
+// TestRulesCommand_ExecuteAll tests generating rules for all agents
+func TestRulesCommand_ExecuteAll(t *testing.T) {
+	tmpDir := t.TempDir()
+	originalWd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd() error = %v", err)
+	}
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Chdir() error = %v", err)
+	}
+	defer func() {
+		if err := os.Chdir(originalWd); err != nil {
+			t.Errorf("Failed to restore working directory: %v", err)
+		}
+	}()
+
+	log := genkit.NewLogger()
+	cmd := NewRulesCommand(log)
+	ctx := context.Background()
+
+	// ExecuteAll without write should error
+	err = cmd.ExecuteAll(ctx, false)
+	if err == nil {
+		t.Error("ExecuteAll() without write should return error")
+	}
+
+	// ExecuteAll with write should succeed
+	err = cmd.ExecuteAll(ctx, true)
+	if err != nil {
+		t.Fatalf("ExecuteAll() error = %v", err)
+	}
+
+	// Check that files were created for all agents
+	expectedDirs := []string{
+		".codebuddy/rules",
+		".cursor/rules",
+		".kiro/steering",
+	}
+
+	for _, dir := range expectedDirs {
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Errorf("ReadDir(%s) error = %v", dir, err)
+			continue
+		}
+		if len(entries) == 0 {
+			t.Errorf("ExecuteAll() created no files in %s", dir)
+		}
+	}
+}

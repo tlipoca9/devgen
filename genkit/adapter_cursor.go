@@ -29,17 +29,24 @@ func (c *CursorAdapter) OutputDir() string {
 // It maps Rule fields directly to Cursor's frontmatter format.
 // Note: Cursor uses .mdc extension instead of .md.
 func (c *CursorAdapter) Transform(rule Rule) (string, string, error) {
-	// Format globs as comma-separated string
-	globsStr := formatGlobsComma(rule.Globs)
-
 	// Build YAML frontmatter
-	frontmatter := fmt.Sprintf(`---
+	var frontmatter string
+	if len(rule.Globs) > 0 {
+		frontmatter = fmt.Sprintf(`---
 description: %s
 globs: %s
 alwaysApply: %t
 ---
 
-`, rule.Description, globsStr, rule.AlwaysApply)
+`, rule.Description, formatGlobsComma(rule.Globs), rule.AlwaysApply)
+	} else {
+		frontmatter = fmt.Sprintf(`---
+description: %s
+alwaysApply: %t
+---
+
+`, rule.Description, rule.AlwaysApply)
+	}
 
 	// Combine frontmatter with content
 	content := frontmatter + rule.Content

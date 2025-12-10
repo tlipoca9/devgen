@@ -19,6 +19,7 @@
 | 特性 | 描述 |
 |------|------|
 | 🤖 **AI 原生** | 内置 AI Rules 系统，让 AI 编程助手（CodeBuddy、Cursor、Kiro）理解你的代码生成规则 |
+| 📦 **规则管理** | 项目级 AI Rules 统一管理，一处定义，自动同步到 CodeBuddy/Cursor/Kiro |
 | 🧩 **插件架构** | 基于 genkit 框架的插件系统，轻松开发自定义代码生成器 |
 | 💡 **智能 IDE** | VSCode 扩展提供语法高亮、智能补全、实时诊断，注解错误即时反馈 |
 | ⚡ **零配置** | 插件自描述注解元数据，IDE 自动识别，即插即用 |
@@ -94,15 +95,56 @@ devgen rules --agent kiro
 
 **为你的 AI 助手生成规则：**
 ```bash
-# 为 Kiro 生成
+# 为所有 AI 助手生成
+devgen rules --agent all -w
+
+# 或单独生成
 devgen rules --agent kiro -w
-
-# 为 CodeBuddy 生成
 devgen rules --agent codebuddy -w
-
-# 为 Cursor 生成
 devgen rules --agent cursor -w
 ```
+
+#### 项目规则管理
+
+除了内置工具的 AI Rules，devgen 还支持管理**项目级自定义规则**——让团队成员无论使用哪个 AI IDE 都能共享统一的规则。
+
+**配置**：在 `devgen.toml` 中指定规则目录：
+
+```toml
+[rules]
+source_dir = ".devgen/rules"    # 项目规则目录
+include_builtin = true          # 是否包含内置工具规则（默认 true）
+```
+
+**规则格式**：Markdown + YAML frontmatter
+
+```markdown
+---
+description: 项目发布流程规范
+globs: ["Makefile", "*.sh"]
+alwaysApply: false
+---
+
+# 发布流程
+
+1. 更新版本号
+2. 运行测试
+3. 创建 tag
+...
+```
+
+**一键同步**：
+
+```bash
+devgen rules --agent all -w
+```
+
+将 `.devgen/rules/` 下的规则转换为各 AI IDE 格式，输出到对应目录。
+
+**解决的痛点**：
+- ✅ 团队使用不同 AI IDE，规则不再需要手动同步
+- ✅ 规则集中管理，一处修改，全局生效
+- ✅ 统一的 Markdown 格式，易于编写和维护
 
 #### AI Rules 提供的能力
 

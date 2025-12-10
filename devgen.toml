@@ -4,3 +4,6 @@
 name = "markgen"
 path = "./examples/plugin/plugin-source"
 type = "source"
+
+[rules]
+source_dir = ".devgen/rules"

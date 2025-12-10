@@ -40,22 +40,40 @@ func (k *KiroAdapter) Transform(rule Rule) (string, string, error) {
 		inclusion = "always"
 	}
 
-	// Use rule globs or default to Go files
-	patterns := rule.Globs
-	if len(patterns) == 0 {
-		patterns = []string{"**/*.go"}
-	}
-
-	// Format patterns as YAML array
-	patternStr := formatPatternsYAML(patterns)
-
 	// Build YAML frontmatter
-	frontmatter := fmt.Sprintf(`---
+	var frontmatter string
+	if rule.AlwaysApply {
+		// Always mode: no fileMatchPattern needed
+		if len(rule.Globs) > 0 {
+			frontmatter = fmt.Sprintf(`---
+description: %s
 inclusion: %s
 fileMatchPattern: %s
 ---
 
-`, inclusion, patternStr)
+`, rule.Description, inclusion, formatPatternsYAML(rule.Globs))
+		} else {
+			frontmatter = fmt.Sprintf(`---
+description: %s
+inclusion: %s
+---
+
+`, rule.Description, inclusion)
+		}
+	} else {
+		// FileMatch mode: need fileMatchPattern, default to match all files
+		patterns := rule.Globs
+		if len(patterns) == 0 {
+			patterns = []string{"**/*"}
+		}
+		frontmatter = fmt.Sprintf(`---
+description: %s
+inclusion: %s
+fileMatchPattern: %s
+---
+
+`, rule.Description, inclusion, formatPatternsYAML(patterns))
+	}
 
 	// Combine frontmatter with content
 	content := frontmatter + rule.Content

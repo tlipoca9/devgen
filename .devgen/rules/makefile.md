@@ -1,9 +1,6 @@
 ---
 description: devgen 项目 Makefile 使用指南。当用户需要构建、测试、安装或发布 devgen 时使用此规则。
 alwaysApply: true
-enabled: true
-updatedAt: 2025-12-08T17:22:38.973Z
-provider: 
 ---
 
 # devgen Makefile 使用指南

@@ -19,6 +19,7 @@
 | Feature | Description |
 |---------|-------------|
 | 🤖 **AI Native** | Built-in AI Rules system lets AI assistants (CodeBuddy, Cursor, Kiro) understand your code generation rules |
+| 📦 **Rules Management** | Project-level AI Rules unified management—define once, auto-sync to CodeBuddy/Cursor/Kiro |
 | 🧩 **Plugin Architecture** | genkit-based plugin system for easily developing custom code generators |
 | 💡 **Smart IDE** | VSCode extension with syntax highlighting, auto-completion, real-time diagnostics |
 | ⚡ **Zero Config** | Plugins self-describe annotation metadata, IDE auto-discovers, plug-and-play |
@@ -94,15 +95,56 @@ devgen rules --agent kiro
 
 **Generate rules for your AI assistant:**
 ```bash
-# For Kiro
+# For all AI assistants
+devgen rules --agent all -w
+
+# Or individually
 devgen rules --agent kiro -w
-
-# For CodeBuddy
 devgen rules --agent codebuddy -w
-
-# For Cursor
 devgen rules --agent cursor -w
 ```
+
+#### Project Rules Management
+
+Beyond built-in tool rules, devgen supports managing **project-level custom rules**—enabling team members to share unified rules regardless of which AI IDE they use.
+
+**Configuration**: Specify the rules directory in `devgen.toml`:
+
+```toml
+[rules]
+source_dir = ".devgen/rules"    # Project rules directory
+include_builtin = true          # Include built-in tool rules (default: true)
+```
+
+**Rule Format**: Markdown + YAML frontmatter
+
+```markdown
+---
+description: Project release workflow guidelines
+globs: ["Makefile", "*.sh"]
+alwaysApply: false
+---
+
+# Release Workflow
+
+1. Update version number
+2. Run tests
+3. Create tag
+...
+```
+
+**One-Command Sync**:
+
+```bash
+devgen rules --agent all -w
+```
+
+Converts rules from `.devgen/rules/` to each AI IDE's format, outputting to their respective directories.
+
+**Pain Points Solved**:
+- ✅ Team uses different AI IDEs—no more manual rule syncing
+- ✅ Centralized rule management—edit once, apply everywhere
+- ✅ Unified Markdown format—easy to write and maintain
 
 #### What AI Rules Provide
 
