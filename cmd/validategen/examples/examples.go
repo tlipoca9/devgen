@@ -362,3 +362,28 @@ type CrossPackageFieldOnlyExample struct {
 	// validategen:@max(10)
 	Scores []common.Priority
 }
+
+// DefaultExample demonstrates default value annotations.
+// validategen:@validate
+type DefaultExample struct {
+	// validategen:@default(localhost)
+	Host string
+
+	// validategen:@default(8080)
+	Port int
+
+	// validategen:@default(true)
+	Enabled bool
+
+	// validategen:@default(1.5)
+	Version float64
+
+	// validategen:@default(unknown)
+	// validategen:@required
+	Name string
+
+	// validategen:@default(100)
+	// validategen:@min(0)
+	// validategen:@max(1000)
+	Count int64
+}

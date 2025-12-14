@@ -906,6 +906,51 @@ func (vg *Generator) Config() genkit.ToolConfig {
 					},
 				},
 			},
+			{
+				Name: "default",
+				Type: "field",
+				Doc: `为字段设置默认值（在验证前应用）。
+
+用法：在字段上方添加注解
+  // validategen:@default(unknown)
+  Name string
+
+  // validategen:@default(0)
+  Count int
+
+  // validategen:@default(true)
+  Enabled bool
+
+支持类型：
+  - string: 设置默认字符串值
+  - numeric (int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64): 设置默认数值
+  - bool: 设置默认布尔值 (true/false)
+
+生成逻辑：
+  在 Validate() 方法开头，检查字段是否为零值，如果是则设置默认值。
+
+示例：
+  // validategen:@validate
+  type Config struct {
+      // validategen:@default(localhost)
+      Host string  // 默认 "localhost"
+
+      // validategen:@default(8080)
+      Port int  // 默认 8080
+
+      // validategen:@default(true)
+      Enabled bool  // 默认 true
+
+      // validategen:@default(1.0)
+      Version float64  // 默认 1.0
+  }
+
+注意：
+  - 默认值在所有验证规则之前应用
+  - 对于指针类型，只有当指针为 nil 时才会设置默认值
+  - 字符串值不需要引号包裹`,
+				Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"},
+			},
 		},
 	}
 }
@@ -1126,6 +1171,31 @@ func (vg *Generator) GenerateValidate(g *genkit.GeneratedFile, typ *genkit.Type,
 	hasMethodValidation := len(methodFields) > 0
 	hasPostValidate := vg.hasPostValidateMethod(typ)
 
+	// Collect fields with @default annotation
+	var defaultFields []*fieldValidation
+	for _, fv := range nonMethodFields {
+		for _, rule := range fv.Rules {
+			if rule.Name == "default" {
+				defaultFields = append(defaultFields, &fieldValidation{
+					Field: fv.Field,
+					Rules: []*validateRule{rule},
+				})
+				break
+			}
+		}
+	}
+
+	// Generate SetDefaults() method if there are @default annotations
+	if len(defaultFields) > 0 {
+		g.P()
+		g.P("// SetDefaults sets default values for zero-value fields.")
+		g.P("func (x *", typeName, ") SetDefaults() {")
+		for _, fv := range defaultFields {
+			vg.generateSetDefault(g, fv)
+		}
+		g.P("}")
+	}
+
 	// Generate _validate() method - field-level validations (excluding @method)
 	g.P()
 	g.P("// _validate performs field-level validation for ", typeName, ".")
@@ -1341,6 +1411,7 @@ func (vg *Generator) findImportedPackage(pkg *genkit.Package, alias string) *typ
 
 // parseFieldAnnotations parses validation annotations from field doc/comment.
 // Supported annotations:
+//   - validategen:@default(v) - set default value (applied before validation)
 //   - validategen:@required
 //   - validategen:@min(n)
 //   - validategen:@max(n)
@@ -1562,6 +1633,53 @@ func (vg *Generator) generateFieldValidation(
 		case "format":
 			vg.genFormat(g, fv.Field, rule.Param)
 		}
+	}
+}
+
+func (vg *Generator) generateSetDefault(g *genkit.GeneratedFile, fv *fieldValidation) {
+	fieldName := fv.Field.Name
+	fieldType := fv.Field.Type
+	param := fv.Rules[0].Param
+
+	if param == "" {
+		return
+	}
+
+	if isStringType(fieldType) {
+		g.P("if x.", fieldName, " == \"\" {")
+		g.P("x.", fieldName, " = \"", param, "\"")
+		g.P("}")
+	} else if isPointerToStringType(fieldType) {
+		g.P("if x.", fieldName, " == nil {")
+		g.P("_default", fieldName, " := \"", param, "\"")
+		g.P("x.", fieldName, " = &_default", fieldName)
+		g.P("}")
+	} else if isBoolType(fieldType) {
+		// Parse bool value
+		boolVal := param == "true" || param == "1"
+		if boolVal {
+			g.P("if !x.", fieldName, " {")
+			g.P("x.", fieldName, " = true")
+			g.P("}")
+		}
+		// For false default, no action needed since zero value is already false
+	} else if isPointerToBoolType(fieldType) {
+		boolVal := param == "true" || param == "1"
+		g.P("if x.", fieldName, " == nil {")
+		g.P("_default", fieldName, " := ", boolVal)
+		g.P("x.", fieldName, " = &_default", fieldName)
+		g.P("}")
+	} else if isNumericType(fieldType) {
+		g.P("if x.", fieldName, " == 0 {")
+		g.P("x.", fieldName, " = ", param)
+		g.P("}")
+	} else if isPointerToNumericType(fieldType) {
+		g.P("if x.", fieldName, " == nil {")
+		// Extract base type from pointer type (e.g., "*int" -> "int")
+		baseType := strings.TrimPrefix(fieldType, "*")
+		g.P("_default", fieldName, " := ", baseType, "(", param, ")")
+		g.P("x.", fieldName, " = &_default", fieldName)
+		g.P("}")
 	}
 }
 
@@ -3051,6 +3169,30 @@ func (vg *Generator) validateRule(
 				"@required annotation requires string, slice, map, pointer, bool, or numeric underlying type, got %s",
 				underlyingType,
 			)
+		}
+
+	// default - string, numeric, or bool
+	case "default":
+		if !isStringType(underlyingType) && !isPointerToStringType(underlyingType) &&
+			!isNumericType(underlyingType) && !isPointerToNumericType(underlyingType) &&
+			!isBoolType(underlyingType) && !isPointerToBoolType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@default annotation requires string, numeric, or bool underlying type, got %s",
+				underlyingType,
+			)
+		}
+		if rule.Param == "" {
+			c.Errorf(ErrCodeMissingParam, field.Pos, "@default annotation requires a value parameter")
+		} else if isNumericType(underlyingType) || isPointerToNumericType(underlyingType) {
+			if !isValidNumber(rule.Param) {
+				c.Errorf(ErrCodeInvalidParamType, field.Pos, "@default parameter must be a number for numeric field, got %q", rule.Param)
+			}
+		} else if isBoolType(underlyingType) || isPointerToBoolType(underlyingType) {
+			if rule.Param != "true" && rule.Param != "false" && rule.Param != "1" && rule.Param != "0" {
+				c.Errorf(ErrCodeInvalidParamType, field.Pos, "@default parameter must be true/false for bool field, got %q", rule.Param)
+			}
 		}
 
 	// method - must be a custom type (not builtin types like string, int, bool, etc.)

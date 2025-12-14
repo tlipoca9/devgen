@@ -76,6 +76,50 @@ if err := user.Validate(); err != nil {
 
 ## Validation Annotations Quick Reference
 
+### Default Values
+
+| Annotation | Description | Example |
+|------------|-------------|---------|
+| @default(value) | Set default value for zero-value fields | `// validategen:@default(localhost)` |
+
+**@default Behavior**:
+- Generates a `SetDefaults()` method with pointer receiver
+- Only sets value if field is zero value
+- Supports: string, numeric types (int, float, etc.), bool
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@default(localhost)
+    Host string  // Default: "localhost"
+
+    // validategen:@default(8080)
+    Port int  // Default: 8080
+
+    // validategen:@default(true)
+    Enabled bool  // Default: true
+
+    // validategen:@default(1.0)
+    Version float64  // Default: 1.0
+}
+
+// Usage:
+cfg := &Config{}
+cfg.SetDefaults()  // Sets default values
+if err := cfg.Validate(); err != nil {
+    // handle error
+}
+```
+
+**Note**: `SetDefaults()` uses pointer receiver, so call it on a pointer:
+```go
+cfg := &Config{}
+cfg.SetDefaults()  // ✓ Correct
+
+cfg2 := Config{}
+cfg2.SetDefaults()  // ✗ Won't modify cfg2
+```
+
 ### Required Validation
 
 | Annotation | Description | Example |

@@ -1603,3 +1603,68 @@ func TestCrossPackageFieldOnlyExample__validate(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultExample__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   DefaultExample
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: DefaultExample{
+				Host:    "test",
+				Port:    1,
+				Enabled: true,
+				Version: 1,
+				Name:    "test",
+				Count:   0,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid_Name_required",
+			input: DefaultExample{
+				Host:    "test",
+				Port:    1,
+				Enabled: true,
+				Version: 1,
+				Count:   0,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Count_min",
+			input: DefaultExample{
+				Host:    "test",
+				Port:    1,
+				Enabled: true,
+				Version: 1,
+				Name:    "test",
+				Count:   -1,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Count_max",
+			input: DefaultExample{
+				Host:    "test",
+				Port:    1,
+				Enabled: true,
+				Version: 1,
+				Name:    "test",
+				Count:   1001,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}

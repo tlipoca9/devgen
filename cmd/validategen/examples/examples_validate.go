@@ -661,3 +661,52 @@ func (x CrossPackageFieldOnlyExample) Validate() error {
 	}
 	return nil
 }
+
+// SetDefaults sets default values for zero-value fields.
+func (x *DefaultExample) SetDefaults() {
+	if x.Host == "" {
+		x.Host = "localhost"
+	}
+	if x.Port == 0 {
+		x.Port = 8080
+	}
+	if !x.Enabled {
+		x.Enabled = true
+	}
+	if x.Version == 0 {
+		x.Version = 1.5
+	}
+	if x.Name == "" {
+		x.Name = "unknown"
+	}
+	if x.Count == 0 {
+		x.Count = 100
+	}
+}
+
+// _validate performs field-level validation for DefaultExample.
+// This method excludes @method validations for easier testing.
+func (x DefaultExample) _validate() []string {
+	var errs []string
+
+	if x.Name == "" {
+		errs = append(errs, "Name is required")
+	}
+	if x.Count < 0 {
+		errs = append(errs, fmt.Sprintf("Count must be at least 0, got %v", x.Count))
+	}
+	if x.Count > 1000 {
+		errs = append(errs, fmt.Sprintf("Count must be at most 1000, got %v", x.Count))
+	}
+
+	return errs
+}
+
+// Validate validates the DefaultExample fields.
+func (x DefaultExample) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
