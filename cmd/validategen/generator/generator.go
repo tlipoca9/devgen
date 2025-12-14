@@ -1051,6 +1051,7 @@ func (vg *Generator) ProcessPackage(gen *genkit.Generator, pkg *genkit.Package) 
 		vg.WriteTestHeader(tg, pkg.Name)
 		for _, typ := range types {
 			vg.GenerateValidateTest(tg, typ)
+			vg.GenerateSetDefaultsTest(tg, typ)
 		}
 	}
 
@@ -3414,6 +3415,144 @@ func (vg *Generator) GenerateValidateTest(g *genkit.GeneratedFile, typ *genkit.T
 	g.P("})")
 	g.P("}")
 	g.P("}")
+}
+
+// GenerateSetDefaultsTest generates table-driven tests for a single type's SetDefaults method.
+// It only generates tests if the type has @default annotations.
+func (vg *Generator) GenerateSetDefaultsTest(g *genkit.GeneratedFile, typ *genkit.Type) {
+	typeName := typ.Name
+
+	// Collect fields with @default annotation
+	var defaultFields []*fieldValidation
+	for _, field := range typ.Fields {
+		rules := vg.parseFieldAnnotations(field)
+		for _, rule := range rules {
+			if rule.Name == "default" {
+				defaultFields = append(defaultFields, &fieldValidation{
+					Field: field,
+					Rules: []*validateRule{rule},
+				})
+				break
+			}
+		}
+	}
+
+	if len(defaultFields) == 0 {
+		return
+	}
+
+	testFuncName := "Test" + typeName + "_SetDefaults"
+
+	g.P()
+	g.P("func ", testFuncName, "(t *", genkit.GoImportPath("testing").Ident("T"), ") {")
+
+	g.P("tests := []struct {")
+	g.P("name   string")
+	g.P("input  ", typeName)
+	g.P("expect ", typeName)
+	g.P("}{")
+
+	// Test case 1: all zero values should be set to defaults
+	g.P("{")
+	g.P("name: \"all_zero_values\",")
+	g.P("input: ", typeName, "{},")
+	g.P("expect: ", typeName, "{")
+	for _, fv := range defaultFields {
+		vg.generateDefaultExpectValue(g, fv)
+	}
+	g.P("},")
+	g.P("},")
+
+	// Test case 2: non-zero values should not be overwritten
+	g.P("{")
+	g.P("name: \"non_zero_values_preserved\",")
+	g.P("input: ", typeName, "{")
+	for _, fv := range defaultFields {
+		vg.generateNonZeroValue(g, fv)
+	}
+	g.P("},")
+	g.P("expect: ", typeName, "{")
+	for _, fv := range defaultFields {
+		vg.generateNonZeroValue(g, fv)
+	}
+	g.P("},")
+	g.P("},")
+
+	g.P("}")
+
+	g.P("for _, tt := range tests {")
+	g.P("t.Run(tt.name, func(t *testing.T) {")
+	g.P("got := tt.input")
+	g.P("got.SetDefaults()")
+
+	// Generate field-by-field comparison for each default field
+	for _, fv := range defaultFields {
+		fieldName := fv.Field.Name
+		fieldType := fv.Field.Type
+		if isPointerType(fieldType) {
+			// For pointer types, compare dereferenced values
+			g.P("if got.", fieldName, " == nil || tt.expect.", fieldName, " == nil {")
+			g.P("if got.", fieldName, " != tt.expect.", fieldName, " {")
+			g.P("t.Errorf(\"", fieldName, " = %v, want %v\", got.", fieldName, ", tt.expect.", fieldName, ")")
+			g.P("}")
+			g.P("} else if *got.", fieldName, " != *tt.expect.", fieldName, " {")
+			g.P("t.Errorf(\"", fieldName, " = %v, want %v\", *got.", fieldName, ", *tt.expect.", fieldName, ")")
+			g.P("}")
+		} else {
+			g.P("if got.", fieldName, " != tt.expect.", fieldName, " {")
+			g.P("t.Errorf(\"", fieldName, " = %v, want %v\", got.", fieldName, ", tt.expect.", fieldName, ")")
+			g.P("}")
+		}
+	}
+
+	g.P("})")
+	g.P("}")
+	g.P("}")
+}
+
+// generateDefaultExpectValue generates the expected default value for a field.
+func (vg *Generator) generateDefaultExpectValue(g *genkit.GeneratedFile, fv *fieldValidation) {
+	fieldName := fv.Field.Name
+	fieldType := fv.Field.Type
+	param := fv.Rules[0].Param
+
+	if isStringType(fieldType) {
+		g.P(fieldName, ": \"", param, "\",")
+	} else if isPointerToStringType(fieldType) {
+		g.P(fieldName, ": func() *string { v := \"", param, "\"; return &v }(),")
+	} else if isBoolType(fieldType) {
+		boolVal := param == "true" || param == "1"
+		g.P(fieldName, ": ", boolVal, ",")
+	} else if isPointerToBoolType(fieldType) {
+		boolVal := param == "true" || param == "1"
+		g.P(fieldName, ": func() *bool { v := ", boolVal, "; return &v }(),")
+	} else if isNumericType(fieldType) {
+		g.P(fieldName, ": ", param, ",")
+	} else if isPointerToNumericType(fieldType) {
+		baseType := strings.TrimPrefix(fieldType, "*")
+		g.P(fieldName, ": func() *", baseType, " { v := ", baseType, "(", param, "); return &v }(),")
+	}
+}
+
+// generateNonZeroValue generates a non-zero value for a field (different from default).
+func (vg *Generator) generateNonZeroValue(g *genkit.GeneratedFile, fv *fieldValidation) {
+	fieldName := fv.Field.Name
+	fieldType := fv.Field.Type
+
+	if isStringType(fieldType) {
+		g.P(fieldName, ": \"custom\",")
+	} else if isPointerToStringType(fieldType) {
+		g.P(fieldName, ": func() *string { v := \"custom\"; return &v }(),")
+	} else if isBoolType(fieldType) {
+		g.P(fieldName, ": true,")
+	} else if isPointerToBoolType(fieldType) {
+		g.P(fieldName, ": func() *bool { v := true; return &v }(),")
+	} else if isNumericType(fieldType) {
+		g.P(fieldName, ": 999,")
+	} else if isPointerToNumericType(fieldType) {
+		baseType := strings.TrimPrefix(fieldType, "*")
+		g.P(fieldName, ": func() *", baseType, " { v := ", baseType, "(999); return &v }(),")
+	}
 }
 
 // generateValidFieldValue generates a valid value for a field in test cases.

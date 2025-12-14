@@ -1668,3 +1668,67 @@ func TestDefaultExample__validate(t *testing.T) {
 		})
 	}
 }
+
+func TestDefaultExample_SetDefaults(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  DefaultExample
+		expect DefaultExample
+	}{
+		{
+			name:  "all_zero_values",
+			input: DefaultExample{},
+			expect: DefaultExample{
+				Host:    "localhost",
+				Port:    8080,
+				Enabled: true,
+				Version: 1.5,
+				Name:    "unknown",
+				Count:   100,
+			},
+		},
+		{
+			name: "non_zero_values_preserved",
+			input: DefaultExample{
+				Host:    "custom",
+				Port:    999,
+				Enabled: true,
+				Version: 999,
+				Name:    "custom",
+				Count:   999,
+			},
+			expect: DefaultExample{
+				Host:    "custom",
+				Port:    999,
+				Enabled: true,
+				Version: 999,
+				Name:    "custom",
+				Count:   999,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.input
+			got.SetDefaults()
+			if got.Host != tt.expect.Host {
+				t.Errorf("Host = %v, want %v", got.Host, tt.expect.Host)
+			}
+			if got.Port != tt.expect.Port {
+				t.Errorf("Port = %v, want %v", got.Port, tt.expect.Port)
+			}
+			if got.Enabled != tt.expect.Enabled {
+				t.Errorf("Enabled = %v, want %v", got.Enabled, tt.expect.Enabled)
+			}
+			if got.Version != tt.expect.Version {
+				t.Errorf("Version = %v, want %v", got.Version, tt.expect.Version)
+			}
+			if got.Name != tt.expect.Name {
+				t.Errorf("Name = %v, want %v", got.Name, tt.expect.Name)
+			}
+			if got.Count != tt.expect.Count {
+				t.Errorf("Count = %v, want %v", got.Count, tt.expect.Count)
+			}
+		})
+	}
+}
