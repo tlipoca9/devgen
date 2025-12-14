@@ -40,6 +40,51 @@ type User struct {
 
 ## 验证规则详解
 
+### 0. @default(value) - 默认值
+
+为零值字段设置默认值。生成 `SetDefaults()` 方法，在验证前调用。
+
+| 字段类型 | 说明 |
+|---------|------|
+| `string` | 设置默认字符串值 |
+| `int/float/...` | 设置默认数值 |
+| `bool` | 设置默认布尔值 (true/false) |
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@default(localhost)
+    Host string  // 默认 "localhost"
+
+    // validategen:@default(8080)
+    Port int  // 默认 8080
+
+    // validategen:@default(true)
+    Enabled bool  // 默认 true
+
+    // validategen:@default(1.0)
+    Version float64  // 默认 1.0
+}
+
+// 使用方式：
+cfg := &Config{}
+cfg.SetDefaults()  // 设置默认值
+if err := cfg.Validate(); err != nil {
+    // 处理错误
+}
+```
+
+**注意**：`SetDefaults()` 使用指针接收器，必须在指针上调用：
+```go
+cfg := &Config{}
+cfg.SetDefaults()  // ✓ 正确
+
+cfg2 := Config{}
+cfg2.SetDefaults()  // ✗ 不会修改 cfg2
+```
+
+---
+
 ### 1. @required - 必填验证
 
 验证字段不能为空/零值。
@@ -1059,6 +1104,7 @@ ginkgo --json-report=benchmark_report.json --junit-report=benchmark_report.xml .
 | 注解 | 参数 | 适用类型 | 说明 |
 |------|------|---------|------|
 | `@validate` | - | struct | 标记需要生成 Validate 方法的结构体 |
+| `@default(v)` | string/number/bool | string, number, bool | 设置默认值（生成 SetDefaults 方法） |
 | `@required` | - | string, number, bool, slice, map, pointer | 必填验证 |
 | `@min(n)` | number | string, slice, map, number | 最小值/最小长度 |
 | `@max(n)` | number | string, slice, map, number | 最大值/最大长度 |

@@ -40,6 +40,51 @@ Add validation rules in field comments. Multiple rules can be combined.
 
 ## Validation Rules
 
+### 0. @default(value) - Default Value
+
+Set default value for zero-value fields. Generates a `SetDefaults()` method to call before validation.
+
+| Field Type | Description |
+|------------|-------------|
+| `string` | Set default string value |
+| `int/float/...` | Set default numeric value |
+| `bool` | Set default boolean value (true/false) |
+
+```go
+// validategen:@validate
+type Config struct {
+    // validategen:@default(localhost)
+    Host string  // Default: "localhost"
+
+    // validategen:@default(8080)
+    Port int  // Default: 8080
+
+    // validategen:@default(true)
+    Enabled bool  // Default: true
+
+    // validategen:@default(1.0)
+    Version float64  // Default: 1.0
+}
+
+// Usage:
+cfg := &Config{}
+cfg.SetDefaults()  // Set default values
+if err := cfg.Validate(); err != nil {
+    // handle error
+}
+```
+
+**Note**: `SetDefaults()` uses pointer receiver, must be called on a pointer:
+```go
+cfg := &Config{}
+cfg.SetDefaults()  // ✓ Correct
+
+cfg2 := Config{}
+cfg2.SetDefaults()  // ✗ Won't modify cfg2
+```
+
+---
+
 ### 1. @required - Required Validation
 
 Validates that field is not empty/zero value.
@@ -649,6 +694,7 @@ func main() {
 | Annotation | Parameter | Applicable Types | Description |
 |------------|-----------|------------------|-------------|
 | `@validate` | - | struct | Mark struct to generate Validate method |
+| `@default(v)` | string/number/bool | string, number, bool | Set default value (generates SetDefaults method) |
 | `@required` | - | string, number, bool, slice, map, pointer | Required validation |
 | `@min(n)` | number | string, slice, map, number | Minimum value/length |
 | `@max(n)` | number | string, slice, map, number | Maximum value/length |
