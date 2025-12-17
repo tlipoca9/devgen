@@ -17,13 +17,178 @@ import (
 
 // Precompiled regex patterns for validation.
 var (
-	_validateRegexAlpha    = regexp.MustCompile(`^[a-zA-Z]+$`)
-	_validateRegexAlphanum = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
-	_validateRegexEmail    = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
-	_validateRegexNumeric  = regexp.MustCompile(`^[0-9]+$`)
-	_validateRegexUUID     = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
-	_validateRegex1        = regexp.MustCompile(`^[A-Z]{2}-\d{4}$`)
+	_validateRegexAlpha        = regexp.MustCompile(`^[a-zA-Z]+$`)
+	_validateRegexAlphanum     = regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+	_validateRegexDNS1123Label = regexp.MustCompile(`^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
+	_validateRegexEmail        = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	_validateRegexNumeric      = regexp.MustCompile(`^[0-9]+$`)
+	_validateRegexUUID         = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+	_validateRegex1            = regexp.MustCompile(`^[A-Z]{2}-\d{4}$`)
 )
+
+// _validate performs field-level validation for DNS1123Example.
+// This method excludes @method validations for easier testing.
+func (x DNS1123Example) _validate() []string {
+	var errs []string
+
+	if x.Hostname == "" {
+		errs = append(errs, "Hostname is required")
+	}
+	if x.Hostname != "" {
+		if len(x.Hostname) > 63 {
+			errs = append(errs, fmt.Sprintf("Hostname must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.Hostname)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.Hostname) {
+			errs = append(errs, fmt.Sprintf("Hostname must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.Hostname))
+		}
+	}
+	if x.ServiceName == "" {
+		errs = append(errs, "ServiceName is required")
+	}
+	if x.ServiceName != "" {
+		if len(x.ServiceName) > 63 {
+			errs = append(errs, fmt.Sprintf("ServiceName must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.ServiceName)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.ServiceName) {
+			errs = append(errs, fmt.Sprintf("ServiceName must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.ServiceName))
+		}
+	}
+	if x.PodName == "" {
+		errs = append(errs, "PodName is required")
+	}
+	if x.PodName != "" {
+		if len(x.PodName) > 63 {
+			errs = append(errs, fmt.Sprintf("PodName must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.PodName)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.PodName) {
+			errs = append(errs, fmt.Sprintf("PodName must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.PodName))
+		}
+	}
+
+	return errs
+}
+
+// Validate validates the DNS1123Example fields.
+func (x DNS1123Example) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for KubernetesName.
+// This method excludes @method validations for easier testing.
+func (x KubernetesName) _validate() []string {
+	var errs []string
+
+	if x.Namespace == "" {
+		errs = append(errs, "Namespace is required")
+	}
+	if x.Namespace != "" {
+		if len(x.Namespace) > 63 {
+			errs = append(errs, fmt.Sprintf("Namespace must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.Namespace)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.Namespace) {
+			errs = append(errs, fmt.Sprintf("Namespace must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.Namespace))
+		}
+	}
+	if x.Pod == "" {
+		errs = append(errs, "Pod is required")
+	}
+	if x.Pod != "" {
+		if len(x.Pod) > 63 {
+			errs = append(errs, fmt.Sprintf("Pod must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.Pod)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.Pod) {
+			errs = append(errs, fmt.Sprintf("Pod must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.Pod))
+		}
+	}
+	if x.Service == "" {
+		errs = append(errs, "Service is required")
+	}
+	if x.Service != "" {
+		if len(x.Service) > 63 {
+			errs = append(errs, fmt.Sprintf("Service must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.Service)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.Service) {
+			errs = append(errs, fmt.Sprintf("Service must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.Service))
+		}
+	}
+	if x.StatefulSetName == "" {
+		errs = append(errs, "StatefulSetName is required")
+	}
+	if x.StatefulSetName != "" {
+		if len(x.StatefulSetName) > 63 {
+			errs = append(errs, fmt.Sprintf("StatefulSetName must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.StatefulSetName)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.StatefulSetName) {
+			errs = append(errs, fmt.Sprintf("StatefulSetName must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.StatefulSetName))
+		}
+	}
+
+	return errs
+}
+
+// Validate validates the KubernetesName fields.
+func (x KubernetesName) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for CloudNativeService.
+// This method excludes @method validations for easier testing.
+func (x CloudNativeService) _validate() []string {
+	var errs []string
+
+	if x.DomainName == "" {
+		errs = append(errs, "DomainName is required")
+	}
+	if x.DomainName != "" {
+		if len(x.DomainName) > 63 {
+			errs = append(errs, fmt.Sprintf("DomainName must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.DomainName)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.DomainName) {
+			errs = append(errs, fmt.Sprintf("DomainName must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.DomainName))
+		}
+	}
+	if x.InstanceName == "" {
+		errs = append(errs, "InstanceName is required")
+	}
+	if x.InstanceName != "" {
+		if len(x.InstanceName) > 63 {
+			errs = append(errs, fmt.Sprintf("InstanceName must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.InstanceName)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.InstanceName) {
+			errs = append(errs, fmt.Sprintf("InstanceName must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.InstanceName))
+		}
+	}
+	if x.RegistryHost == "" {
+		errs = append(errs, "RegistryHost is required")
+	}
+	if x.RegistryHost != "" {
+		if len(x.RegistryHost) > 63 {
+			errs = append(errs, fmt.Sprintf("RegistryHost must follow DNS label format (RFC 1123, not exceed 63 characters), got %d characters", len(x.RegistryHost)))
+		}
+		if !_validateRegexDNS1123Label.MatchString(x.RegistryHost) {
+			errs = append(errs, fmt.Sprintf("RegistryHost must follow DNS label format (RFC 1123, lowercase alphanumeric and '-', start/end with alphanumeric), got %q", x.RegistryHost))
+		}
+	}
+
+	return errs
+}
+
+// Validate validates the CloudNativeService fields.
+func (x CloudNativeService) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
 
 // _validate performs field-level validation for User.
 // This method excludes @method validations for easier testing.

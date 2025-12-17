@@ -7,6 +7,360 @@ import (
 	"testing"
 )
 
+func TestDNS1123Example__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   DNS1123Example
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: DNS1123Example{
+				Hostname:    "example-name",
+				ServiceName: "example-name",
+				PodName:     "example-name",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid_Hostname_required",
+			input: DNS1123Example{
+				ServiceName: "example-name",
+				PodName:     "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Hostname_dns1123_label",
+			input: DNS1123Example{
+				Hostname:    "Invalid-DNS",
+				ServiceName: "example-name",
+				PodName:     "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Hostname_dns1123_label_too_long",
+			input: DNS1123Example{
+				Hostname:    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				ServiceName: "example-name",
+				PodName:     "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_ServiceName_required",
+			input: DNS1123Example{
+				Hostname: "example-name",
+				PodName:  "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_ServiceName_dns1123_label",
+			input: DNS1123Example{
+				Hostname:    "example-name",
+				ServiceName: "Invalid-DNS",
+				PodName:     "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_ServiceName_dns1123_label_too_long",
+			input: DNS1123Example{
+				Hostname:    "example-name",
+				ServiceName: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				PodName:     "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_PodName_required",
+			input: DNS1123Example{
+				Hostname:    "example-name",
+				ServiceName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_PodName_dns1123_label",
+			input: DNS1123Example{
+				Hostname:    "example-name",
+				ServiceName: "example-name",
+				PodName:     "Invalid-DNS",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_PodName_dns1123_label_too_long",
+			input: DNS1123Example{
+				Hostname:    "example-name",
+				ServiceName: "example-name",
+				PodName:     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestKubernetesName__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   KubernetesName
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: KubernetesName{
+				Namespace:       "example-name",
+				Pod:             "example-name",
+				Service:         "example-name",
+				StatefulSetName: "example-name",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid_Namespace_required",
+			input: KubernetesName{
+				Pod:             "example-name",
+				Service:         "example-name",
+				StatefulSetName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Namespace_dns1123_label",
+			input: KubernetesName{
+				Namespace:       "Invalid-DNS",
+				Pod:             "example-name",
+				Service:         "example-name",
+				StatefulSetName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Namespace_dns1123_label_too_long",
+			input: KubernetesName{
+				Namespace:       "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				Pod:             "example-name",
+				Service:         "example-name",
+				StatefulSetName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Pod_required",
+			input: KubernetesName{
+				Namespace:       "example-name",
+				Service:         "example-name",
+				StatefulSetName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Pod_dns1123_label",
+			input: KubernetesName{
+				Namespace:       "example-name",
+				Pod:             "Invalid-DNS",
+				Service:         "example-name",
+				StatefulSetName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Pod_dns1123_label_too_long",
+			input: KubernetesName{
+				Namespace:       "example-name",
+				Pod:             "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				Service:         "example-name",
+				StatefulSetName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Service_required",
+			input: KubernetesName{
+				Namespace:       "example-name",
+				Pod:             "example-name",
+				StatefulSetName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Service_dns1123_label",
+			input: KubernetesName{
+				Namespace:       "example-name",
+				Pod:             "example-name",
+				Service:         "Invalid-DNS",
+				StatefulSetName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Service_dns1123_label_too_long",
+			input: KubernetesName{
+				Namespace:       "example-name",
+				Pod:             "example-name",
+				Service:         "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				StatefulSetName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_StatefulSetName_required",
+			input: KubernetesName{
+				Namespace: "example-name",
+				Pod:       "example-name",
+				Service:   "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_StatefulSetName_dns1123_label",
+			input: KubernetesName{
+				Namespace:       "example-name",
+				Pod:             "example-name",
+				Service:         "example-name",
+				StatefulSetName: "Invalid-DNS",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_StatefulSetName_dns1123_label_too_long",
+			input: KubernetesName{
+				Namespace:       "example-name",
+				Pod:             "example-name",
+				Service:         "example-name",
+				StatefulSetName: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCloudNativeService__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   CloudNativeService
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: CloudNativeService{
+				DomainName:   "example-name",
+				InstanceName: "example-name",
+				RegistryHost: "example-name",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid_DomainName_required",
+			input: CloudNativeService{
+				InstanceName: "example-name",
+				RegistryHost: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_DomainName_dns1123_label",
+			input: CloudNativeService{
+				DomainName:   "Invalid-DNS",
+				InstanceName: "example-name",
+				RegistryHost: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_DomainName_dns1123_label_too_long",
+			input: CloudNativeService{
+				DomainName:   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				InstanceName: "example-name",
+				RegistryHost: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_InstanceName_required",
+			input: CloudNativeService{
+				DomainName:   "example-name",
+				RegistryHost: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_InstanceName_dns1123_label",
+			input: CloudNativeService{
+				DomainName:   "example-name",
+				InstanceName: "Invalid-DNS",
+				RegistryHost: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_InstanceName_dns1123_label_too_long",
+			input: CloudNativeService{
+				DomainName:   "example-name",
+				InstanceName: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				RegistryHost: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_RegistryHost_required",
+			input: CloudNativeService{
+				DomainName:   "example-name",
+				InstanceName: "example-name",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_RegistryHost_dns1123_label",
+			input: CloudNativeService{
+				DomainName:   "example-name",
+				InstanceName: "example-name",
+				RegistryHost: "Invalid-DNS",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_RegistryHost_dns1123_label_too_long",
+			input: CloudNativeService{
+				DomainName:   "example-name",
+				InstanceName: "example-name",
+				RegistryHost: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestUser__validate(t *testing.T) {
 	tests := []struct {
 		name    string
