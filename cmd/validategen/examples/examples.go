@@ -387,3 +387,42 @@ type DefaultExample struct {
 	// validategen:@max(1000)
 	Count int64
 }
+
+// KubernetesResource demonstrates CPU and memory validation for Kubernetes resources.
+// validategen:@validate
+type KubernetesResource struct {
+	// validategen:@cpu
+	CPURequest string
+
+	// validategen:@cpu
+	CPULimit string
+
+	// validategen:@memory
+	MemoryRequest string
+
+	// validategen:@memory
+	MemoryLimit string
+}
+
+// PodSpec demonstrates a complete Kubernetes pod specification with resource validation.
+// validategen:@validate
+type PodSpec struct {
+	// validategen:@required
+	// validategen:@min(1)
+	// validategen:@max(63)
+	Name string
+
+	// Container resource requests
+	// validategen:@cpu
+	ContainerCPURequest string
+
+	// validategen:@memory
+	ContainerMemoryRequest string
+
+	// Container resource limits (optional but validated if provided)
+	// validategen:@cpu
+	ContainerCPULimit string
+
+	// validategen:@memory
+	ContainerMemoryLimit string
+}

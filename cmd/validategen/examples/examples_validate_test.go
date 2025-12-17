@@ -2086,3 +2086,224 @@ func TestDefaultExample_SetDefaults(t *testing.T) {
 		})
 	}
 }
+
+func TestKubernetesResource__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   KubernetesResource
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: KubernetesResource{
+				CPURequest:    "100m",
+				CPULimit:      "100m",
+				MemoryRequest: "128Mi",
+				MemoryLimit:   "128Mi",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPodSpec__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   PodSpec
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: PodSpec{
+				Name:                   "a",
+				ContainerCPURequest:    "100m",
+				ContainerMemoryRequest: "128Mi",
+				ContainerCPULimit:      "100m",
+				ContainerMemoryLimit:   "128Mi",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid_Name_required",
+			input: PodSpec{
+				ContainerCPURequest:    "100m",
+				ContainerMemoryRequest: "128Mi",
+				ContainerCPULimit:      "100m",
+				ContainerMemoryLimit:   "128Mi",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Name_min",
+			input: PodSpec{
+				Name:                   "",
+				ContainerCPURequest:    "100m",
+				ContainerMemoryRequest: "128Mi",
+				ContainerCPULimit:      "100m",
+				ContainerMemoryLimit:   "128Mi",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Name_max",
+			input: PodSpec{
+				Name:                   "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+				ContainerCPURequest:    "100m",
+				ContainerMemoryRequest: "128Mi",
+				ContainerCPULimit:      "100m",
+				ContainerMemoryLimit:   "128Mi",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestKubernetesResourceSpec__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   KubernetesResourceSpec
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: KubernetesResourceSpec{
+				CPURequest:    "100m",
+				CPULimit:      "100m",
+				MemoryRequest: "128Mi",
+				MemoryLimit:   "128Mi",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid_CPURequest_required",
+			input: KubernetesResourceSpec{
+				CPULimit:      "100m",
+				MemoryRequest: "128Mi",
+				MemoryLimit:   "128Mi",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_MemoryRequest_required",
+			input: KubernetesResourceSpec{
+				CPURequest:  "100m",
+				CPULimit:    "100m",
+				MemoryLimit: "128Mi",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPodContainerSpec__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   PodContainerSpec
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: PodContainerSpec{
+				Name:          "a",
+				Image:         "test",
+				CPURequest:    "100m",
+				MemoryRequest: "128Mi",
+				CPULimit:      "100m",
+				MemoryLimit:   "128Mi",
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid_Name_required",
+			input: PodContainerSpec{
+				Image:         "test",
+				CPURequest:    "100m",
+				MemoryRequest: "128Mi",
+				CPULimit:      "100m",
+				MemoryLimit:   "128Mi",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Name_min",
+			input: PodContainerSpec{
+				Name:          "",
+				Image:         "test",
+				CPURequest:    "100m",
+				MemoryRequest: "128Mi",
+				CPULimit:      "100m",
+				MemoryLimit:   "128Mi",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_Image_required",
+			input: PodContainerSpec{
+				Name:          "a",
+				CPURequest:    "100m",
+				MemoryRequest: "128Mi",
+				CPULimit:      "100m",
+				MemoryLimit:   "128Mi",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_CPURequest_required",
+			input: PodContainerSpec{
+				Name:          "a",
+				Image:         "test",
+				MemoryRequest: "128Mi",
+				CPULimit:      "100m",
+				MemoryLimit:   "128Mi",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_MemoryRequest_required",
+			input: PodContainerSpec{
+				Name:        "a",
+				Image:       "test",
+				CPURequest:  "100m",
+				CPULimit:    "100m",
+				MemoryLimit: "128Mi",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}

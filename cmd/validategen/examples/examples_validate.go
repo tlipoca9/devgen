@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"github.com/BurntSushi/toml"
 	yaml "gopkg.in/yaml.v3"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"net"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -869,6 +871,380 @@ func (x DefaultExample) _validate() []string {
 
 // Validate validates the DefaultExample fields.
 func (x DefaultExample) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for KubernetesResource.
+// This method excludes @method validations for easier testing.
+func (x KubernetesResource) _validate() []string {
+	var errs []string
+
+	if x.CPURequest != "" {
+		_qty, err := resource.ParseQuantity(x.CPURequest)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("CPURequest invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("CPURequest must be non-negative, got %s", x.CPURequest))
+		} else {
+			_lower := strings.ToLower(x.CPURequest)
+			_base := _lower
+			if strings.HasSuffix(_lower, "m") {
+				_base = _lower[:len(_lower)-1]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("CPURequest invalid CPU format: must be pure digits or end with 'm', got %s", x.CPURequest))
+			}
+		}
+	}
+	if x.CPULimit != "" {
+		_qty, err := resource.ParseQuantity(x.CPULimit)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("CPULimit invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("CPULimit must be non-negative, got %s", x.CPULimit))
+		} else {
+			_lower := strings.ToLower(x.CPULimit)
+			_base := _lower
+			if strings.HasSuffix(_lower, "m") {
+				_base = _lower[:len(_lower)-1]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("CPULimit invalid CPU format: must be pure digits or end with 'm', got %s", x.CPULimit))
+			}
+		}
+	}
+	if x.MemoryRequest != "" {
+		_qty, err := resource.ParseQuantity(x.MemoryRequest)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("MemoryRequest invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("MemoryRequest must be non-negative, got %s", x.MemoryRequest))
+		} else {
+			_lower := strings.ToLower(x.MemoryRequest)
+			_base := _lower
+			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
+				_base = _lower[:len(_lower)-2]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("MemoryRequest invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryRequest))
+			}
+		}
+	}
+	if x.MemoryLimit != "" {
+		_qty, err := resource.ParseQuantity(x.MemoryLimit)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("MemoryLimit invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("MemoryLimit must be non-negative, got %s", x.MemoryLimit))
+		} else {
+			_lower := strings.ToLower(x.MemoryLimit)
+			_base := _lower
+			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
+				_base = _lower[:len(_lower)-2]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("MemoryLimit invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryLimit))
+			}
+		}
+	}
+
+	return errs
+}
+
+// Validate validates the KubernetesResource fields.
+func (x KubernetesResource) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for PodSpec.
+// This method excludes @method validations for easier testing.
+func (x PodSpec) _validate() []string {
+	var errs []string
+
+	if x.Name == "" {
+		errs = append(errs, "Name is required")
+	}
+	if len(x.Name) < 1 {
+		errs = append(errs, fmt.Sprintf("Name must be at least 1 characters, got %d", len(x.Name)))
+	}
+	if len(x.Name) > 63 {
+		errs = append(errs, fmt.Sprintf("Name must be at most 63 characters, got %d", len(x.Name)))
+	}
+	if x.ContainerCPURequest != "" {
+		_qty, err := resource.ParseQuantity(x.ContainerCPURequest)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("ContainerCPURequest invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("ContainerCPURequest must be non-negative, got %s", x.ContainerCPURequest))
+		} else {
+			_lower := strings.ToLower(x.ContainerCPURequest)
+			_base := _lower
+			if strings.HasSuffix(_lower, "m") {
+				_base = _lower[:len(_lower)-1]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("ContainerCPURequest invalid CPU format: must be pure digits or end with 'm', got %s", x.ContainerCPURequest))
+			}
+		}
+	}
+	if x.ContainerMemoryRequest != "" {
+		_qty, err := resource.ParseQuantity(x.ContainerMemoryRequest)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("ContainerMemoryRequest invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("ContainerMemoryRequest must be non-negative, got %s", x.ContainerMemoryRequest))
+		} else {
+			_lower := strings.ToLower(x.ContainerMemoryRequest)
+			_base := _lower
+			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
+				_base = _lower[:len(_lower)-2]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("ContainerMemoryRequest invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.ContainerMemoryRequest))
+			}
+		}
+	}
+	if x.ContainerCPULimit != "" {
+		_qty, err := resource.ParseQuantity(x.ContainerCPULimit)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("ContainerCPULimit invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("ContainerCPULimit must be non-negative, got %s", x.ContainerCPULimit))
+		} else {
+			_lower := strings.ToLower(x.ContainerCPULimit)
+			_base := _lower
+			if strings.HasSuffix(_lower, "m") {
+				_base = _lower[:len(_lower)-1]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("ContainerCPULimit invalid CPU format: must be pure digits or end with 'm', got %s", x.ContainerCPULimit))
+			}
+		}
+	}
+	if x.ContainerMemoryLimit != "" {
+		_qty, err := resource.ParseQuantity(x.ContainerMemoryLimit)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("ContainerMemoryLimit invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("ContainerMemoryLimit must be non-negative, got %s", x.ContainerMemoryLimit))
+		} else {
+			_lower := strings.ToLower(x.ContainerMemoryLimit)
+			_base := _lower
+			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
+				_base = _lower[:len(_lower)-2]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("ContainerMemoryLimit invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.ContainerMemoryLimit))
+			}
+		}
+	}
+
+	return errs
+}
+
+// Validate validates the PodSpec fields.
+func (x PodSpec) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for KubernetesResourceSpec.
+// This method excludes @method validations for easier testing.
+func (x KubernetesResourceSpec) _validate() []string {
+	var errs []string
+
+	if x.CPURequest == "" {
+		errs = append(errs, "CPURequest is required")
+	}
+	if x.CPURequest != "" {
+		_qty, err := resource.ParseQuantity(x.CPURequest)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("CPURequest invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("CPURequest must be non-negative, got %s", x.CPURequest))
+		} else {
+			_lower := strings.ToLower(x.CPURequest)
+			_base := _lower
+			if strings.HasSuffix(_lower, "m") {
+				_base = _lower[:len(_lower)-1]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("CPURequest invalid CPU format: must be pure digits or end with 'm', got %s", x.CPURequest))
+			}
+		}
+	}
+	if x.CPULimit != "" {
+		_qty, err := resource.ParseQuantity(x.CPULimit)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("CPULimit invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("CPULimit must be non-negative, got %s", x.CPULimit))
+		} else {
+			_lower := strings.ToLower(x.CPULimit)
+			_base := _lower
+			if strings.HasSuffix(_lower, "m") {
+				_base = _lower[:len(_lower)-1]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("CPULimit invalid CPU format: must be pure digits or end with 'm', got %s", x.CPULimit))
+			}
+		}
+	}
+	if x.MemoryRequest == "" {
+		errs = append(errs, "MemoryRequest is required")
+	}
+	if x.MemoryRequest != "" {
+		_qty, err := resource.ParseQuantity(x.MemoryRequest)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("MemoryRequest invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("MemoryRequest must be non-negative, got %s", x.MemoryRequest))
+		} else {
+			_lower := strings.ToLower(x.MemoryRequest)
+			_base := _lower
+			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
+				_base = _lower[:len(_lower)-2]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("MemoryRequest invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryRequest))
+			}
+		}
+	}
+	if x.MemoryLimit != "" {
+		_qty, err := resource.ParseQuantity(x.MemoryLimit)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("MemoryLimit invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("MemoryLimit must be non-negative, got %s", x.MemoryLimit))
+		} else {
+			_lower := strings.ToLower(x.MemoryLimit)
+			_base := _lower
+			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
+				_base = _lower[:len(_lower)-2]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("MemoryLimit invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryLimit))
+			}
+		}
+	}
+
+	return errs
+}
+
+// Validate validates the KubernetesResourceSpec fields.
+func (x KubernetesResourceSpec) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// _validate performs field-level validation for PodContainerSpec.
+// This method excludes @method validations for easier testing.
+func (x PodContainerSpec) _validate() []string {
+	var errs []string
+
+	if x.Name == "" {
+		errs = append(errs, "Name is required")
+	}
+	if len(x.Name) < 1 {
+		errs = append(errs, fmt.Sprintf("Name must be at least 1 characters, got %d", len(x.Name)))
+	}
+	if x.Image == "" {
+		errs = append(errs, "Image is required")
+	}
+	if x.CPURequest == "" {
+		errs = append(errs, "CPURequest is required")
+	}
+	if x.CPURequest != "" {
+		_qty, err := resource.ParseQuantity(x.CPURequest)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("CPURequest invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("CPURequest must be non-negative, got %s", x.CPURequest))
+		} else {
+			_lower := strings.ToLower(x.CPURequest)
+			_base := _lower
+			if strings.HasSuffix(_lower, "m") {
+				_base = _lower[:len(_lower)-1]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("CPURequest invalid CPU format: must be pure digits or end with 'm', got %s", x.CPURequest))
+			}
+		}
+	}
+	if x.MemoryRequest == "" {
+		errs = append(errs, "MemoryRequest is required")
+	}
+	if x.MemoryRequest != "" {
+		_qty, err := resource.ParseQuantity(x.MemoryRequest)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("MemoryRequest invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("MemoryRequest must be non-negative, got %s", x.MemoryRequest))
+		} else {
+			_lower := strings.ToLower(x.MemoryRequest)
+			_base := _lower
+			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
+				_base = _lower[:len(_lower)-2]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("MemoryRequest invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryRequest))
+			}
+		}
+	}
+	if x.CPULimit != "" {
+		_qty, err := resource.ParseQuantity(x.CPULimit)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("CPULimit invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("CPULimit must be non-negative, got %s", x.CPULimit))
+		} else {
+			_lower := strings.ToLower(x.CPULimit)
+			_base := _lower
+			if strings.HasSuffix(_lower, "m") {
+				_base = _lower[:len(_lower)-1]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("CPULimit invalid CPU format: must be pure digits or end with 'm', got %s", x.CPULimit))
+			}
+		}
+	}
+	if x.MemoryLimit != "" {
+		_qty, err := resource.ParseQuantity(x.MemoryLimit)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("MemoryLimit invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("MemoryLimit must be non-negative, got %s", x.MemoryLimit))
+		} else {
+			_lower := strings.ToLower(x.MemoryLimit)
+			_base := _lower
+			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
+				_base = _lower[:len(_lower)-2]
+			}
+			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
+				errs = append(errs, fmt.Sprintf("MemoryLimit invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryLimit))
+			}
+		}
+	}
+
+	return errs
+}
+
+// Validate validates the PodContainerSpec fields.
+func (x PodContainerSpec) Validate() error {
 	errs := x._validate()
 	if len(errs) > 0 {
 		return fmt.Errorf("%s", strings.Join(errs, "; "))

@@ -13,6 +13,12 @@ require (
 )
 
 require (
+	github.com/gogo/protobuf v1.3.2 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+	gopkg.in/inf.v0 v0.9.1 // indirect
+)
+
+require (
 	charm.land/lipgloss/v2 v2.0.0-beta.3.0.20251106193318-19329a3e8410 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/charmbracelet/colorprofile v0.3.3 // indirect
@@ -46,4 +52,5 @@ require (
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.28.0 // indirect
+	k8s.io/apimachinery v0.29.0
 )

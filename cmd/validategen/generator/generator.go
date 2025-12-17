@@ -18,30 +18,30 @@ const ToolName = "validategen"
 
 // Predefined regex patterns
 const (
-	regexEmail     = "email"
-	regexUUID      = "uuid"
-	regexAlpha     = "alpha"
-	regexAlphanum  = "alphanum"
-	regexNumeric   = "numeric"
-	regexDNS1123   = "dns1123_label"
+	regexEmail    = "email"
+	regexUUID     = "uuid"
+	regexAlpha    = "alpha"
+	regexAlphanum = "alphanum"
+	regexNumeric  = "numeric"
+	regexDNS1123  = "dns1123_label"
 )
 
 var regexPatterns = map[string]string{
-	regexEmail:     `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`,
-	regexUUID:      `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`,
-	regexAlpha:     `^[a-zA-Z]+$`,
-	regexAlphanum:  `^[a-zA-Z0-9]+$`,
-	regexNumeric:   `^[0-9]+$`,
-	regexDNS1123:   `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`,
+	regexEmail:    `^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`,
+	regexUUID:     `^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`,
+	regexAlpha:    `^[a-zA-Z]+$`,
+	regexAlphanum: `^[a-zA-Z0-9]+$`,
+	regexNumeric:  `^[0-9]+$`,
+	regexDNS1123:  `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`,
 }
 
 var regexVarNames = map[string]string{
-	regexEmail:     "_validateRegexEmail",
-	regexUUID:      "_validateRegexUUID",
-	regexAlpha:     "_validateRegexAlpha",
-	regexAlphanum:  "_validateRegexAlphanum",
-	regexNumeric:   "_validateRegexNumeric",
-	regexDNS1123:   "_validateRegexDNS1123Label",
+	regexEmail:    "_validateRegexEmail",
+	regexUUID:     "_validateRegexUUID",
+	regexAlpha:    "_validateRegexAlpha",
+	regexAlphanum: "_validateRegexAlphanum",
+	regexNumeric:  "_validateRegexNumeric",
+	regexDNS1123:  "_validateRegexDNS1123Label",
 }
 
 // Generator generates Validate() methods for structs.
@@ -565,11 +565,11 @@ func (vg *Generator) Config() genkit.ToolConfig {
   }
 
 注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
-		},
-		{
-			Name: "ipv6",
-			Type: "field",
-			Doc: `字段必须是有效的 IPv6 地址。
+			},
+			{
+				Name: "ipv6",
+				Type: "field",
+				Doc: `字段必须是有效的 IPv6 地址。
 
 用法：在字段上方添加注解
   // validategen:@ipv6
@@ -583,11 +583,11 @@ func (vg *Generator) Config() genkit.ToolConfig {
   }
 
 注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
-		},
-		{
-			Name: "dns1123_label",
-			Type: "field",
-			Doc: `字段必须符合 DNS label 标准（RFC 1123 兼容的 DNS 名称）。
+			},
+			{
+				Name: "dns1123_label",
+				Type: "field",
+				Doc: `字段必须符合 DNS label 标准（RFC 1123 兼容的 DNS 名称）。
 
 用法：在字段上方添加注解
   // validategen:@dns1123_label
@@ -621,9 +621,9 @@ DNS label 规则：
   - 容器镜像仓库域名验证
 
 注意：空字符串会跳过验证。如果字段必填，请配合 @required 使用。`,
-		},
-		{
-			Name: "duration",
+			},
+			{
+				Name: "duration",
 				Type: "field",
 				Doc: `字段必须是有效的 Go duration 字符串（time.ParseDuration）。
 
@@ -992,6 +992,67 @@ DNS label 规则：
   - 字符串值不需要引号包裹`,
 				Params: &genkit.AnnotationParams{Type: []string{"string", "number", "bool"}, Placeholder: "value"},
 			},
+			{
+				Name: "cpu",
+				Type: "field",
+				Doc: `验证 Kubernetes CPU 资源数量格式（有效单位：m, 核数）。
+
+用法：在字段上方添加注解
+  // validategen:@cpu
+  CPURequest string
+
+支持的格式：
+  - 毫核（m）: "500m", "100m"
+  - 核数: "1", "2", "0.5"
+  - 科学记数法: "1e3m" (1000m)
+
+验证逻辑：
+  使用 k8s.io/apimachinery/pkg/api/resource 的 ParseQuantity 函数解析。
+  检查数量是否为有效的格式和非负数。
+
+示例：
+  // validategen:@validate
+  type PodSpec struct {
+      // validategen:@cpu
+      CPURequest string  // "500m" ✓
+  }
+
+生成的错误消息：
+  - 格式错误: "CPURequest invalid quantity: ..."
+  - 负数: "CPURequest must be non-negative"`,
+			},
+			{
+				Name: "memory",
+				Type: "field",
+				Doc: `验证 Kubernetes 内存资源数量格式（有效单位：Ki, Mi, Gi, Ti, Pi, Ei）。
+
+用法：在字段上方添加注解
+  // validategen:@memory
+  MemoryRequest string
+
+支持的格式：
+  - 二进制单位: "512Mi", "2Gi", "1Ti"
+  - 十进制单位: "512M", "2G" (等同于 Mi, Gi)
+  - 字节: "1000000", "1Gi"
+
+验证逻辑：
+  使用 k8s.io/apimachinery/pkg/api/resource 的 ParseQuantity 函数解析。
+  检查数量是否为有效的格式和非负数。
+
+示例：
+  // validategen:@validate
+  type ContainerSpec struct {
+      // validategen:@memory
+      MemoryRequest string  // "512Mi" ✓
+      
+      // validategen:@memory
+      MemoryLimit string  // "2Gi" ✓
+  }
+
+生成的错误消息：
+  - 格式错误: "MemoryRequest invalid quantity: ..."
+  - 负数: "MemoryRequest must be non-negative"`,
+			},
 		},
 	}
 }
@@ -1067,11 +1128,11 @@ func (vg *Generator) ProcessPackage(gen *genkit.Generator, pkg *genkit.Package) 
 					usedRegex[regexAlpha] = true
 				case "alphanum":
 					usedRegex[regexAlphanum] = true
-			case "numeric":
-				usedRegex[regexNumeric] = true
-			case "dns1123_label":
-				usedRegex[regexDNS1123] = true
-			case "regex":
+				case "numeric":
+					usedRegex[regexNumeric] = true
+				case "dns1123_label":
+					usedRegex[regexDNS1123] = true
+				case "regex":
 					if rule.Param != "" {
 						customRegex.getVarName(rule.Param)
 					}
@@ -1553,6 +1614,8 @@ var rulePriority = map[string]int{
 	"numeric":       51,
 	"regex":         52,
 	"format":        53,
+	"cpu":           54,
+	"memory":        55,
 
 	// 5. String content checks
 	"contains":   60,
@@ -1641,25 +1704,25 @@ func (vg *Generator) generateFieldValidation(
 			vg.genAlpha(g, fieldName)
 		case "alphanum":
 			vg.genAlphanum(g, fieldName)
-	case "numeric":
-		vg.genNumeric(g, fieldName)
-	case "contains":
-		vg.genContains(g, fieldName, rule.Param)
-	case "excludes":
-		vg.genExcludes(g, fieldName, rule.Param)
-	case "startswith":
-		vg.genStartsWith(g, fieldName, rule.Param)
-	case "endswith":
-		vg.genEndsWith(g, fieldName, rule.Param)
-	case "ip":
-		vg.genIP(g, fieldName)
-	case "ipv4":
-		vg.genIPv4(g, fieldName)
-	case "ipv6":
-		vg.genIPv6(g, fieldName)
-	case "dns1123_label":
-		vg.genDNS1123(g, fieldName)
-	case "duration", "duration_min", "duration_max":
+		case "numeric":
+			vg.genNumeric(g, fieldName)
+		case "contains":
+			vg.genContains(g, fieldName, rule.Param)
+		case "excludes":
+			vg.genExcludes(g, fieldName, rule.Param)
+		case "startswith":
+			vg.genStartsWith(g, fieldName, rule.Param)
+		case "endswith":
+			vg.genEndsWith(g, fieldName, rule.Param)
+		case "ip":
+			vg.genIP(g, fieldName)
+		case "ipv4":
+			vg.genIPv4(g, fieldName)
+		case "ipv6":
+			vg.genIPv6(g, fieldName)
+		case "dns1123_label":
+			vg.genDNS1123(g, fieldName)
+		case "duration", "duration_min", "duration_max":
 			// Generate all duration validations together, only once
 			if !durationGenerated {
 				vg.genDurationCombined(
@@ -1679,6 +1742,10 @@ func (vg *Generator) generateFieldValidation(
 			vg.genRegex(g, fv.Field, rule.Param, customRegex)
 		case "format":
 			vg.genFormat(g, fv.Field, rule.Param)
+		case "cpu":
+			vg.genCPU(g, fieldName)
+		case "memory":
+			vg.genMemory(g, fieldName)
 		}
 	}
 }
@@ -2881,6 +2948,128 @@ func (vg *Generator) genFormat(g *genkit.GeneratedFile, field *genkit.Field, for
 	g.P("}")
 }
 
+func (vg *Generator) genCPU(g *genkit.GeneratedFile, fieldName string) {
+	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
+	stringsHasSuffix := genkit.GoImportPath("strings").Ident("HasSuffix")
+	stringsToLower := genkit.GoImportPath("strings").Ident("ToLower")
+	strconvParseInt := genkit.GoImportPath("strconv").Ident("ParseInt")
+
+	g.P("if x.", fieldName, " != \"\" {")
+	g.P(
+		"_qty, err := ",
+		genkit.GoImportPath("k8s.io/apimachinery/pkg/api/resource").Ident("ParseQuantity"),
+		"(x.",
+		fieldName,
+		")",
+	)
+	g.P("if err != nil {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" invalid quantity: %v\", err))",
+	)
+	g.P("} else if _qty.Sign() == -1 {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" must be non-negative, got %s\", x.",
+		fieldName,
+		"))",
+	)
+	g.P("} else {")
+	// Format validation: CPU must be pure digits or end with 'm'
+	g.P("_lower := ", stringsToLower, "(x.", fieldName, ")")
+	g.P("_base := _lower")
+	g.P("if ", stringsHasSuffix, "(_lower, \"m\") {")
+	g.P("_base = _lower[:len(_lower)-1]")
+	g.P("}")
+	g.P("if _, err := ", strconvParseInt, "(_base, 10, 64); err != nil || _base == \"\" {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" invalid CPU format: must be pure digits or end with 'm', got %s\", x.",
+		fieldName,
+		"))",
+	)
+	g.P("}")
+	g.P("}")
+	g.P("}")
+}
+
+func (vg *Generator) genMemory(g *genkit.GeneratedFile, fieldName string) {
+	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
+	stringsHasSuffix := genkit.GoImportPath("strings").Ident("HasSuffix")
+	stringsToLower := genkit.GoImportPath("strings").Ident("ToLower")
+	strconvParseInt := genkit.GoImportPath("strconv").Ident("ParseInt")
+
+	g.P("if x.", fieldName, " != \"\" {")
+	g.P(
+		"_qty, err := ",
+		genkit.GoImportPath("k8s.io/apimachinery/pkg/api/resource").Ident("ParseQuantity"),
+		"(x.",
+		fieldName,
+		")",
+	)
+	g.P("if err != nil {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" invalid quantity: %v\", err))",
+	)
+	g.P("} else if _qty.Sign() == -1 {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" must be non-negative, got %s\", x.",
+		fieldName,
+		"))",
+	)
+	g.P("} else {")
+	// Format validation: Memory must be pure digits or end with Ki/Gi/Ti/etc
+	g.P("_lower := ", stringsToLower, "(x.", fieldName, ")")
+	g.P("_base := _lower")
+	g.P(
+		"if ",
+		stringsHasSuffix,
+		"(_lower, \"ki\") || ",
+		stringsHasSuffix,
+		"(_lower, \"mi\") || ",
+		stringsHasSuffix,
+		"(_lower, \"gi\") || ",
+		stringsHasSuffix,
+		"(_lower, \"ti\") || ",
+		stringsHasSuffix,
+		"(_lower, \"pi\") || ",
+		stringsHasSuffix,
+		"(_lower, \"ei\") {",
+	)
+	g.P("_base = _lower[:len(_lower)-2]")
+	g.P("}")
+	g.P("if _, err := ", strconvParseInt, "(_base, 10, 64); err != nil || _base == \"\" {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s\", x.",
+		fieldName,
+		"))",
+	)
+	g.P("}")
+	g.P("}")
+	g.P("}")
+}
+
 // Helper functions
 
 func isStringType(t string) bool {
@@ -3272,6 +3461,28 @@ func (vg *Generator) validateRule(
 			}
 		}
 
+	// cpu - Kubernetes CPU resource validation
+	case "cpu":
+		if !isStringType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@cpu annotation requires string underlying type, got %s",
+				underlyingType,
+			)
+		}
+
+	// memory - Kubernetes memory resource validation
+	case "memory":
+		if !isStringType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@memory annotation requires string underlying type, got %s",
+				underlyingType,
+			)
+		}
+
 	// method - must be a custom type (not builtin types like string, int, bool, etc.)
 	case "method":
 		if rule.Param == "" {
@@ -3646,6 +3857,7 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 	var hasEq, hasNe, hasFormat, hasDNS1123 bool
 	var hasDurationMin, hasDurationMax bool
 	var hasExcludes, hasOneofEnum bool
+	var hasCPU, hasMemory bool
 	var minVal, maxVal, lenVal, gtVal, gteVal, ltVal, lteVal string
 	var oneofValues, containsVal, startsWithVal, endsWithVal string
 	var eqVal, neVal, regexVal, formatVal string
@@ -3687,19 +3899,19 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 			hasIP = true
 		case "ipv4":
 			hasIPv4 = true
-	case "ipv6":
-		hasIPv6 = true
-	case "duration":
-		hasDuration = true
-	case "duration_min":
-		hasDurationMin = true
-		durationMinVal = rule.Param
-	case "duration_max":
-		hasDurationMax = true
-		durationMaxVal = rule.Param
-	case "dns1123_label":
-		hasDNS1123 = true
-	case "alpha":
+		case "ipv6":
+			hasIPv6 = true
+		case "duration":
+			hasDuration = true
+		case "duration_min":
+			hasDurationMin = true
+			durationMinVal = rule.Param
+		case "duration_max":
+			hasDurationMax = true
+			durationMaxVal = rule.Param
+		case "dns1123_label":
+			hasDNS1123 = true
+		case "alpha":
 			hasAlpha = true
 		case "alphanum":
 			hasAlphanum = true
@@ -3734,6 +3946,10 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 		case "format":
 			hasFormat = true
 			formatVal = rule.Param
+		case "cpu":
+			hasCPU = true
+		case "memory":
+			hasMemory = true
 		}
 	}
 
@@ -3766,6 +3982,10 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 			} else {
 				value = "1h"
 			}
+		} else if hasCPU {
+			value = "100m"
+		} else if hasMemory {
+			value = "128Mi"
 		} else if hasDNS1123 {
 			value = "example-name"
 		} else if hasAlpha {
@@ -4052,6 +4272,10 @@ func (vg *Generator) generateValidFormatValue(format string) string {
 		return "key = \\\"value\\\""
 	case "csv":
 		return "a,b,c"
+	case "cpu":
+		return "100m"
+	case "memory":
+		return "128Mi"
 	default:
 		return "test"
 	}
@@ -4319,160 +4543,160 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("wantErr: true,")
 			g.P("},")
 
-	case "ip", "ipv4", "ipv6":
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_", rule.Name, "\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				g.P(fieldName, ": \"not-an-ip\",")
+		case "ip", "ipv4", "ipv6":
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_", rule.Name, "\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					g.P(fieldName, ": \"not-an-ip\",")
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
 
-	case "dns1123_label":
-		// Test invalid format (contains uppercase letters)
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_dns1123_label\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				g.P(fieldName, ": \"Invalid-DNS\",")
+		case "dns1123_label":
+			// Test invalid format (contains uppercase letters)
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_dns1123_label\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					g.P(fieldName, ": \"Invalid-DNS\",")
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
-		// Test too long (> 63 characters)
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_dns1123_label_too_long\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				// Generate a string with 64 characters (exceeds 63-char limit)
-				g.P(fieldName, ": \"", strings.Repeat("a", 64), "\",")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
+			// Test too long (> 63 characters)
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_dns1123_label_too_long\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					// Generate a string with 64 characters (exceeds 63-char limit)
+					g.P(fieldName, ": \"", strings.Repeat("a", 64), "\",")
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
 
-	case "duration":
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_duration\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				g.P(fieldName, ": \"invalid-duration\",")
+		case "duration":
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_duration\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					g.P(fieldName, ": \"invalid-duration\",")
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
 
-	case "duration_min":
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_duration_min\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				// Generate a duration smaller than min
-				g.P(fieldName, ": \"1ns\",")
+		case "duration_min":
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_duration_min\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					// Generate a duration smaller than min
+					g.P(fieldName, ": \"1ns\",")
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
 
-	case "duration_max":
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_duration_max\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				// Generate a duration larger than max
-				g.P(fieldName, ": \"1000h\",")
+		case "duration_max":
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_duration_max\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					// Generate a duration larger than max
+					g.P(fieldName, ": \"1000h\",")
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
 
-	case "alpha":
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_alpha\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				g.P(fieldName, ": \"abc123\",") // Contains numbers
+		case "alpha":
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_alpha\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					g.P(fieldName, ": \"abc123\",") // Contains numbers
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
 
-	case "alphanum":
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_alphanum\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				g.P(fieldName, ": \"abc-123\",") // Contains special char
+		case "alphanum":
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_alphanum\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					g.P(fieldName, ": \"abc-123\",") // Contains special char
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
 
-	case "numeric":
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_numeric\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				g.P(fieldName, ": \"12a34\",") // Contains letter
+		case "numeric":
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_numeric\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					g.P(fieldName, ": \"12a34\",") // Contains letter
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
 
-	case "contains":
-		g.P("{")
-		g.P("name: \"invalid_", fieldName, "_contains\",")
-		g.P("input: ", typeName, "{")
-		for _, otherFv := range allFields {
-			if otherFv.Field.Name != fieldName {
-				vg.generateValidFieldValue(g, otherFv, pkg)
-			} else {
-				g.P(fieldName, ": \"no_match_here\",")
+		case "contains":
+			g.P("{")
+			g.P("name: \"invalid_", fieldName, "_contains\",")
+			g.P("input: ", typeName, "{")
+			for _, otherFv := range allFields {
+				if otherFv.Field.Name != fieldName {
+					vg.generateValidFieldValue(g, otherFv, pkg)
+				} else {
+					g.P(fieldName, ": \"no_match_here\",")
+				}
 			}
-		}
-		g.P("},")
-		g.P("wantErr: true,")
-		g.P("},")
+			g.P("},")
+			g.P("wantErr: true,")
+			g.P("},")
 
-	case "excludes":
+		case "excludes":
 			g.P("{")
 			g.P("name: \"invalid_", fieldName, "_excludes\",")
 			g.P("input: ", typeName, "{")
