@@ -86,3 +86,53 @@ func (e _OrderStatusEnums) Names() []string {
 	}
 	return names
 }
+
+// IsValid reports whether x is a valid Priority.
+func (x Priority) IsValid() bool {
+	return PriorityEnums.Contains(string(x))
+}
+
+// String returns the string representation of Priority.
+func (x Priority) String() string {
+	return string(x)
+}
+
+// PriorityEnums is the enum helper for Priority.
+var PriorityEnums = _PriorityEnums{
+	values: []Priority{
+		PriorityLow,
+		PriorityMedium,
+		PriorityHigh,
+	},
+	set: map[Priority]struct{}{
+		PriorityLow:    {},
+		PriorityMedium: {},
+		PriorityHigh:   {},
+	},
+}
+
+// _PriorityEnums provides enum metadata and validation for Priority.
+type _PriorityEnums struct {
+	values []Priority
+	set    map[Priority]struct{}
+}
+
+// List returns all valid Priority values.
+func (e _PriorityEnums) List() []Priority {
+	return e.values
+}
+
+// Contains reports whether v is a valid Priority.
+func (e _PriorityEnums) Contains(v string) bool {
+	_, ok := e.set[Priority(v)]
+	return ok
+}
+
+// Parse parses a string into Priority.
+func (e _PriorityEnums) Parse(s string) (Priority, error) {
+	v := Priority(s)
+	if _, ok := e.set[v]; ok {
+		return v, nil
+	}
+	return "", fmt.Errorf("invalid Priority: %q", s)
+}

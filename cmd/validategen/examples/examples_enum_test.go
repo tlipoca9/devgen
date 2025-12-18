@@ -151,3 +151,85 @@ func TestOrderStatusEnums_ContainsName(t *testing.T) {
 		})
 	}
 }
+
+func TestPriority_IsValid(t *testing.T) {
+	tests := []struct {
+		name  string
+		value Priority
+		want  bool
+	}{
+		{name: "valid_PriorityLow", value: PriorityLow, want: true},
+		{name: "valid_PriorityMedium", value: PriorityMedium, want: true},
+		{name: "valid_PriorityHigh", value: PriorityHigh, want: true},
+		{name: "invalid", value: Priority("__invalid__"), want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.value.IsValid(); got != tt.want {
+				t.Errorf("Priority.IsValid() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPriority_String(t *testing.T) {
+	tests := []struct {
+		name  string
+		value Priority
+		want  string
+	}{
+		{name: "PriorityLow", value: PriorityLow, want: string(PriorityLow)},
+		{name: "PriorityMedium", value: PriorityMedium, want: string(PriorityMedium)},
+		{name: "PriorityHigh", value: PriorityHigh, want: string(PriorityHigh)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.value.String(); got != tt.want {
+				t.Errorf("Priority.String() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPriorityEnums_Parse(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		want    Priority
+		wantErr bool
+	}{
+		{name: "valid_PriorityLow", input: string(PriorityLow), want: PriorityLow, wantErr: false},
+		{name: "valid_PriorityMedium", input: string(PriorityMedium), want: PriorityMedium, wantErr: false},
+		{name: "valid_PriorityHigh", input: string(PriorityHigh), want: PriorityHigh, wantErr: false},
+		{name: "invalid", input: "__invalid__", wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := PriorityEnums.Parse(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Parse() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("Parse() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPriorityEnums_List(t *testing.T) {
+	list := PriorityEnums.List()
+	want := []Priority{
+		PriorityLow,
+		PriorityMedium,
+		PriorityHigh,
+	}
+	if len(list) != len(want) {
+		t.Fatalf("List() returned %d items, want %d", len(list), len(want))
+	}
+	for i, v := range list {
+		if v != want[i] {
+			t.Errorf("List()[%d] = %v, want %v", i, v, want[i])
+		}
+	}
+}

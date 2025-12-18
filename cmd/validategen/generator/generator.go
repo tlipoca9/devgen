@@ -2347,7 +2347,15 @@ func (vg *Generator) genOneofEnum(g *genkit.GeneratedFile, field *genkit.Field, 
 	// - Non-string enums: use ContainsName() and Names() for better error messages
 	if isStringEnum {
 		// String enum: use Contains and List
-		g.P("if !", enumsVar, ".Contains(x.", fieldName, ") {")
+		// Check if string is not empty before calling Contains
+		// Need to convert to string if field type is a string alias (e.g., type Priority string)
+		fieldValue := "x." + fieldName
+		if field.Type != "string" && isStringType(field.UnderlyingType) {
+			// Field is a string alias, need to convert to string
+			fieldValue = "string(x." + fieldName + ")"
+		}
+
+		g.P("if x.", fieldName, " != \"\" && !", enumsVar, ".Contains(", fieldValue, ") {")
 		g.P(
 			"errs = append(errs, ",
 			fmtSprintf,

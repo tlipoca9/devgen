@@ -1914,6 +1914,48 @@ func TestStringEnumExample__validate(t *testing.T) {
 	}
 }
 
+func TestStringPriorityExample__validate(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   StringPriorityExample
+		wantErr bool
+	}{
+		{
+			name: "valid",
+			input: StringPriorityExample{
+				Priority:    PriorityLow,
+				PriorityStr: PriorityLow.String(),
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid_Priority_oneof_enum",
+			input: StringPriorityExample{
+				Priority:    Priority("__invalid__"),
+				PriorityStr: PriorityLow.String(),
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid_PriorityStr_oneof_enum",
+			input: StringPriorityExample{
+				Priority:    PriorityLow,
+				PriorityStr: "__invalid__",
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			errs := tt.input._validate()
+			hasErr := len(errs) > 0
+			if hasErr != tt.wantErr {
+				t.Errorf("_validate() errors = %v, wantErr %v", errs, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestCrossPackageFieldOnlyExample__validate(t *testing.T) {
 	tests := []struct {
 		name    string

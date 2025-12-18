@@ -802,6 +802,38 @@ func (x StringEnumExample) Validate() error {
 	return nil
 }
 
+// _validate performs field-level validation for StringPriorityExample.
+// This method excludes @method validations for easier testing.
+func (x StringPriorityExample) _validate() []string {
+	var errs []string
+
+	// Valid values:
+	//   - PriorityLow
+	//   - PriorityMedium
+	//   - PriorityHigh
+	if x.Priority != "" && !PriorityEnums.Contains(string(x.Priority)) {
+		errs = append(errs, fmt.Sprintf("Priority must be one of %v, got %v", PriorityEnums.List(), x.Priority))
+	}
+	// Valid values:
+	//   - PriorityLow
+	//   - PriorityMedium
+	//   - PriorityHigh
+	if x.PriorityStr != "" && !PriorityEnums.Contains(x.PriorityStr) {
+		errs = append(errs, fmt.Sprintf("PriorityStr must be one of %v, got %v", PriorityEnums.List(), x.PriorityStr))
+	}
+
+	return errs
+}
+
+// Validate validates the StringPriorityExample fields.
+func (x StringPriorityExample) Validate() error {
+	errs := x._validate()
+	if len(errs) > 0 {
+		return fmt.Errorf("%s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
 // _validate performs field-level validation for CrossPackageFieldOnlyExample.
 // This method excludes @method validations for easier testing.
 func (x CrossPackageFieldOnlyExample) _validate() []string {

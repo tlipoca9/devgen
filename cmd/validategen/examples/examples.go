@@ -340,6 +340,16 @@ const (
 	OrderStatusDelivered
 )
 
+// Priority is a string enum type for testing string-based oneof_enum validation.
+// enumgen:@enum(string)
+type Priority string
+
+const (
+	PriorityLow    Priority = "low"
+	PriorityMedium Priority = "medium"
+	PriorityHigh   Priority = "high"
+)
+
 // EnumExample demonstrates oneof_enum validation.
 // validategen:@validate
 type EnumExample struct {
@@ -352,6 +362,16 @@ type EnumExample struct {
 type StringEnumExample struct {
 	// validategen:@oneof_enum(OrderStatus)
 	StatusStr string
+}
+
+// StringPriorityExample demonstrates oneof_enum validation with string enum type.
+// validategen:@validate
+type StringPriorityExample struct {
+	// validategen:@oneof_enum(Priority)
+	Priority Priority
+
+	// validategen:@oneof_enum(Priority)
+	PriorityStr string
 }
 
 // CrossPackageFieldOnlyExample demonstrates validation with only cross-package field types (no oneof_enum).
