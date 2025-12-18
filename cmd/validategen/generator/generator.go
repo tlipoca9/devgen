@@ -597,20 +597,18 @@ DNS label 规则：
   - 只能包含小写字母、数字和连字符
   - 必须以字母数字开头
   - 必须以字母数字结尾
-  - 可以用点号分隔标签
-  - 总长度 1-253 个字符
   - 每个标签最多 63 个字符
 
 示例：
   // validategen:@validate
   type KubernetesObject struct {
-      // validategen:@dns1123
+      // validategen:@dns1123_label
       Pod string  // "my-pod-123" ✓, "Pod" ✗, "-invalid" ✗
       
-      // validategen:@dns1123
+      // validategen:@dns1123_label
       Service string  // "api-service" ✓
       
-      // validategen:@dns1123
+      // validategen:@dns1123_label
       Namespace string  // "default" ✓, "kube-system" ✓
   }
 
