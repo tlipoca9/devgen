@@ -12,7 +12,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
-	"strconv"
+	"slices"
 	"strings"
 	"time"
 )
@@ -922,13 +922,10 @@ func (x KubernetesResource) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPURequest must be non-negative, got %s", x.CPURequest))
 		} else {
-			_lower := strings.ToLower(x.CPURequest)
-			_base := _lower
-			if strings.HasSuffix(_lower, "m") {
-				_base = _lower[:len(_lower)-1]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("CPURequest invalid CPU format: must be pure digits or end with 'm', got %s", x.CPURequest))
+			_validUnits := []string{"", "m"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPURequest))
 			}
 		}
 	}
@@ -939,13 +936,10 @@ func (x KubernetesResource) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPULimit must be non-negative, got %s", x.CPULimit))
 		} else {
-			_lower := strings.ToLower(x.CPULimit)
-			_base := _lower
-			if strings.HasSuffix(_lower, "m") {
-				_base = _lower[:len(_lower)-1]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("CPULimit invalid CPU format: must be pure digits or end with 'm', got %s", x.CPULimit))
+			_validUnits := []string{"", "m"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPULimit))
 			}
 		}
 	}
@@ -956,13 +950,10 @@ func (x KubernetesResource) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryRequest must be non-negative, got %s", x.MemoryRequest))
 		} else {
-			_lower := strings.ToLower(x.MemoryRequest)
-			_base := _lower
-			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
-				_base = _lower[:len(_lower)-2]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("MemoryRequest invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryRequest))
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryRequest))
 			}
 		}
 	}
@@ -973,13 +964,10 @@ func (x KubernetesResource) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryLimit must be non-negative, got %s", x.MemoryLimit))
 		} else {
-			_lower := strings.ToLower(x.MemoryLimit)
-			_base := _lower
-			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
-				_base = _lower[:len(_lower)-2]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("MemoryLimit invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryLimit))
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryLimit))
 			}
 		}
 	}
@@ -1017,13 +1005,10 @@ func (x PodSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("ContainerCPURequest must be non-negative, got %s", x.ContainerCPURequest))
 		} else {
-			_lower := strings.ToLower(x.ContainerCPURequest)
-			_base := _lower
-			if strings.HasSuffix(_lower, "m") {
-				_base = _lower[:len(_lower)-1]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("ContainerCPURequest invalid CPU format: must be pure digits or end with 'm', got %s", x.ContainerCPURequest))
+			_validUnits := []string{"", "m"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.ContainerCPURequest))
 			}
 		}
 	}
@@ -1034,13 +1019,10 @@ func (x PodSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("ContainerMemoryRequest must be non-negative, got %s", x.ContainerMemoryRequest))
 		} else {
-			_lower := strings.ToLower(x.ContainerMemoryRequest)
-			_base := _lower
-			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
-				_base = _lower[:len(_lower)-2]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("ContainerMemoryRequest invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.ContainerMemoryRequest))
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.ContainerMemoryRequest))
 			}
 		}
 	}
@@ -1051,13 +1033,10 @@ func (x PodSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("ContainerCPULimit must be non-negative, got %s", x.ContainerCPULimit))
 		} else {
-			_lower := strings.ToLower(x.ContainerCPULimit)
-			_base := _lower
-			if strings.HasSuffix(_lower, "m") {
-				_base = _lower[:len(_lower)-1]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("ContainerCPULimit invalid CPU format: must be pure digits or end with 'm', got %s", x.ContainerCPULimit))
+			_validUnits := []string{"", "m"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.ContainerCPULimit))
 			}
 		}
 	}
@@ -1068,13 +1047,10 @@ func (x PodSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("ContainerMemoryLimit must be non-negative, got %s", x.ContainerMemoryLimit))
 		} else {
-			_lower := strings.ToLower(x.ContainerMemoryLimit)
-			_base := _lower
-			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
-				_base = _lower[:len(_lower)-2]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("ContainerMemoryLimit invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.ContainerMemoryLimit))
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.ContainerMemoryLimit))
 			}
 		}
 	}
@@ -1106,13 +1082,10 @@ func (x KubernetesResourceSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPURequest must be non-negative, got %s", x.CPURequest))
 		} else {
-			_lower := strings.ToLower(x.CPURequest)
-			_base := _lower
-			if strings.HasSuffix(_lower, "m") {
-				_base = _lower[:len(_lower)-1]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("CPURequest invalid CPU format: must be pure digits or end with 'm', got %s", x.CPURequest))
+			_validUnits := []string{"", "m"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPURequest))
 			}
 		}
 	}
@@ -1123,13 +1096,10 @@ func (x KubernetesResourceSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPULimit must be non-negative, got %s", x.CPULimit))
 		} else {
-			_lower := strings.ToLower(x.CPULimit)
-			_base := _lower
-			if strings.HasSuffix(_lower, "m") {
-				_base = _lower[:len(_lower)-1]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("CPULimit invalid CPU format: must be pure digits or end with 'm', got %s", x.CPULimit))
+			_validUnits := []string{"", "m"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPULimit))
 			}
 		}
 	}
@@ -1143,13 +1113,10 @@ func (x KubernetesResourceSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryRequest must be non-negative, got %s", x.MemoryRequest))
 		} else {
-			_lower := strings.ToLower(x.MemoryRequest)
-			_base := _lower
-			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
-				_base = _lower[:len(_lower)-2]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("MemoryRequest invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryRequest))
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryRequest))
 			}
 		}
 	}
@@ -1160,13 +1127,10 @@ func (x KubernetesResourceSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryLimit must be non-negative, got %s", x.MemoryLimit))
 		} else {
-			_lower := strings.ToLower(x.MemoryLimit)
-			_base := _lower
-			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
-				_base = _lower[:len(_lower)-2]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("MemoryLimit invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryLimit))
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryLimit))
 			}
 		}
 	}
@@ -1207,13 +1171,10 @@ func (x PodContainerSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPURequest must be non-negative, got %s", x.CPURequest))
 		} else {
-			_lower := strings.ToLower(x.CPURequest)
-			_base := _lower
-			if strings.HasSuffix(_lower, "m") {
-				_base = _lower[:len(_lower)-1]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("CPURequest invalid CPU format: must be pure digits or end with 'm', got %s", x.CPURequest))
+			_validUnits := []string{"", "m"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPURequest))
 			}
 		}
 	}
@@ -1227,13 +1188,10 @@ func (x PodContainerSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryRequest must be non-negative, got %s", x.MemoryRequest))
 		} else {
-			_lower := strings.ToLower(x.MemoryRequest)
-			_base := _lower
-			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
-				_base = _lower[:len(_lower)-2]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("MemoryRequest invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryRequest))
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryRequest))
 			}
 		}
 	}
@@ -1244,13 +1202,10 @@ func (x PodContainerSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPULimit must be non-negative, got %s", x.CPULimit))
 		} else {
-			_lower := strings.ToLower(x.CPULimit)
-			_base := _lower
-			if strings.HasSuffix(_lower, "m") {
-				_base = _lower[:len(_lower)-1]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("CPULimit invalid CPU format: must be pure digits or end with 'm', got %s", x.CPULimit))
+			_validUnits := []string{"", "m"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPULimit))
 			}
 		}
 	}
@@ -1261,13 +1216,10 @@ func (x PodContainerSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryLimit must be non-negative, got %s", x.MemoryLimit))
 		} else {
-			_lower := strings.ToLower(x.MemoryLimit)
-			_base := _lower
-			if strings.HasSuffix(_lower, "ki") || strings.HasSuffix(_lower, "mi") || strings.HasSuffix(_lower, "gi") || strings.HasSuffix(_lower, "ti") || strings.HasSuffix(_lower, "pi") || strings.HasSuffix(_lower, "ei") {
-				_base = _lower[:len(_lower)-2]
-			}
-			if _, err := strconv.ParseInt(_base, 10, 64); err != nil || _base == "" {
-				errs = append(errs, fmt.Sprintf("MemoryLimit invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s", x.MemoryLimit))
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryLimit))
 			}
 		}
 	}

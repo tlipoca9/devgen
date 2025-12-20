@@ -2956,9 +2956,8 @@ func (vg *Generator) genFormat(g *genkit.GeneratedFile, field *genkit.Field, for
 
 func (vg *Generator) genCPU(g *genkit.GeneratedFile, fieldName string) {
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
-	stringsHasSuffix := genkit.GoImportPath("strings").Ident("HasSuffix")
-	stringsToLower := genkit.GoImportPath("strings").Ident("ToLower")
-	strconvParseInt := genkit.GoImportPath("strconv").Ident("ParseInt")
+	stringsTrimLeft := genkit.GoImportPath("strings").Ident("TrimLeft")
+	slicesContains := genkit.GoImportPath("slices").Ident("Contains")
 
 	g.P("if x.", fieldName, " != \"\" {")
 	g.P(
@@ -2987,19 +2986,14 @@ func (vg *Generator) genCPU(g *genkit.GeneratedFile, fieldName string) {
 		"))",
 	)
 	g.P("} else {")
-	// Format validation: CPU must be pure digits or end with 'm'
-	g.P("_lower := ", stringsToLower, "(x.", fieldName, ")")
-	g.P("_base := _lower")
-	g.P("if ", stringsHasSuffix, "(_lower, \"m\") {")
-	g.P("_base = _lower[:len(_lower)-1]")
-	g.P("}")
-	g.P("if _, err := ", strconvParseInt, "(_base, 10, 64); err != nil || _base == \"\" {")
+	// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
+	g.P("_validUnits := []string{\"\", \"m\"}")
+	g.P("_unit := ", stringsTrimLeft, "(_qty.String(), \"0123456789.\")")
+	g.P("if !", slicesContains, "(_validUnits, _unit) {")
 	g.P(
 		"errs = append(errs, ",
 		fmtSprintf,
-		"(\"",
-		fieldName,
-		" invalid CPU format: must be pure digits or end with 'm', got %s\", x.",
+		"(\"invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s\", x.",
 		fieldName,
 		"))",
 	)
@@ -3010,9 +3004,8 @@ func (vg *Generator) genCPU(g *genkit.GeneratedFile, fieldName string) {
 
 func (vg *Generator) genMemory(g *genkit.GeneratedFile, fieldName string) {
 	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
-	stringsHasSuffix := genkit.GoImportPath("strings").Ident("HasSuffix")
-	stringsToLower := genkit.GoImportPath("strings").Ident("ToLower")
-	strconvParseInt := genkit.GoImportPath("strconv").Ident("ParseInt")
+	stringsTrimLeft := genkit.GoImportPath("strings").Ident("TrimLeft")
+	slicesContains := genkit.GoImportPath("slices").Ident("Contains")
 
 	g.P("if x.", fieldName, " != \"\" {")
 	g.P(
@@ -3041,33 +3034,14 @@ func (vg *Generator) genMemory(g *genkit.GeneratedFile, fieldName string) {
 		"))",
 	)
 	g.P("} else {")
-	// Format validation: Memory must be pure digits or end with Ki/Gi/Ti/etc
-	g.P("_lower := ", stringsToLower, "(x.", fieldName, ")")
-	g.P("_base := _lower")
-	g.P(
-		"if ",
-		stringsHasSuffix,
-		"(_lower, \"ki\") || ",
-		stringsHasSuffix,
-		"(_lower, \"mi\") || ",
-		stringsHasSuffix,
-		"(_lower, \"gi\") || ",
-		stringsHasSuffix,
-		"(_lower, \"ti\") || ",
-		stringsHasSuffix,
-		"(_lower, \"pi\") || ",
-		stringsHasSuffix,
-		"(_lower, \"ei\") {",
-	)
-	g.P("_base = _lower[:len(_lower)-2]")
-	g.P("}")
-	g.P("if _, err := ", strconvParseInt, "(_base, 10, 64); err != nil || _base == \"\" {")
+	g.P("// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978")
+	g.P("_validUnits := []string{\"\", \"K\", \"M\", \"G\", \"T\", \"P\", \"E\", \"Ki\", \"Mi\", \"Gi\", \"Ti\", \"Pi\", \"Ei\"}")
+	g.P("_unit := ", stringsTrimLeft, "(_qty.String(), \"0123456789.\")")
+	g.P("if !", slicesContains, "(_validUnits, _unit) {")
 	g.P(
 		"errs = append(errs, ",
 		fmtSprintf,
-		"(\"",
-		fieldName,
-		" invalid memory format: must be pure digits or end with Ki/Mi/Gi/Ti/Pi/Ei, got %s\", x.",
+		"(\"invalid Memory format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s\", x.",
 		fieldName,
 		"))",
 	)
