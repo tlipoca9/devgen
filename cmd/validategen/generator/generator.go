@@ -2986,14 +2986,16 @@ func (vg *Generator) genCPU(g *genkit.GeneratedFile, fieldName string) {
 		"))",
 	)
 	g.P("} else {")
-	// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
+	g.P("// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978")
 	g.P("_validUnits := []string{\"\", \"m\"}")
 	g.P("_unit := ", stringsTrimLeft, "(_qty.String(), \"0123456789.\")")
 	g.P("if !", slicesContains, "(_validUnits, _unit) {")
 	g.P(
 		"errs = append(errs, ",
 		fmtSprintf,
-		"(\"invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s\", x.",
+		"(\"",
+		fieldName,
+		" invalid format: only divisor's values 1m and 1 are supported with the cpu resource, got %s\", x.",
 		fieldName,
 		"))",
 	)
@@ -3035,13 +3037,17 @@ func (vg *Generator) genMemory(g *genkit.GeneratedFile, fieldName string) {
 	)
 	g.P("} else {")
 	g.P("// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978")
-	g.P("_validUnits := []string{\"\", \"K\", \"M\", \"G\", \"T\", \"P\", \"E\", \"Ki\", \"Mi\", \"Gi\", \"Ti\", \"Pi\", \"Ei\"}")
+	g.P(
+		"_validUnits := []string{\"\", \"K\", \"M\", \"G\", \"T\", \"P\", \"E\", \"Ki\", \"Mi\", \"Gi\", \"Ti\", \"Pi\", \"Ei\"}",
+	)
 	g.P("_unit := ", stringsTrimLeft, "(_qty.String(), \"0123456789.\")")
 	g.P("if !", slicesContains, "(_validUnits, _unit) {")
 	g.P(
 		"errs = append(errs, ",
 		fmtSprintf,
-		"(\"invalid Memory format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s\", x.",
+		"(\"",
+		fieldName,
+		" invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s\", x.",
 		fieldName,
 		"))",
 	)

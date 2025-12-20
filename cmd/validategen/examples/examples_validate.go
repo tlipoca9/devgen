@@ -922,10 +922,11 @@ func (x KubernetesResource) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPURequest must be non-negative, got %s", x.CPURequest))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "m"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPURequest))
+				errs = append(errs, fmt.Sprintf("CPURequest invalid format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPURequest))
 			}
 		}
 	}
@@ -936,10 +937,11 @@ func (x KubernetesResource) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPULimit must be non-negative, got %s", x.CPULimit))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "m"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPULimit))
+				errs = append(errs, fmt.Sprintf("CPULimit invalid format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPULimit))
 			}
 		}
 	}
@@ -950,10 +952,11 @@ func (x KubernetesResource) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryRequest must be non-negative, got %s", x.MemoryRequest))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryRequest))
+				errs = append(errs, fmt.Sprintf("MemoryRequest invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryRequest))
 			}
 		}
 	}
@@ -964,10 +967,11 @@ func (x KubernetesResource) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryLimit must be non-negative, got %s", x.MemoryLimit))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryLimit))
+				errs = append(errs, fmt.Sprintf("MemoryLimit invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryLimit))
 			}
 		}
 	}
@@ -1005,10 +1009,11 @@ func (x PodSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("ContainerCPURequest must be non-negative, got %s", x.ContainerCPURequest))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "m"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.ContainerCPURequest))
+				errs = append(errs, fmt.Sprintf("ContainerCPURequest invalid format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.ContainerCPURequest))
 			}
 		}
 	}
@@ -1019,10 +1024,11 @@ func (x PodSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("ContainerMemoryRequest must be non-negative, got %s", x.ContainerMemoryRequest))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.ContainerMemoryRequest))
+				errs = append(errs, fmt.Sprintf("ContainerMemoryRequest invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.ContainerMemoryRequest))
 			}
 		}
 	}
@@ -1033,10 +1039,11 @@ func (x PodSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("ContainerCPULimit must be non-negative, got %s", x.ContainerCPULimit))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "m"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.ContainerCPULimit))
+				errs = append(errs, fmt.Sprintf("ContainerCPULimit invalid format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.ContainerCPULimit))
 			}
 		}
 	}
@@ -1047,10 +1054,11 @@ func (x PodSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("ContainerMemoryLimit must be non-negative, got %s", x.ContainerMemoryLimit))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.ContainerMemoryLimit))
+				errs = append(errs, fmt.Sprintf("ContainerMemoryLimit invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.ContainerMemoryLimit))
 			}
 		}
 	}
@@ -1082,10 +1090,11 @@ func (x KubernetesResourceSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPURequest must be non-negative, got %s", x.CPURequest))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "m"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPURequest))
+				errs = append(errs, fmt.Sprintf("CPURequest invalid format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPURequest))
 			}
 		}
 	}
@@ -1096,10 +1105,11 @@ func (x KubernetesResourceSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPULimit must be non-negative, got %s", x.CPULimit))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "m"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPULimit))
+				errs = append(errs, fmt.Sprintf("CPULimit invalid format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPULimit))
 			}
 		}
 	}
@@ -1113,10 +1123,11 @@ func (x KubernetesResourceSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryRequest must be non-negative, got %s", x.MemoryRequest))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryRequest))
+				errs = append(errs, fmt.Sprintf("MemoryRequest invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryRequest))
 			}
 		}
 	}
@@ -1127,10 +1138,11 @@ func (x KubernetesResourceSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryLimit must be non-negative, got %s", x.MemoryLimit))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryLimit))
+				errs = append(errs, fmt.Sprintf("MemoryLimit invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryLimit))
 			}
 		}
 	}
@@ -1171,10 +1183,11 @@ func (x PodContainerSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPURequest must be non-negative, got %s", x.CPURequest))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "m"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPURequest))
+				errs = append(errs, fmt.Sprintf("CPURequest invalid format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPURequest))
 			}
 		}
 	}
@@ -1188,10 +1201,11 @@ func (x PodContainerSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryRequest must be non-negative, got %s", x.MemoryRequest))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryRequest))
+				errs = append(errs, fmt.Sprintf("MemoryRequest invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryRequest))
 			}
 		}
 	}
@@ -1202,10 +1216,11 @@ func (x PodContainerSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("CPULimit must be non-negative, got %s", x.CPULimit))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "m"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid CPU format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPULimit))
+				errs = append(errs, fmt.Sprintf("CPULimit invalid format: only divisor's values 1m and 1 are supported with the cpu resource, got %s", x.CPULimit))
 			}
 		}
 	}
@@ -1216,10 +1231,11 @@ func (x PodContainerSpec) _validate() []string {
 		} else if _qty.Sign() == -1 {
 			errs = append(errs, fmt.Sprintf("MemoryLimit must be non-negative, got %s", x.MemoryLimit))
 		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
 			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
 			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
 			if !slices.Contains(_validUnits, _unit) {
-				errs = append(errs, fmt.Sprintf("invalid Memory format: only divisor's values 1, 1k, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryLimit))
+				errs = append(errs, fmt.Sprintf("MemoryLimit invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the memory resource, got %s", x.MemoryLimit))
 			}
 		}
 	}
