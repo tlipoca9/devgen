@@ -1239,6 +1239,36 @@ func (x PodContainerSpec) _validate() []string {
 			}
 		}
 	}
+	if x.DiskRequest != "" {
+		_qty, err := resource.ParseQuantity(x.DiskRequest)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("DiskRequest invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("DiskRequest must be non-negative, got %s", x.DiskRequest))
+		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("DiskRequest invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the disk resource, got %s", x.DiskRequest))
+			}
+		}
+	}
+	if x.DiskLimit != "" {
+		_qty, err := resource.ParseQuantity(x.DiskLimit)
+		if err != nil {
+			errs = append(errs, fmt.Sprintf("DiskLimit invalid quantity: %v", err))
+		} else if _qty.Sign() == -1 {
+			errs = append(errs, fmt.Sprintf("DiskLimit must be non-negative, got %s", x.DiskLimit))
+		} else {
+			// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978
+			_validUnits := []string{"", "K", "M", "G", "T", "P", "E", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei"}
+			_unit := strings.TrimLeft(_qty.String(), "0123456789.")
+			if !slices.Contains(_validUnits, _unit) {
+				errs = append(errs, fmt.Sprintf("DiskLimit invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the disk resource, got %s", x.DiskLimit))
+			}
+		}
+	}
 
 	return errs
 }

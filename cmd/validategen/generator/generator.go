@@ -1051,6 +1051,38 @@ DNS label 规则：
   - 格式错误: "MemoryRequest invalid quantity: ..."
   - 负数: "MemoryRequest must be non-negative"`,
 			},
+			{
+				Name: "disk",
+				Type: "field",
+				Doc: `验证 Kubernetes 磁盘资源数量格式（有效单位：Ki, Mi, Gi, Ti, Pi, Ei）。
+
+用法：在字段上方添加注解
+  // validategen:@disk
+  DiskRequest string
+
+支持的格式：
+  - 二进制单位: "512Mi", "2Gi", "1Ti"
+  - 十进制单位: "512M", "2G" (等同于 Mi, Gi)
+  - 字节: "1000000", "1Gi"
+
+验证逻辑：
+  使用 k8s.io/apimachinery/pkg/api/resource 的 ParseQuantity 函数解析。
+  检查数量是否为有效的格式和非负数。
+
+示例：
+  // validategen:@validate
+  type PodSpec struct {
+      // validategen:@disk
+      DiskRequest string  // "10Gi" ✓
+      
+      // validategen:@disk
+      DiskLimit string  // "20Gi" ✓
+  }
+
+生成的错误消息：
+  - 格式错误: "DiskRequest invalid quantity: ..."
+  - 负数: "DiskRequest must be non-negative"`,
+			},
 		},
 	}
 }
@@ -1744,6 +1776,8 @@ func (vg *Generator) generateFieldValidation(
 			vg.genCPU(g, fieldName)
 		case "memory":
 			vg.genMemory(g, fieldName)
+		case "disk":
+			vg.genDisk(g, fieldName)
 		}
 	}
 }
@@ -3056,6 +3090,58 @@ func (vg *Generator) genMemory(g *genkit.GeneratedFile, fieldName string) {
 	g.P("}")
 }
 
+func (vg *Generator) genDisk(g *genkit.GeneratedFile, fieldName string) {
+	fmtSprintf := genkit.GoImportPath("fmt").Ident("Sprintf")
+	stringsTrimLeft := genkit.GoImportPath("strings").Ident("TrimLeft")
+	slicesContains := genkit.GoImportPath("slices").Ident("Contains")
+
+	g.P("if x.", fieldName, " != \"\" {")
+	g.P(
+		"_qty, err := ",
+		genkit.GoImportPath("k8s.io/apimachinery/pkg/api/resource").Ident("ParseQuantity"),
+		"(x.",
+		fieldName,
+		")",
+	)
+	g.P("if err != nil {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" invalid quantity: %v\", err))",
+	)
+	g.P("} else if _qty.Sign() == -1 {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" must be non-negative, got %s\", x.",
+		fieldName,
+		"))",
+	)
+	g.P("} else {")
+	g.P("// https://github.com/kubernetes/kubernetes/blob/master/pkg/apis/core/validation/validation.go#L2978")
+	g.P(
+		"_validUnits := []string{\"\", \"K\", \"M\", \"G\", \"T\", \"P\", \"E\", \"Ki\", \"Mi\", \"Gi\", \"Ti\", \"Pi\", \"Ei\"}",
+	)
+	g.P("_unit := ", stringsTrimLeft, "(_qty.String(), \"0123456789.\")")
+	g.P("if !", slicesContains, "(_validUnits, _unit) {")
+	g.P(
+		"errs = append(errs, ",
+		fmtSprintf,
+		"(\"",
+		fieldName,
+		" invalid format: only divisor's values 1, 1K, 1M, 1G, 1T, 1P, 1E, 1Ki, 1Mi, 1Gi, 1Ti, 1Pi, 1Ei are supported with the disk resource, got %s\", x.",
+		fieldName,
+		"))",
+	)
+	g.P("}")
+	g.P("}")
+	g.P("}")
+}
+
 // Helper functions
 
 func isStringType(t string) bool {
@@ -3469,6 +3555,17 @@ func (vg *Generator) validateRule(
 			)
 		}
 
+	// disk - Kubernetes disk resource validation
+	case "disk":
+		if !isStringType(underlyingType) {
+			c.Errorf(
+				ErrCodeInvalidFieldType,
+				field.Pos,
+				"@disk annotation requires string underlying type, got %s",
+				underlyingType,
+			)
+		}
+
 	// method - must be a custom type (not builtin types like string, int, bool, etc.)
 	case "method":
 		if rule.Param == "" {
@@ -3843,7 +3940,7 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 	var hasEq, hasNe, hasFormat, hasDNS1123 bool
 	var hasDurationMin, hasDurationMax bool
 	var hasExcludes, hasOneofEnum bool
-	var hasCPU, hasMemory bool
+	var hasCPU, hasMemory, hasDisk bool
 	var minVal, maxVal, lenVal, gtVal, gteVal, ltVal, lteVal string
 	var oneofValues, containsVal, startsWithVal, endsWithVal string
 	var eqVal, neVal, regexVal, formatVal string
@@ -3936,6 +4033,8 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 			hasCPU = true
 		case "memory":
 			hasMemory = true
+		case "disk":
+			hasDisk = true
 		}
 	}
 
@@ -3972,6 +4071,8 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *fieldV
 			value = "100m"
 		} else if hasMemory {
 			value = "128Mi"
+		} else if hasDisk {
+			value = "10Gi"
 		} else if hasDNS1123 {
 			value = "example-name"
 		} else if hasAlpha {
@@ -4262,6 +4363,8 @@ func (vg *Generator) generateValidFormatValue(format string) string {
 		return "100m"
 	case "memory":
 		return "128Mi"
+	case "disk":
+		return "10Gi"
 	default:
 		return "test"
 	}

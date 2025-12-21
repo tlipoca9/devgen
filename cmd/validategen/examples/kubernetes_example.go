@@ -72,4 +72,10 @@ type PodContainerSpec struct {
 
 	// validategen:@memory
 	MemoryLimit string
+
+	// validategen:@disk
+	DiskRequest string
+
+	// validategen:@disk
+	DiskLimit string
 }
