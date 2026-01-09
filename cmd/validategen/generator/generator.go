@@ -3582,18 +3582,6 @@ func (vg *Generator) validateRule(
 			)
 			return
 		}
-		// Check if the method exists on the field type
-		if typ.Pkg != nil && typ.Pkg.TypesInfo != nil {
-			if !vg.hasMethodOnFieldType(typ.Pkg, field.Type, rule.Param) {
-				c.Errorf(
-					ErrCodeMethodNotFound,
-					field.Pos,
-					"method '%s' not found on type '%s'",
-					rule.Param,
-					field.Type,
-				)
-			}
-		}
 
 	// oneof - string or numeric
 	case "oneof":
