@@ -220,6 +220,7 @@ type Request struct {
 | @alpha | Letters only | abc |
 | @alphanum | Letters and numbers | abc123 |
 | @numeric | Numeric string | 12345 |
+| @dns1123_label | DNS label (RFC 1123) | my-service-123 |
 
 ```go
 // validategen:@validate
@@ -325,6 +326,75 @@ type Template struct {
     CSVData string
 }
 ```
+
+### Kubernetes Resource Validation
+
+| Annotation | Description | Example |
+|------------|-------------|---------|
+| @cpu | Kubernetes CPU quantity | 500m, 1, 2 |
+| @memory | Kubernetes memory quantity | 128Mi, 1Gi |
+| @disk | Kubernetes disk quantity | 10Gi, 100Gi |
+
+```go
+// validategen:@validate
+type PodSpec struct {
+    // validategen:@required
+    // validategen:@cpu
+    CPURequest string  // "500m", "1" ✓
+
+    // validategen:@required
+    // validategen:@memory
+    MemoryRequest string  // "128Mi", "1Gi" ✓
+
+    // validategen:@cpu
+    CPULimit string  // Optional CPU limit
+
+    // validategen:@memory
+    MemoryLimit string  // Optional memory limit
+
+    // validategen:@disk
+    DiskRequest string  // "10Gi" ✓
+}
+```
+
+**Validation Details**:
+- Uses `k8s.io/apimachinery/pkg/api/resource.ParseQuantity` for parsing
+- Validates format and ensures non-negative values
+- Empty strings skip validation (use @required if field is mandatory)
+
+### DNS Label Validation
+
+| Annotation | Description | Example |
+|------------|-------------|---------|
+| @dns1123_label | RFC 1123 DNS label | my-service, pod-123 |
+
+```go
+// validategen:@validate
+type KubernetesObject struct {
+    // validategen:@required
+    // validategen:@dns1123_label
+    Namespace string  // "default", "kube-system" ✓
+
+    // validategen:@required
+    // validategen:@dns1123_label
+    PodName string  // "my-pod-123" ✓, "Pod" ✗, "-invalid" ✗
+
+    // validategen:@dns1123_label
+    ServiceName string  // "api-service" ✓
+}
+```
+
+**DNS Label Rules**:
+- Only lowercase letters, digits, and hyphens allowed
+- Must start with alphanumeric character
+- Must end with alphanumeric character
+- Maximum 63 characters per label
+
+**Use Cases**:
+- Kubernetes object names (Pod, Service, Namespace, ConfigMap)
+- DNS hostname validation
+- Microservice instance naming
+- Container registry domain validation
 
 ### Enum Type Validation
 

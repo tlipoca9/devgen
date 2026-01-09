@@ -723,7 +723,109 @@ type Config struct {
 
 ---
 
-### 32. @method(MethodName) - 调用验证方法
+### 32. @dns1123_label - DNS 标签格式
+
+验证字符串符合 RFC 1123 DNS 标签规范。空字符串会跳过验证。
+
+**DNS 标签规则**：
+- 只能包含小写字母、数字和连字符
+- 必须以字母或数字开头
+- 必须以字母或数字结尾
+- 每个标签最多 63 个字符
+
+```go
+// validategen:@validate
+type KubernetesObject struct {
+    // validategen:@required
+    // validategen:@dns1123_label
+    Namespace string  // "default", "kube-system" ✓
+
+    // validategen:@required
+    // validategen:@dns1123_label
+    PodName string  // "my-pod-123" ✓, "Pod" ✗, "-invalid" ✗
+
+    // validategen:@dns1123_label
+    ServiceName string  // "api-service" ✓
+}
+```
+
+**适用场景**：
+- Kubernetes 对象命名（Pod、Service、Namespace、ConfigMap）
+- DNS 主机名验证
+- 微服务实例命名
+- 容器镜像仓库域名验证
+
+---
+
+### 33. @cpu - Kubernetes CPU 资源格式
+
+验证字符串是有效的 Kubernetes CPU 资源数量。空字符串会跳过验证。
+
+**支持的格式**：
+- 毫核：`500m`, `100m`
+- 核数：`1`, `2`, `0.5`
+- 科学记数法：`1e3m` (1000m)
+
+```go
+// validategen:@validate
+type PodSpec struct {
+    // validategen:@required
+    // validategen:@cpu
+    CPURequest string  // "500m", "1" ✓
+
+    // validategen:@cpu
+    CPULimit string  // 可选的 CPU 限制
+}
+```
+
+---
+
+### 34. @memory - Kubernetes 内存资源格式
+
+验证字符串是有效的 Kubernetes 内存资源数量。空字符串会跳过验证。
+
+**支持的格式**：
+- 二进制单位：`128Mi`, `1Gi`, `512Ki`
+- 十进制单位：`128M`, `1G`
+- 字节数：`134217728`
+
+```go
+// validategen:@validate
+type PodSpec struct {
+    // validategen:@required
+    // validategen:@memory
+    MemoryRequest string  // "128Mi", "1Gi" ✓
+
+    // validategen:@memory
+    MemoryLimit string  // 可选的内存限制
+}
+```
+
+---
+
+### 35. @disk - Kubernetes 磁盘资源格式
+
+验证字符串是有效的 Kubernetes 存储资源数量。空字符串会跳过验证。
+
+**支持的格式**：
+- 二进制单位：`10Gi`, `100Gi`, `1Ti`
+- 十进制单位：`10G`, `100G`
+
+```go
+// validategen:@validate
+type PersistentVolume struct {
+    // validategen:@required
+    // validategen:@disk
+    StorageRequest string  // "10Gi", "100Gi" ✓
+
+    // validategen:@disk
+    StorageLimit string  // 可选的存储限制
+}
+```
+
+---
+
+### 36. @method(MethodName) - 调用验证方法
 
 调用嵌套结构体或自定义类型的验证方法。对于指针类型，会先检查 nil。
 
@@ -1135,6 +1237,10 @@ ginkgo --json-report=benchmark_report.json --junit-report=benchmark_report.xml .
 | `@endswith(s)` | string | string | 后缀匹配 |
 | `@regex(pattern)` | regex | string | 正则匹配 |
 | `@format(type)` | json, yaml, toml, csv | string | 格式验证 |
+| `@dns1123_label` | - | string | DNS 标签格式（RFC 1123） |
+| `@cpu` | - | string | Kubernetes CPU 资源格式 |
+| `@memory` | - | string | Kubernetes 内存资源格式 |
+| `@disk` | - | string | Kubernetes 磁盘资源格式 |
 | `@method(name)` | method name | struct, pointer, custom type | 调用验证方法 |
 
 ---

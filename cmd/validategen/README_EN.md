@@ -462,7 +462,109 @@ Validates string is valid specified format. Supports `json`, `yaml`, `toml`, `cs
 
 ---
 
-### 32. @method(MethodName) - Call Validation Method
+### 32. @dns1123_label - DNS Label Format
+
+Validates string conforms to RFC 1123 DNS label specification. Empty strings skip validation.
+
+**DNS Label Rules**:
+- Only lowercase letters, digits, and hyphens allowed
+- Must start with alphanumeric character
+- Must end with alphanumeric character
+- Maximum 63 characters per label
+
+```go
+// validategen:@validate
+type KubernetesObject struct {
+    // validategen:@required
+    // validategen:@dns1123_label
+    Namespace string  // "default", "kube-system" ✓
+
+    // validategen:@required
+    // validategen:@dns1123_label
+    PodName string  // "my-pod-123" ✓, "Pod" ✗, "-invalid" ✗
+
+    // validategen:@dns1123_label
+    ServiceName string  // "api-service" ✓
+}
+```
+
+**Use Cases**:
+- Kubernetes object names (Pod, Service, Namespace, ConfigMap)
+- DNS hostname validation
+- Microservice instance naming
+- Container registry domain validation
+
+---
+
+### 33. @cpu - Kubernetes CPU Resource Format
+
+Validates string is a valid Kubernetes CPU resource quantity. Empty strings skip validation.
+
+**Supported Formats**:
+- Millicores: `500m`, `100m`
+- Cores: `1`, `2`, `0.5`
+- Scientific notation: `1e3m` (1000m)
+
+```go
+// validategen:@validate
+type PodSpec struct {
+    // validategen:@required
+    // validategen:@cpu
+    CPURequest string  // "500m", "1" ✓
+
+    // validategen:@cpu
+    CPULimit string  // Optional CPU limit
+}
+```
+
+---
+
+### 34. @memory - Kubernetes Memory Resource Format
+
+Validates string is a valid Kubernetes memory resource quantity. Empty strings skip validation.
+
+**Supported Formats**:
+- Binary units: `128Mi`, `1Gi`, `512Ki`
+- Decimal units: `128M`, `1G`
+- Bytes: `134217728`
+
+```go
+// validategen:@validate
+type PodSpec struct {
+    // validategen:@required
+    // validategen:@memory
+    MemoryRequest string  // "128Mi", "1Gi" ✓
+
+    // validategen:@memory
+    MemoryLimit string  // Optional memory limit
+}
+```
+
+---
+
+### 35. @disk - Kubernetes Disk Resource Format
+
+Validates string is a valid Kubernetes storage resource quantity. Empty strings skip validation.
+
+**Supported Formats**:
+- Binary units: `10Gi`, `100Gi`, `1Ti`
+- Decimal units: `10G`, `100G`
+
+```go
+// validategen:@validate
+type PersistentVolume struct {
+    // validategen:@required
+    // validategen:@disk
+    StorageRequest string  // "10Gi", "100Gi" ✓
+
+    // validategen:@disk
+    StorageLimit string  // Optional storage limit
+}
+```
+
+---
+
+### 36. @method(MethodName) - Call Validation Method
 
 Calls validation method on nested struct or custom type. For pointer types, nil check is performed first.
 
@@ -725,6 +827,10 @@ func main() {
 | `@endswith(s)` | string | string | Suffix match |
 | `@regex(pattern)` | regex | string | Regex match |
 | `@format(type)` | json, yaml, toml, csv | string | Format validation |
+| `@dns1123_label` | - | string | DNS label format (RFC 1123) |
+| `@cpu` | - | string | Kubernetes CPU resource format |
+| `@memory` | - | string | Kubernetes memory resource format |
+| `@disk` | - | string | Kubernetes disk resource format |
 | `@method(name)` | method name | struct, pointer, custom type | Call validation method |
 
 ---
