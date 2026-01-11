@@ -6,4 +6,4 @@
 #type = "source"
 
 [rules]
-source_dir = ".devgen/rules"
+source_dir = ".codebuddy/rules"
