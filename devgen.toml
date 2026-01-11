@@ -1,9 +1,9 @@
 # DevGen configuration for testing VSCode extension
 
-[[plugins]]
-name = "markgen"
-path = "./examples/plugin/plugin-source"
-type = "source"
+#[[plugins]]
+#name = "markgen"
+#path = "./examples/plugin/plugin-source"
+#type = "source"
 
 [rules]
 source_dir = ".devgen/rules"
