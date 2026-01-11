@@ -8,11 +8,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	"github.com/charmbracelet/fang"
 	"github.com/spf13/cobra"
 
+	convertgen "github.com/tlipoca9/devgen/cmd/convertgen/generator"
 	enumgen "github.com/tlipoca9/devgen/cmd/enumgen/generator"
 	golangcilint "github.com/tlipoca9/devgen/cmd/golangcilint/generator"
 	validategen "github.com/tlipoca9/devgen/cmd/validategen/generator"
@@ -25,10 +27,48 @@ var (
 	date    = "unknown"
 )
 
+func init() {
+	// If version not set via ldflags, try to get from build info (go install)
+	if version == "dev" {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			if info.Main.Version != "" && info.Main.Version != "(devel)" {
+				version = info.Main.Version
+			}
+			for _, setting := range info.Settings {
+				switch setting.Key {
+				case "vcs.revision":
+					if len(setting.Value) >= 7 {
+						commit = setting.Value[:7]
+					}
+				case "vcs.time":
+					date = setting.Value
+				}
+			}
+		}
+	}
+}
+
+func versionTemplate() string {
+	ver := version
+	// Clean up pseudo-version for display
+	if strings.Contains(ver, "-0.") {
+		// v0.3.7-0.20260111120015-ea1998cd5393 -> v0.3.7-dev
+		parts := strings.Split(ver, "-")
+		if len(parts) >= 1 {
+			ver = parts[0] + "-dev"
+		}
+	}
+	ver = strings.TrimSuffix(ver, "+dirty")
+
+	// Format like: devgen version v0.3.7 (commit: ea1998c, built: 2026-01-11T12:00:15Z)
+	return fmt.Sprintf("devgen version %s (commit: %s, built: %s)\n", ver, commit, date)
+}
+
 // builtinTools is the list of built-in code generation tools.
 var builtinTools = []genkit.Tool{
 	enumgen.New(),
 	validategen.New(),
+	convertgen.New(),
 	golangcilint.New(),
 }
 
@@ -43,10 +83,6 @@ func rootCmd() *cobra.Command {
 	var jsonOutput bool
 	var includeTests bool
 
-	ver := version
-	if ver == commit {
-		ver = "dev"
-	}
 	cmd := &cobra.Command{
 		Use:   "devgen [packages]",
 		Short: "Unified code generator for Go",
@@ -59,7 +95,7 @@ External plugins can be configured in devgen.toml:
   name = "customgen"
   path = "./tools/customgen"
   type = "source"  # source | plugin`,
-		Version: fmt.Sprintf("%s (%s) %s", ver, commit, date),
+		Version: version,
 		Example: `  devgen ./...              # all packages
   devgen ./pkg/model        # specific package
   devgen ./pkg/...          # all packages under pkg/
@@ -76,7 +112,7 @@ External plugins can be configured in devgen.toml:
 			return run(cmd.Context(), args, includeTests)
 		},
 	}
-	cmd.SetVersionTemplate(fmt.Sprintf("devgen %s (%s) %s\n", ver, commit, date))
+	cmd.SetVersionTemplate(versionTemplate())
 
 	// Add flags
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and preview without writing files")

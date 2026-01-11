@@ -110,19 +110,19 @@ func (g *Generator) Load(patterns ...string) error {
 		return fmt.Errorf("load packages: %w", err)
 	}
 
-	// Check for package errors, but ignore errors from files matching IgnoreFiles
-	var errs []error
-	for _, pkg := range pkgs {
-		for _, e := range pkg.Errors {
-			if g.shouldIgnoreError(e) {
-				continue
-			}
-			errs = append(errs, e)
-		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf("package errors: %v", errs)
-	}
+	// Don't check errors
+	// var errs []error
+	// for _, pkg := range pkgs {
+	// 	for _, e := range pkg.Errors {
+	// 		if g.shouldIgnoreError(e) {
+	// 			continue
+	// 		}
+	// 		errs = append(errs, e)
+	// 	}
+	// }
+	// if len(errs) > 0 {
+	// 	return fmt.Errorf("package errors: %v", errs)
+	// }
 
 	// Build our Package types
 	for _, pkg := range pkgs {
