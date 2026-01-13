@@ -1,6 +1,6 @@
-# delegatorgen Timeout 中间件设计
+# delegatorgen Timeout Delegator 设计
 
-> 本文档详细描述 Timeout 中间件的设计和实现。
+> 本文档详细描述 Timeout Delegator 的设计和实现。
 
 ## 一、注解规范
 
@@ -26,34 +26,34 @@
 ## 二、Builder 方法
 
 ```go
-// WithTimeout adds timeout middleware.
+// WithTimeout adds timeout delegator.
 // timeout: default timeout for all methods.
 func (d *UserRepositoryDelegator) WithTimeout(timeout time.Duration) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return &userRepositoryTimeoutMiddleware{next: next, timeout: timeout}
+		return &userRepositoryTimeoutDelegator{next: next, timeout: timeout}
 	})
 }
 ```
 
 ---
 
-## 三、生成的 Middleware 实现
+## 三、生成的 Delegator 实现
 
 ```go
-type userRepositoryTimeoutMiddleware struct {
+type userRepositoryTimeoutDelegator struct {
 	next    UserRepository
 	timeout time.Duration
 }
 
 // GetByID: 无 @timeout 注解 - 使用默认超时
-func (m *userRepositoryTimeoutMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryTimeoutDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, m.timeout)
 	defer cancel()
 	return m.next.GetByID(ctx, id)
 }
 
 // List: @timeout(10s) - 使用注解指定的超时
-func (m *userRepositoryTimeoutMiddleware) List(ctx context.Context, limit, offset int) ([]*User, error) {
+func (m *userRepositoryTimeoutDelegator) List(ctx context.Context, limit, offset int) ([]*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	return m.next.List(ctx, limit, offset)
@@ -69,7 +69,7 @@ func (m *userRepositoryTimeoutMiddleware) List(ctx context.Context, limit, offse
 
 2. **无 `@timeout` 注解**：
    - 使用 `WithTimeout()` 设置的默认超时
-   - 如果没有调用 `WithTimeout()`，则不添加超时中间件
+   - 如果没有调用 `WithTimeout()`，则不添加超时 Delegator
 
 ### 3.2 超时优先级
 
@@ -138,7 +138,7 @@ func (r *repo) GetByID(ctx context.Context, id string) (*User, error)
 
 ### 7.1 Context 传播
 
-超时中间件创建的 context 会传递给下游，下游可以通过 `ctx.Done()` 检测超时：
+超时 Delegator 创建的 context 会传递给下游，下游可以通过 `ctx.Done()` 检测超时：
 
 ```go
 func (r *repo) GetByID(ctx context.Context, id string) (*User, error) {
@@ -151,9 +151,9 @@ func (r *repo) GetByID(ctx context.Context, id string) (*User, error) {
 }
 ```
 
-### 7.2 与其他中间件的顺序
+### 7.2 与其他 Delegator 的顺序
 
-超时中间件通常放在靠近底层的位置，这样超时会包含所有下游操作：
+超时 Delegator 通常放在靠近底层的位置，这样超时会包含所有下游操作：
 
 ```go
 repo := user.NewUserRepositoryDelegator(baseRepo).

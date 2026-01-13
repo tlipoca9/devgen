@@ -1,6 +1,6 @@
-# delegatorgen Retry 中间件设计
+# delegatorgen Retry Delegator 设计
 
-> 本文档详细描述 Retry 中间件的设计和实现。
+> 本文档详细描述 Retry Delegator 的设计和实现。
 
 ## 一、注解规范
 
@@ -21,12 +21,12 @@
 ## 二、Builder 方法
 
 ```go
-// WithRetry adds retry middleware.
+// WithRetry adds retry delegator.
 // maxRetries: maximum number of retry attempts (0 = no retries).
 // backoff: function that returns the delay before attempt N (starting from 1).
 func (d *UserRepositoryDelegator) WithRetry(maxRetries int, backoff func(attempt int) time.Duration) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return &userRepositoryRetryMiddleware{next: next, maxRetries: maxRetries, backoff: backoff}
+		return &userRepositoryRetryDelegator{next: next, maxRetries: maxRetries, backoff: backoff}
 	})
 }
 ```
@@ -72,22 +72,22 @@ func UserRepositoryLinearBackoff(base, increment time.Duration) func(int) time.D
 
 ---
 
-## 三、生成的 Middleware 实现
+## 三、生成的 Delegator 实现
 
 ```go
-type userRepositoryRetryMiddleware struct {
+type userRepositoryRetryDelegator struct {
 	next       UserRepository
 	maxRetries int
 	backoff    func(attempt int) time.Duration
 }
 
 // GetByID: 无 @retry 注解 - 直接透传
-func (m *userRepositoryRetryMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryRetryDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	return m.next.GetByID(ctx, id)
 }
 
 // Save: @retry(max=3)
-func (m *userRepositoryRetryMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryRetryDelegator) Save(ctx context.Context, user *User) error {
 	maxRetries := 3 // from annotation, or use m.maxRetries as default
 
 	var lastErr error
@@ -206,13 +206,13 @@ func (r *repo) Save(ctx context.Context, user *User) error
 
 ### 7.1 条件重试
 
-如果需要根据错误类型决定是否重试，可以自定义中间件：
+如果需要根据错误类型决定是否重试，可以自定义 delegator：
 
 ```go
-// 自定义重试中间件，只重试特定错误
-func WithConditionalRetry(maxRetries int, backoff func(int) time.Duration, shouldRetry func(error) bool) UserRepositoryMiddleware {
+// 自定义重试 delegator，只重试特定错误
+func WithConditionalRetry(maxRetries int, backoff func(int) time.Duration, shouldRetry func(error) bool) UserRepositoryDelegatorFunc {
     return func(next UserRepository) UserRepository {
-        return &conditionalRetryMiddleware{
+        return &conditionalRetryDelegator{
             next:        next,
             maxRetries:  maxRetries,
             backoff:     backoff,
@@ -232,7 +232,7 @@ repo := user.NewUserRepositoryDelegator(baseRepo).
 
 ### 7.2 与熔断器配合
 
-重试中间件通常与熔断器配合使用，避免在服务不可用时持续重试：
+重试 Delegator 通常与熔断器配合使用，避免在服务不可用时持续重试：
 
 ```go
 repo := user.NewUserRepositoryDelegator(baseRepo).

@@ -1,6 +1,6 @@
-# delegatorgen Logging 中间件设计
+# delegatorgen Logging Delegator 设计
 
-> 本文档详细描述 Logging 中间件的设计和实现。
+> 本文档详细描述 Logging Delegator 的设计和实现。
 
 ## 一、注解规范
 
@@ -41,16 +41,16 @@ type UserRepositoryLogger interface {
 
 ---
 
-## 三、生成的 Middleware 实现
+## 三、生成的 Delegator 实现
 
 ```go
-type userRepositoryLoggingMiddleware struct {
+type userRepositoryLoggingDelegator struct {
 	next   UserRepository
 	logger UserRepositoryLogger
 }
 
 // GetByID: @log(fields=id)
-func (m *userRepositoryLoggingMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryLoggingDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	m.logger.Debug("UserRepository.GetByID called", "id", id)
 	result, err := m.next.GetByID(ctx, id)
 	if err != nil {
@@ -60,7 +60,7 @@ func (m *userRepositoryLoggingMiddleware) GetByID(ctx context.Context, id string
 }
 
 // Save: @log(level=info)
-func (m *userRepositoryLoggingMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryLoggingDelegator) Save(ctx context.Context, user *User) error {
 	m.logger.Info("UserRepository.Save called")
 	err := m.next.Save(ctx, user)
 	if err != nil {
@@ -70,7 +70,7 @@ func (m *userRepositoryLoggingMiddleware) Save(ctx context.Context, user *User) 
 }
 
 // Count: 无 @log 注解 - 直接透传
-func (m *userRepositoryLoggingMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryLoggingDelegator) Count(ctx context.Context) (int, error) {
 	return m.next.Count(ctx)
 }
 ```
@@ -233,12 +233,12 @@ level=ERROR msg="UserRepository.Save failed" error="database connection failed"
 
 ### 8.1 带 Context 的日志
 
-如果需要从 context 中提取字段（如 trace ID），可以自定义中间件：
+如果需要从 context 中提取字段（如 trace ID），可以自定义 delegator：
 
 ```go
-func WithContextLogging(logger UserRepositoryLogger, extractFields func(context.Context) []any) UserRepositoryMiddleware {
+func WithContextLogging(logger UserRepositoryLogger, extractFields func(context.Context) []any) UserRepositoryDelegatorFunc {
     return func(next UserRepository) UserRepository {
-        return &contextLoggingMiddleware{
+        return &contextLoggingDelegator{
             next:          next,
             logger:        logger,
             extractFields: extractFields,
@@ -256,7 +256,7 @@ repo := user.NewUserRepositoryDelegator(baseRepo).
 
 ### 8.2 与 Tracing 配合
 
-日志中间件通常与 Tracing 配合使用，在日志中记录 trace ID：
+日志 Delegator 通常与 Tracing 配合使用，在日志中记录 trace ID：
 
 ```go
 repo := user.NewUserRepositoryDelegator(baseRepo).

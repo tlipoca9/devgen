@@ -2,14 +2,14 @@
 
 > 本文档展示 delegatorgen 生成的代码结构和示例。
 >
-> 各中间件的详细设计请参考：
-> - [Tracing 中间件](./delegatorgen-tracing.md)
-> - [Metrics 中间件](./delegatorgen-metrics.md)
-> - [Cache 中间件](./delegatorgen-cache.md)
-> - [Retry 中间件](./delegatorgen-retry.md)
-> - [Timeout 中间件](./delegatorgen-timeout.md)
-> - [Logging 中间件](./delegatorgen-logging.md)
-> - [CircuitBreaker 中间件](./delegatorgen-circuitbreaker.md)
+> 各 Delegator 的详细设计请参考：
+> - [Tracing Delegator](./delegatorgen-tracing.md)
+> - [Metrics Delegator](./delegatorgen-metrics.md)
+> - [Cache Delegator](./delegatorgen-cache.md)
+> - [Retry Delegator](./delegatorgen-retry.md)
+> - [Timeout Delegator](./delegatorgen-timeout.md)
+> - [Logging Delegator](./delegatorgen-logging.md)
+> - [CircuitBreaker Delegator](./delegatorgen-circuitbreaker.md)
 
 ## 一、文件结构
 
@@ -77,7 +77,7 @@ import (
 )
 
 // =============================================================================
-// Middleware Interfaces (zero external dependencies)
+// Delegator Interfaces (zero external dependencies)
 // =============================================================================
 
 // UserRepositoryTracer defines the tracing interface.
@@ -149,13 +149,13 @@ type UserRepositoryCircuitBreaker interface {
 // Builder
 // =============================================================================
 
-// UserRepositoryMiddleware is a function that wraps a UserRepository.
-type UserRepositoryMiddleware func(UserRepository) UserRepository
+// UserRepositoryDelegatorFunc is a function that wraps a UserRepository.
+type UserRepositoryDelegatorFunc func(UserRepository) UserRepository
 
-// UserRepositoryDelegator builds a UserRepository with middleware.
+// UserRepositoryDelegator builds a UserRepository with delegators.
 type UserRepositoryDelegator struct {
 	base        UserRepository
-	middlewares []UserRepositoryMiddleware
+	delegators []UserRepositoryDelegatorFunc
 }
 
 // NewUserRepositoryDelegator creates a new delegator builder.
@@ -163,87 +163,87 @@ func NewUserRepositoryDelegator(base UserRepository) *UserRepositoryDelegator {
 	return &UserRepositoryDelegator{base: base}
 }
 
-// Use adds a custom middleware.
-// Middlewares are applied in order: first added = outermost (executes first).
-func (d *UserRepositoryDelegator) Use(mw UserRepositoryMiddleware) *UserRepositoryDelegator {
-	d.middlewares = append(d.middlewares, mw)
+// Use adds a custom delegator.
+// Delegators are applied in order: first added = outermost (executes first).
+func (d *UserRepositoryDelegator) Use(mw UserRepositoryDelegatorFunc) *UserRepositoryDelegator {
+	d.delegators = append(d.delegators, mw)
 	return d
 }
 
-// WithTracing adds tracing middleware.
+// WithTracing adds tracing delegator.
 func (d *UserRepositoryDelegator) WithTracing(tracer UserRepositoryTracer) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return &userRepositoryTracingMiddleware{next: next, tracer: tracer}
+		return &userRepositoryTracingDelegator{next: next, tracer: tracer}
 	})
 }
 
-// WithMetrics adds metrics middleware.
+// WithMetrics adds metrics delegator.
 func (d *UserRepositoryDelegator) WithMetrics(metrics UserRepositoryMetrics) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return &userRepositoryMetricsMiddleware{next: next, metrics: metrics}
+		return &userRepositoryMetricsDelegator{next: next, metrics: metrics}
 	})
 }
 
-// WithCache adds caching middleware with advanced features.
+// WithCache adds caching delegator with advanced features.
 // opts configures caching behavior including TTL, jitter, async refresh, etc.
 func (d *UserRepositoryDelegator) WithCache(cache UserRepositoryCache, opts UserRepositoryCacheOptions) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return &userRepositoryCacheMiddleware{next: next, cache: cache, opts: opts}
+		return &userRepositoryCacheDelegator{next: next, cache: cache, opts: opts}
 	})
 }
 
-// WithRetry adds retry middleware.
+// WithRetry adds retry delegator.
 // maxRetries: maximum number of retry attempts (0 = no retries).
 // backoff: function that returns the delay before attempt N (starting from 1).
 func (d *UserRepositoryDelegator) WithRetry(maxRetries int, backoff func(attempt int) time.Duration) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return &userRepositoryRetryMiddleware{next: next, maxRetries: maxRetries, backoff: backoff}
+		return &userRepositoryRetryDelegator{next: next, maxRetries: maxRetries, backoff: backoff}
 	})
 }
 
-// WithTimeout adds timeout middleware.
+// WithTimeout adds timeout delegator.
 // timeout: default timeout for all methods.
 func (d *UserRepositoryDelegator) WithTimeout(timeout time.Duration) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return &userRepositoryTimeoutMiddleware{next: next, timeout: timeout}
+		return &userRepositoryTimeoutDelegator{next: next, timeout: timeout}
 	})
 }
 
-// WithLogging adds logging middleware.
+// WithLogging adds logging delegator.
 func (d *UserRepositoryDelegator) WithLogging(logger UserRepositoryLogger) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return &userRepositoryLoggingMiddleware{next: next, logger: logger}
+		return &userRepositoryLoggingDelegator{next: next, logger: logger}
 	})
 }
 
-// WithCircuitBreaker adds circuit breaker middleware.
+// WithCircuitBreaker adds circuit breaker delegator.
 func (d *UserRepositoryDelegator) WithCircuitBreaker(cb UserRepositoryCircuitBreaker) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return &userRepositoryCircuitBreakerMiddleware{next: next, cb: cb}
+		return &userRepositoryCircuitBreakerDelegator{next: next, cb: cb}
 	})
 }
 
-// Build creates the final UserRepository with all middlewares applied.
-// Middlewares are applied in reverse order so that the first added middleware
+// Build creates the final UserRepository with all delegators applied.
+// Delegators are applied in reverse order so that the first added delegator
 // is the outermost (executes first).
 func (d *UserRepositoryDelegator) Build() UserRepository {
 	result := d.base
-	for i := len(d.middlewares) - 1; i >= 0; i-- {
-		result = d.middlewares[i](result)
+	for i := len(d.delegators) - 1; i >= 0; i-- {
+		result = d.delegators[i](result)
 	}
 	return result
 }
 
 // =============================================================================
-// Tracing Middleware
+// Tracing Delegator
 // =============================================================================
 
-type userRepositoryTracingMiddleware struct {
+type userRepositoryTracingDelegator struct {
 	next   UserRepository
 	tracer UserRepositoryTracer
 }
 
-func (m *userRepositoryTracingMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryTracingDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	ctx, span := m.tracer.Start(ctx, "UserRepository.GetByID", "id", id)
 	defer span.End()
 
@@ -254,7 +254,7 @@ func (m *userRepositoryTracingMiddleware) GetByID(ctx context.Context, id string
 	return result, err
 }
 
-func (m *userRepositoryTracingMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryTracingDelegator) Save(ctx context.Context, user *User) error {
 	ctx, span := m.tracer.Start(ctx, "UserRepository.Save")
 	defer span.End()
 
@@ -265,7 +265,7 @@ func (m *userRepositoryTracingMiddleware) Save(ctx context.Context, user *User) 
 	return err
 }
 
-func (m *userRepositoryTracingMiddleware) List(ctx context.Context, limit, offset int) ([]*User, error) {
+func (m *userRepositoryTracingDelegator) List(ctx context.Context, limit, offset int) ([]*User, error) {
 	ctx, span := m.tracer.Start(ctx, "UserRepository.List")
 	defer span.End()
 
@@ -277,34 +277,34 @@ func (m *userRepositoryTracingMiddleware) List(ctx context.Context, limit, offse
 }
 
 // Count: no @trace annotation - pass through
-func (m *userRepositoryTracingMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryTracingDelegator) Count(ctx context.Context) (int, error) {
 	return m.next.Count(ctx)
 }
 
 // =============================================================================
-// Metrics Middleware
+// Metrics Delegator
 // =============================================================================
 
-type userRepositoryMetricsMiddleware struct {
+type userRepositoryMetricsDelegator struct {
 	next    UserRepository
 	metrics UserRepositoryMetrics
 }
 
-func (m *userRepositoryMetricsMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryMetricsDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	start := time.Now()
 	result, err := m.next.GetByID(ctx, id)
 	m.metrics.Observe("GetByID", time.Since(start), err)
 	return result, err
 }
 
-func (m *userRepositoryMetricsMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryMetricsDelegator) Save(ctx context.Context, user *User) error {
 	start := time.Now()
 	err := m.next.Save(ctx, user)
 	m.metrics.Observe("Save", time.Since(start), err)
 	return err
 }
 
-func (m *userRepositoryMetricsMiddleware) List(ctx context.Context, limit, offset int) ([]*User, error) {
+func (m *userRepositoryMetricsDelegator) List(ctx context.Context, limit, offset int) ([]*User, error) {
 	start := time.Now()
 	result, err := m.next.List(ctx, limit, offset)
 	m.metrics.Observe("List", time.Since(start), err)
@@ -312,12 +312,12 @@ func (m *userRepositoryMetricsMiddleware) List(ctx context.Context, limit, offse
 }
 
 // Count: no @metrics annotation - pass through
-func (m *userRepositoryMetricsMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryMetricsDelegator) Count(ctx context.Context) (int, error) {
 	return m.next.Count(ctx)
 }
 
 // =============================================================================
-// Cache Middleware (simplified, see delegatorgen-cache.md for full implementation)
+// Cache Delegator (simplified, see delegatorgen-cache.md for full implementation)
 // =============================================================================
 
 type UserRepositoryCacheOptions struct {
@@ -329,14 +329,14 @@ type UserRepositoryCacheOptions struct {
 	AsyncExecutor         UserRepositoryAsyncExecutor
 }
 
-type userRepositoryCacheMiddleware struct {
+type userRepositoryCacheDelegator struct {
 	next  UserRepository
 	cache UserRepositoryCache
 	opts  UserRepositoryCacheOptions
 }
 
 // GetByID: @cache - see delegatorgen-cache.md for full implementation
-func (m *userRepositoryCacheMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryCacheDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	// Full implementation includes:
 	// - Key building with json.Marshal + base64
 	// - Cache hit check with async refresh
@@ -348,7 +348,7 @@ func (m *userRepositoryCacheMiddleware) GetByID(ctx context.Context, id string) 
 }
 
 // Save: @cache_invalidate(key=user:{user.ID})
-func (m *userRepositoryCacheMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryCacheDelegator) Save(ctx context.Context, user *User) error {
 	err := m.next.Save(ctx, user)
 	if err == nil {
 		key := fmt.Sprintf("user:%s", user.ID)
@@ -357,31 +357,31 @@ func (m *userRepositoryCacheMiddleware) Save(ctx context.Context, user *User) er
 	return err
 }
 
-func (m *userRepositoryCacheMiddleware) List(ctx context.Context, limit, offset int) ([]*User, error) {
+func (m *userRepositoryCacheDelegator) List(ctx context.Context, limit, offset int) ([]*User, error) {
 	return m.next.List(ctx, limit, offset)
 }
 
-func (m *userRepositoryCacheMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryCacheDelegator) Count(ctx context.Context) (int, error) {
 	return m.next.Count(ctx)
 }
 
 // =============================================================================
-// Retry Middleware
+// Retry Delegator
 // =============================================================================
 
-type userRepositoryRetryMiddleware struct {
+type userRepositoryRetryDelegator struct {
 	next       UserRepository
 	maxRetries int
 	backoff    func(attempt int) time.Duration
 }
 
 // GetByID: no retry annotation - pass through
-func (m *userRepositoryRetryMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryRetryDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	return m.next.GetByID(ctx, id)
 }
 
 // Save: @retry(max=3)
-func (m *userRepositoryRetryMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryRetryDelegator) Save(ctx context.Context, user *User) error {
 	maxRetries := 3 // from annotation
 
 	var lastErr error
@@ -405,62 +405,62 @@ func (m *userRepositoryRetryMiddleware) Save(ctx context.Context, user *User) er
 }
 
 // List: no retry annotation - pass through
-func (m *userRepositoryRetryMiddleware) List(ctx context.Context, limit, offset int) ([]*User, error) {
+func (m *userRepositoryRetryDelegator) List(ctx context.Context, limit, offset int) ([]*User, error) {
 	return m.next.List(ctx, limit, offset)
 }
 
 // Count: no retry annotation - pass through
-func (m *userRepositoryRetryMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryRetryDelegator) Count(ctx context.Context) (int, error) {
 	return m.next.Count(ctx)
 }
 
 // =============================================================================
-// Timeout Middleware
+// Timeout Delegator
 // =============================================================================
 
-type userRepositoryTimeoutMiddleware struct {
+type userRepositoryTimeoutDelegator struct {
 	next    UserRepository
 	timeout time.Duration
 }
 
 // GetByID: no timeout annotation - use default
-func (m *userRepositoryTimeoutMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryTimeoutDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, m.timeout)
 	defer cancel()
 	return m.next.GetByID(ctx, id)
 }
 
 // Save: no timeout annotation - use default
-func (m *userRepositoryTimeoutMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryTimeoutDelegator) Save(ctx context.Context, user *User) error {
 	ctx, cancel := context.WithTimeout(ctx, m.timeout)
 	defer cancel()
 	return m.next.Save(ctx, user)
 }
 
 // List: @timeout(10s)
-func (m *userRepositoryTimeoutMiddleware) List(ctx context.Context, limit, offset int) ([]*User, error) {
+func (m *userRepositoryTimeoutDelegator) List(ctx context.Context, limit, offset int) ([]*User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	return m.next.List(ctx, limit, offset)
 }
 
 // Count: no timeout annotation - use default
-func (m *userRepositoryTimeoutMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryTimeoutDelegator) Count(ctx context.Context) (int, error) {
 	ctx, cancel := context.WithTimeout(ctx, m.timeout)
 	defer cancel()
 	return m.next.Count(ctx)
 }
 
 // =============================================================================
-// Logging Middleware
+// Logging Delegator
 // =============================================================================
 
-type userRepositoryLoggingMiddleware struct {
+type userRepositoryLoggingDelegator struct {
 	next   UserRepository
 	logger UserRepositoryLogger
 }
 
-func (m *userRepositoryLoggingMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryLoggingDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	m.logger.Debug("UserRepository.GetByID called", "id", id)
 	result, err := m.next.GetByID(ctx, id)
 	if err != nil {
@@ -469,7 +469,7 @@ func (m *userRepositoryLoggingMiddleware) GetByID(ctx context.Context, id string
 	return result, err
 }
 
-func (m *userRepositoryLoggingMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryLoggingDelegator) Save(ctx context.Context, user *User) error {
 	m.logger.Debug("UserRepository.Save called")
 	err := m.next.Save(ctx, user)
 	if err != nil {
@@ -478,7 +478,7 @@ func (m *userRepositoryLoggingMiddleware) Save(ctx context.Context, user *User) 
 	return err
 }
 
-func (m *userRepositoryLoggingMiddleware) List(ctx context.Context, limit, offset int) ([]*User, error) {
+func (m *userRepositoryLoggingDelegator) List(ctx context.Context, limit, offset int) ([]*User, error) {
 	m.logger.Debug("UserRepository.List called", "limit", limit, "offset", offset)
 	result, err := m.next.List(ctx, limit, offset)
 	if err != nil {
@@ -487,7 +487,7 @@ func (m *userRepositoryLoggingMiddleware) List(ctx context.Context, limit, offse
 	return result, err
 }
 
-func (m *userRepositoryLoggingMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryLoggingDelegator) Count(ctx context.Context) (int, error) {
 	m.logger.Debug("UserRepository.Count called")
 	result, err := m.next.Count(ctx)
 	if err != nil {
@@ -497,10 +497,10 @@ func (m *userRepositoryLoggingMiddleware) Count(ctx context.Context) (int, error
 }
 
 // =============================================================================
-// CircuitBreaker Middleware
+// CircuitBreaker Delegator
 // =============================================================================
 
-type userRepositoryCircuitBreakerMiddleware struct {
+type userRepositoryCircuitBreakerDelegator struct {
 	next UserRepository
 	cb   UserRepositoryCircuitBreaker
 }
@@ -508,7 +508,7 @@ type userRepositoryCircuitBreakerMiddleware struct {
 // ErrCircuitOpen is returned when the circuit breaker is open.
 var ErrUserRepositoryCircuitOpen = fmt.Errorf("circuit breaker is open")
 
-func (m *userRepositoryCircuitBreakerMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryCircuitBreakerDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	if !m.cb.Allow() {
 		return nil, ErrUserRepositoryCircuitOpen
 	}
@@ -521,7 +521,7 @@ func (m *userRepositoryCircuitBreakerMiddleware) GetByID(ctx context.Context, id
 	return result, err
 }
 
-func (m *userRepositoryCircuitBreakerMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryCircuitBreakerDelegator) Save(ctx context.Context, user *User) error {
 	if !m.cb.Allow() {
 		return ErrUserRepositoryCircuitOpen
 	}
@@ -534,7 +534,7 @@ func (m *userRepositoryCircuitBreakerMiddleware) Save(ctx context.Context, user 
 	return err
 }
 
-func (m *userRepositoryCircuitBreakerMiddleware) List(ctx context.Context, limit, offset int) ([]*User, error) {
+func (m *userRepositoryCircuitBreakerDelegator) List(ctx context.Context, limit, offset int) ([]*User, error) {
 	if !m.cb.Allow() {
 		return nil, ErrUserRepositoryCircuitOpen
 	}
@@ -547,7 +547,7 @@ func (m *userRepositoryCircuitBreakerMiddleware) List(ctx context.Context, limit
 	return result, err
 }
 
-func (m *userRepositoryCircuitBreakerMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryCircuitBreakerDelegator) Count(ctx context.Context) (int, error) {
 	if !m.cb.Allow() {
 		return 0, ErrUserRepositoryCircuitOpen
 	}
@@ -605,8 +605,8 @@ func (g *Generator) Config() genkit.ToolConfig {
 
 生成内容：
   - Builder 模式的委托器构建器
-  - 可选的中间件：Tracing、Metrics、Cache、Retry、Timeout、Logging、CircuitBreaker
-  - 所有中间件接口内联定义，零外部依赖
+  - 可选的 Delegator：Tracing、Metrics、Cache、Retry、Timeout、Logging、CircuitBreaker
+  - 所有 Delegator 接口内联定义，零外部依赖
 
 使用示例：
   repo := NewUserRepositoryDelegator(baseRepo).

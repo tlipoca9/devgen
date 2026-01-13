@@ -1,15 +1,15 @@
 # delegatorgen 用户适配示例
 
-> 本文档展示如何实现 delegatorgen 生成的中间件接口，适配常用库。
+> 本文档展示如何实现 delegatorgen 生成的 Delegator 接口，适配常用库。
 >
-> 各中间件的详细设计请参考：
-> - [Tracing 中间件](./delegatorgen-tracing.md)
-> - [Metrics 中间件](./delegatorgen-metrics.md)
-> - [Cache 中间件](./delegatorgen-cache.md)
-> - [Retry 中间件](./delegatorgen-retry.md)
-> - [Timeout 中间件](./delegatorgen-timeout.md)
-> - [Logging 中间件](./delegatorgen-logging.md)
-> - [CircuitBreaker 中间件](./delegatorgen-circuitbreaker.md)
+> 各 Delegator 的详细设计请参考：
+> - [Tracing Delegator](./delegatorgen-tracing.md)
+> - [Metrics Delegator](./delegatorgen-metrics.md)
+> - [Cache Delegator](./delegatorgen-cache.md)
+> - [Retry Delegator](./delegatorgen-retry.md)
+> - [Timeout Delegator](./delegatorgen-timeout.md)
+> - [Logging Delegator](./delegatorgen-logging.md)
+> - [CircuitBreaker Delegator](./delegatorgen-circuitbreaker.md)
 
 ## 一、OpenTelemetry 适配
 

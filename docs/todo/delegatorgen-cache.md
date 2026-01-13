@@ -1,6 +1,6 @@
-# delegatorgen Cache 中间件设计
+# delegatorgen Cache Delegator 设计
 
-> 本文档详细描述 Cache 中间件的设计和实现。
+> 本文档详细描述 Cache Delegator 的设计和实现。
 
 ## 一、注解规范
 
@@ -154,7 +154,7 @@ type Cache interface {
 ```go
 // CacheLocker is an optional interface for distributed locking.
 // If your cache implementation also implements this interface,
-// the cache middleware will automatically use it to prevent cache stampede
+// the cache delegator will automatically use it to prevent cache stampede
 // (lock on cache miss to avoid multiple concurrent requests hitting the backend).
 //
 // Note: This is a non-blocking lock. If the lock is not acquired, the request
@@ -174,7 +174,7 @@ type CacheLocker interface {
 ```go
 // CacheAsyncExecutor is an optional interface for async cache refresh.
 // If your cache implementation also implements this interface,
-// the cache middleware will automatically use it to refresh cache entries
+// the cache delegator will automatically use it to refresh cache entries
 // in the background when they are about to expire (controlled by refresh parameter in annotation).
 type CacheAsyncExecutor interface {
 	// Submit submits a task for async execution.
@@ -185,25 +185,25 @@ type CacheAsyncExecutor interface {
 
 ---
 
-## 四、生成的 Middleware 实现
+## 四、生成的 Delegator 实现
 
 ### 4.1 Builder 方法
 
 ```go
-// WithCache adds caching middleware.
+// WithCache adds caching delegator.
 // Advanced features (distributed lock, async refresh) are automatically enabled
 // if the cache implementation also implements CacheLocker or CacheAsyncExecutor.
 func (d *UserRepositoryDelegator) WithCache(cache Cache) *UserRepositoryDelegator {
 	return d.Use(func(next UserRepository) UserRepository {
-		return newUserRepositoryCacheMiddleware(next, cache)
+		return newUserRepositoryCacheDelegator(next, cache)
 	})
 }
 ```
 
-### 4.2 Middleware 结构
+### 4.2 Delegator 结构
 
 ```go
-type userRepositoryCacheMiddleware struct {
+type userRepositoryCacheDelegator struct {
 	next          UserRepository
 	cache         Cache
 	locker        CacheLocker        // 运行时检测填充
@@ -211,8 +211,8 @@ type userRepositoryCacheMiddleware struct {
 	refreshing    sync.Map           // 记录正在刷新的 key，防止重复提交
 }
 
-func newUserRepositoryCacheMiddleware(next UserRepository, cache Cache) *userRepositoryCacheMiddleware {
-	m := &userRepositoryCacheMiddleware{
+func newUserRepositoryCacheDelegator(next UserRepository, cache Cache) *userRepositoryCacheDelegator {
+	m := &userRepositoryCacheDelegator{
 		next:  next,
 		cache: cache,
 	}
@@ -233,7 +233,7 @@ func newUserRepositoryCacheMiddleware(next UserRepository, cache Cache) *userRep
 
 ```go
 // GetByID: @cache(ttl=5m, jitter=10, refresh=20, null=ErrNotFound, null_ttl=20)
-func (m *userRepositoryCacheMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryCacheDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	// 编译时常量（从注解生成）
 	const baseTTL = 5 * time.Minute
 	const jitterPercent = 10
@@ -312,7 +312,7 @@ cacheMiss:
 	return result, nil
 }
 
-func (m *userRepositoryCacheMiddleware) refreshGetByIDCache(ctx context.Context, key string, id string) {
+func (m *userRepositoryCacheDelegator) refreshGetByIDCache(ctx context.Context, key string, id string) {
 	// 编译时常量
 	const baseTTL = 5 * time.Minute
 	const jitterPercent = 10
@@ -346,7 +346,7 @@ func (m *userRepositoryCacheMiddleware) refreshGetByIDCache(ctx context.Context,
 }
 
 // Save: @cache_evict(key=user:{user.ID})
-func (m *userRepositoryCacheMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryCacheDelegator) Save(ctx context.Context, user *User) error {
 	err := m.next.Save(ctx, user)
 	if err == nil {
 		// 失效缓存
@@ -357,7 +357,7 @@ func (m *userRepositoryCacheMiddleware) Save(ctx context.Context, user *User) er
 }
 
 // Delete: @cache_evict(keys=user:{id},user:list:{id})
-func (m *userRepositoryCacheMiddleware) Delete(ctx context.Context, id string) error {
+func (m *userRepositoryCacheDelegator) Delete(ctx context.Context, id string) error {
 	err := m.next.Delete(ctx, id)
 	if err == nil {
 		// 失效多个缓存 key
@@ -369,7 +369,7 @@ func (m *userRepositoryCacheMiddleware) Delete(ctx context.Context, id string) e
 	return err
 }
 
-func (m *userRepositoryCacheMiddleware) buildGetByIDKey(id string) string {
+func (m *userRepositoryCacheDelegator) buildGetByIDKey(id string) string {
 	// 固定前缀：{import路径}:{接口名}:
 	const prefix = "github.com/myapp/user:UserRepository:"
 

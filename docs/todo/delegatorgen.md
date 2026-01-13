@@ -6,7 +6,7 @@
 
 ## 一、概述
 
-delegatorgen 是一个为 Go 接口生成委托器（装饰器模式）的代码生成工具。它支持生成多种中间件，包括链路追踪、指标收集、缓存、重试、超时、日志和熔断等。
+delegatorgen 是一个为 Go 接口生成委托器（装饰器模式）的代码生成工具。它支持生成多种 Delegator，包括链路追踪、指标收集、缓存、重试、超时、日志和熔断等。
 
 ### 设计目标
 
@@ -14,7 +14,7 @@ delegatorgen 是一个为 Go 接口生成委托器（装饰器模式）的代码
 |------|----------|
 | **零依赖** | 所有接口内联生成，不引用任何外部包 |
 | **减少心智负担** | 最小注解、合理默认值、一致的 API |
-| **可扩展性** | 用户可自定义中间件、适配任意库 |
+| **可扩展性** | 用户可自定义 Delegator、适配任意库 |
 | **可维护性** | 生成代码清晰可读、完整的 IDE 诊断 |
 
 ### 相关文档
@@ -22,9 +22,9 @@ delegatorgen 是一个为 Go 接口生成委托器（装饰器模式）的代码
 - [生成代码示例](./delegatorgen-generated.md)
 - [用户适配示例](./delegatorgen-adapters.md)
 
-#### 中间件设计文档
+#### Delegator 设计文档
 
-| 中间件 | 文档 | 复杂度 |
+| Delegator | 文档 | 复杂度 |
 |--------|------|--------|
 | Tracing | [delegatorgen-tracing.md](./delegatorgen-tracing.md) | 低 |
 | Metrics | [delegatorgen-metrics.md](./delegatorgen-metrics.md) | 低 |
@@ -49,7 +49,7 @@ type UserRepository interface { ... }
 
 ### 2.2 方法级注解
 
-所有方法级注解都是**可选的**，用于定制特定方法的行为。详细设计请参考各中间件的独立文档。
+所有方法级注解都是**可选的**，用于定制特定方法的行为。详细设计请参考各 Delegator 的独立文档。
 
 | 注解 | 说明 | 详细文档 |
 |------|------|----------|
@@ -157,14 +157,14 @@ cmd/delegatorgen/
 | 阶段 | 内容 | 复杂度 | 状态 |
 |------|------|--------|------|
 | **P0** | 基础框架：解析接口、生成 Builder | 中 | 待实现 |
-| **P0** | Tracing 中间件 | 低 | 待实现 |
-| **P0** | Metrics 中间件 | 低 | 待实现 |
-| **P1** | Cache 中间件（基础：key 模板、TTL） | 中 | 待实现 |
-| **P1** | Cache 中间件（高级：Jitter、异步刷新、空值缓存、分布式锁） | 高 | 待实现 |
-| **P1** | Retry 中间件 | 低 | 待实现 |
-| **P1** | Timeout 中间件 | 低 | 待实现 |
-| **P1** | Logging 中间件 | 低 | 待实现 |
-| **P2** | CircuitBreaker 中间件 | 低 | 待实现 |
+| **P0** | Tracing Delegator | 低 | 待实现 |
+| **P0** | Metrics Delegator | 低 | 待实现 |
+| **P1** | Cache Delegator（基础：key 模板、TTL） | 中 | 待实现 |
+| **P1** | Cache Delegator（高级：Jitter、异步刷新、空值缓存、分布式锁） | 高 | 待实现 |
+| **P1** | Retry Delegator | 低 | 待实现 |
+| **P1** | Timeout Delegator | 低 | 待实现 |
+| **P1** | Logging Delegator | 低 | 待实现 |
+| **P2** | CircuitBreaker Delegator | 低 | 待实现 |
 | **P2** | Validate 诊断 | 中 | 待实现 |
 | **P3** | AI Rules | 低 | 待实现 |
 
@@ -176,9 +176,9 @@ cmd/delegatorgen/
 |------|------|
 | **零依赖** | 所有接口内联生成，用户代码不依赖 devgen |
 | **强类型** | 缓存接口使用具体类型，编译时类型安全 |
-| **简单接口** | 每个中间件只需实现 2-4 个方法 |
-| **可组合** | Builder 模式，中间件自由组合 |
-| **可扩展** | `Use()` 方法支持自定义中间件 |
+| **简单接口** | 每个 Delegator 只需实现 2-4 个方法 |
+| **可组合** | Builder 模式，Delegator 自由组合 |
+| **可扩展** | `Use()` 方法支持自定义 Delegator |
 | **IDE 友好** | 完整的 Validate 诊断 |
 | **生产就绪** | 缓存支持 Jitter、异步刷新、空值缓存、分布式锁 |
 
@@ -189,5 +189,5 @@ cmd/delegatorgen/
 | 特性 | delegatorgen | enumgen | validategen | convertgen |
 |------|--------------|---------|-------------|------------|
 | 目标类型 | interface | type (enum) | struct | interface |
-| 生成内容 | 中间件 + Builder | 辅助方法 | Validate() | 转换实现 |
+| 生成内容 | Delegator + Builder | 辅助方法 | Validate() | 转换实现 |
 | 外部依赖 | 无 | 无 | 无 | 无 |

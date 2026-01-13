@@ -1,6 +1,6 @@
-# delegatorgen Metrics 中间件设计
+# delegatorgen Metrics Delegator 设计
 
-> 本文档详细描述 Metrics 中间件的设计和实现。
+> 本文档详细描述 Metrics Delegator 的设计和实现。
 
 ## 一、注解规范
 
@@ -41,16 +41,16 @@ type UserRepositoryMetrics interface {
 
 ---
 
-## 三、生成的 Middleware 实现
+## 三、生成的 Delegator 实现
 
 ```go
-type userRepositoryMetricsMiddleware struct {
+type userRepositoryMetricsDelegator struct {
 	next    UserRepository
 	metrics UserRepositoryMetrics
 }
 
 // GetByID: @metrics
-func (m *userRepositoryMetricsMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryMetricsDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	start := time.Now()
 	result, err := m.next.GetByID(ctx, id)
 	m.metrics.Observe("GetByID", time.Since(start), err)
@@ -58,7 +58,7 @@ func (m *userRepositoryMetricsMiddleware) GetByID(ctx context.Context, id string
 }
 
 // Save: @metrics(labels=type)
-func (m *userRepositoryMetricsMiddleware) Save(ctx context.Context, user *User) error {
+func (m *userRepositoryMetricsDelegator) Save(ctx context.Context, user *User) error {
 	start := time.Now()
 	err := m.next.Save(ctx, user)
 	m.metrics.Observe("Save", time.Since(start), err, "type", user.Type)
@@ -66,7 +66,7 @@ func (m *userRepositoryMetricsMiddleware) Save(ctx context.Context, user *User) 
 }
 
 // Count: 无 @metrics 注解 - 直接透传
-func (m *userRepositoryMetricsMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryMetricsDelegator) Count(ctx context.Context) (int, error) {
 	return m.next.Count(ctx)
 }
 ```
@@ -196,7 +196,7 @@ func (r *repo) GetByID(ctx context.Context, id string) (*User, error)
 
 ## 七、常见指标
 
-生成的 Metrics 中间件通常用于收集以下指标：
+生成的 Metrics Delegator 通常用于收集以下指标：
 
 | 指标类型 | 说明 | 示例 |
 |----------|------|------|

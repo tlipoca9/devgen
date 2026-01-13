@@ -1,6 +1,6 @@
-# delegatorgen CircuitBreaker 中间件设计
+# delegatorgen CircuitBreaker Delegator 设计
 
-> 本文档详细描述 CircuitBreaker（熔断器）中间件的设计和实现。
+> 本文档详细描述 CircuitBreaker（熔断器）Delegator 的设计和实现。
 
 ## 一、注解规范
 
@@ -39,10 +39,10 @@ type UserRepositoryCircuitBreaker interface {
 
 ---
 
-## 三、生成的 Middleware 实现
+## 三、生成的 Delegator 实现
 
 ```go
-type userRepositoryCircuitBreakerMiddleware struct {
+type userRepositoryCircuitBreakerDelegator struct {
 	next UserRepository
 	cb   UserRepositoryCircuitBreaker
 }
@@ -51,7 +51,7 @@ type userRepositoryCircuitBreakerMiddleware struct {
 var ErrUserRepositoryCircuitOpen = fmt.Errorf("circuit breaker is open")
 
 // GetByID: @circuitbreaker
-func (m *userRepositoryCircuitBreakerMiddleware) GetByID(ctx context.Context, id string) (*User, error) {
+func (m *userRepositoryCircuitBreakerDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	if !m.cb.Allow() {
 		return nil, ErrUserRepositoryCircuitOpen
 	}
@@ -65,7 +65,7 @@ func (m *userRepositoryCircuitBreakerMiddleware) GetByID(ctx context.Context, id
 }
 
 // Count: 无 @circuitbreaker 注解 - 直接透传
-func (m *userRepositoryCircuitBreakerMiddleware) Count(ctx context.Context) (int, error) {
+func (m *userRepositoryCircuitBreakerDelegator) Count(ctx context.Context) (int, error) {
 	return m.next.Count(ctx)
 }
 ```
@@ -214,7 +214,7 @@ func (a *GoBreakerAdapter) Failure() {
 }
 
 // 注意：gobreaker 的使用方式略有不同，通常通过 Execute 方法
-// 这里的适配是简化版，完整适配需要自定义中间件
+// 这里的适配是简化版，完整适配需要自定义 delegator
 ```
 
 ### 5.3 使用示例
@@ -247,7 +247,7 @@ repo := user.NewUserRepositoryDelegator(baseRepo).
 
 ---
 
-## 七、与其他中间件的配合
+## 七、与其他 Delegator 的配合
 
 ### 7.1 与重试配合
 
@@ -282,12 +282,12 @@ repo := user.NewUserRepositoryDelegator(baseRepo).
 
 ### 8.1 按方法分组熔断
 
-如果需要不同方法使用不同的熔断器，可以自定义中间件：
+如果需要不同方法使用不同的熔断器，可以自定义 delegator：
 
 ```go
-func WithMethodCircuitBreakers(breakers map[string]UserRepositoryCircuitBreaker) UserRepositoryMiddleware {
+func WithMethodCircuitBreakers(breakers map[string]UserRepositoryCircuitBreaker) UserRepositoryDelegatorFunc {
     return func(next UserRepository) UserRepository {
-        return &methodCircuitBreakerMiddleware{
+        return &methodCircuitBreakerDelegator{
             next:     next,
             breakers: breakers,
         }
