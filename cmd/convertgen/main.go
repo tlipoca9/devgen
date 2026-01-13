@@ -1,29 +1,97 @@
+// Command convertgen generates struct converter implementations.
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
+
+	"github.com/charmbracelet/fang"
+	"github.com/spf13/cobra"
 
 	"github.com/tlipoca9/devgen/cmd/convertgen/generator"
 	"github.com/tlipoca9/devgen/genkit"
 )
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+)
+
+var includeTests bool
+
 func main() {
-	gen := genkit.New()
-	if err := gen.Load("./..."); err != nil {
-		os.Stderr.WriteString(err.Error() + "\n")
+	if err := fang.Execute(context.Background(), rootCmd()); err != nil {
 		os.Exit(1)
+	}
+}
+
+func rootCmd() *cobra.Command {
+	ver := version
+	if ver == commit {
+		ver = "dev"
+	}
+	cmd := &cobra.Command{
+		Use:     "convertgen [packages]",
+		Short:   "Generate struct converter implementations",
+		Long:    `convertgen generates struct converter implementations for Go interfaces annotated with convertgen:@converter.`,
+		Version: fmt.Sprintf("%s (%s) %s", ver, commit, date),
+		Example: `  convertgen ./...              # all packages
+  convertgen ./pkg/dto          # specific package
+  convertgen --include-tests ./...  # with test files`,
+		Args: cobra.ArbitraryArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) == 0 {
+				return cmd.Help()
+			}
+			return run(cmd, args)
+		},
+	}
+	cmd.SetVersionTemplate(fmt.Sprintf("convertgen %s (%s) %s\n", ver, commit, date))
+	cmd.Flags().BoolVar(&includeTests, "include-tests", false, "Also generate *_test.go files")
+
+	return cmd
+}
+
+func run(_ *cobra.Command, args []string) error {
+	log := genkit.NewLogger()
+
+	gen := genkit.New(genkit.Options{
+		IgnoreGeneratedFiles: true,
+		IncludeTests:         includeTests,
+	})
+	if err := gen.Load(args...); err != nil {
+		return fmt.Errorf("load: %w", err)
+	}
+
+	log.Load("Loaded %v package(s)", len(gen.Packages))
+	for _, pkg := range gen.Packages {
+		log.Item("%v", pkg.GoImportPath())
 	}
 
 	tool := generator.New()
-	log := genkit.NewLogger()
-
 	if err := tool.Run(gen, log); err != nil {
-		log.Error("run failed: %s", err.Error())
-		os.Exit(1)
+		return err
+	}
+
+	files, err := gen.DryRun()
+	if err != nil {
+		return fmt.Errorf("generate: %w", err)
+	}
+
+	if len(files) == 0 {
+		log.Warn("No converters found")
+		return nil
 	}
 
 	if err := gen.Write(); err != nil {
-		os.Stderr.WriteString(err.Error() + "\n")
-		os.Exit(1)
+		return fmt.Errorf("write: %w", err)
 	}
+	log.Done("Generated %v file(s)", len(files))
+	for path := range files {
+		log.Item("%v", path)
+	}
+
+	return nil
 }
