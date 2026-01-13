@@ -292,6 +292,11 @@ func (g *Generator) buildPackage(pkg *packages.Package) *Package {
 		g.extractEnums(p, file, typesByName)
 	}
 
+	// Third pass: extract interfaces
+	for _, file := range syntax {
+		g.extractInterfaces(p, file)
+	}
+
 	return p
 }
 
@@ -413,6 +418,79 @@ func (g *Generator) extractEnums(pkg *Package, file *ast.File, typesByName map[s
 			}
 		}
 	}
+}
+
+func (g *Generator) extractInterfaces(pkg *Package, file *ast.File) {
+	for _, decl := range file.Decls {
+		gd, ok := decl.(*ast.GenDecl)
+		if !ok || gd.Tok != token.TYPE {
+			continue
+		}
+
+		for _, spec := range gd.Specs {
+			ts := spec.(*ast.TypeSpec)
+			it, ok := ts.Type.(*ast.InterfaceType)
+			if !ok {
+				continue
+			}
+
+			iface := &Interface{
+				Name: ts.Name.Name,
+				Doc:  docText(gd.Doc),
+				Pkg:  pkg,
+				Pos:  g.Fset.Position(ts.Name.Pos()),
+			}
+
+			// Extract methods
+			if it.Methods != nil {
+				for _, m := range it.Methods.List {
+					// Skip embedded interfaces
+					ft, ok := m.Type.(*ast.FuncType)
+					if !ok {
+						continue
+					}
+
+					for _, name := range m.Names {
+						method := &Method{
+							Name:   name.Name,
+							Doc:    docText(m.Doc),
+							Pos:    g.Fset.Position(name.Pos()),
+							Params: extractParams(ft.Params),
+						}
+						if ft.Results != nil {
+							method.Results = extractParams(ft.Results)
+						}
+						iface.Methods = append(iface.Methods, method)
+					}
+				}
+			}
+
+			pkg.Interfaces = append(pkg.Interfaces, iface)
+		}
+	}
+}
+
+// extractParams extracts parameters from a field list.
+func extractParams(fl *ast.FieldList) []*Param {
+	if fl == nil {
+		return nil
+	}
+	var params []*Param
+	for _, f := range fl.List {
+		typeStr := exprString(f.Type)
+		if len(f.Names) == 0 {
+			// Unnamed parameter (common for return values)
+			params = append(params, &Param{Type: typeStr})
+		} else {
+			for _, name := range f.Names {
+				params = append(params, &Param{
+					Name: name.Name,
+					Type: typeStr,
+				})
+			}
+		}
+	}
+	return params
 }
 
 // GeneratedFile represents a file to be generated.
@@ -717,16 +795,17 @@ func (f GoFunc) PrintTo(g *GeneratedFile) {
 
 // Package represents a loaded Go package.
 type Package struct {
-	Name      string
-	PkgPath   string
-	Dir       string
-	GoFiles   []string
-	Fset      *token.FileSet
-	TypesPkg  *types.Package
-	TypesInfo *types.Info
-	Syntax    []*ast.File
-	Types     []*Type
-	Enums     []*Enum
+	Name       string
+	PkgPath    string
+	Dir        string
+	GoFiles    []string
+	Fset       *token.FileSet
+	TypesPkg   *types.Package
+	TypesInfo  *types.Info
+	Syntax     []*ast.File
+	Types      []*Type
+	Enums      []*Enum
+	Interfaces []*Interface
 }
 
 // GoImportPath returns the import path for this package.
@@ -780,6 +859,35 @@ type EnumValue struct {
 	Doc     string
 	Comment string
 	Pos     token.Position // source position
+}
+
+// Interface represents a Go interface declaration.
+type Interface struct {
+	Name    string
+	Doc     string
+	Pkg     *Package
+	Methods []*Method
+	Pos     token.Position // source position
+}
+
+// GoIdent returns the GoIdent for this interface.
+func (i *Interface) GoIdent() GoIdent {
+	return GoIdent{GoImportPath: i.Pkg.GoImportPath(), GoName: i.Name}
+}
+
+// Method represents an interface method.
+type Method struct {
+	Name    string
+	Doc     string
+	Params  []*Param // method parameters
+	Results []*Param // return values
+	Pos     token.Position
+}
+
+// Param represents a method parameter or return value.
+type Param struct {
+	Name string // parameter name (may be empty for returns)
+	Type string // type as string (e.g., "context.Context", "*User", "error")
 }
 
 // Helper functions

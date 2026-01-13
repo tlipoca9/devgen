@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 
 	convertgen "github.com/tlipoca9/devgen/cmd/convertgen/generator"
+	delegatorgen "github.com/tlipoca9/devgen/cmd/delegatorgen/generator"
 	enumgen "github.com/tlipoca9/devgen/cmd/enumgen/generator"
 	golangcilint "github.com/tlipoca9/devgen/cmd/golangcilint/generator"
 	validategen "github.com/tlipoca9/devgen/cmd/validategen/generator"
@@ -69,6 +70,7 @@ var builtinTools = []genkit.Tool{
 	enumgen.New(),
 	validategen.New(),
 	convertgen.New(),
+	delegatorgen.New(),
 	golangcilint.New(),
 }
 
