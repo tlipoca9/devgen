@@ -7,6 +7,7 @@ import (
 	"errors"
 	"go.opentelemetry.io/otel"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -73,9 +74,9 @@ type _testUserRepositoryCacheMock struct {
 	data     map[string]*_testUserRepositoryCachedResultMock
 	mu       sync.RWMutex
 	lockMu   sync.Mutex // separate lock for Lock method
-	getCalls int
-	setCalls int
-	delCalls int
+	getCalls atomic.Int64
+	setCalls atomic.Int64
+	delCalls atomic.Int64
 }
 
 func new_testUserRepositoryCacheMock() *_testUserRepositoryCacheMock {
@@ -85,7 +86,7 @@ func new_testUserRepositoryCacheMock() *_testUserRepositoryCacheMock {
 func (c *_testUserRepositoryCacheMock) Get(ctx context.Context, key string) (UserRepositoryCachedResult, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	c.getCalls++
+	c.getCalls.Add(1)
 	if v, ok := c.data[key]; ok {
 		return v, true
 	}
@@ -95,7 +96,7 @@ func (c *_testUserRepositoryCacheMock) Get(ctx context.Context, key string) (Use
 func (c *_testUserRepositoryCacheMock) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.setCalls++
+	c.setCalls.Add(1)
 	c.data[key] = &_testUserRepositoryCachedResultMock{
 		value:     value,
 		expiresAt: time.Now().Add(ttl),
@@ -107,7 +108,7 @@ func (c *_testUserRepositoryCacheMock) Set(ctx context.Context, key string, valu
 func (c *_testUserRepositoryCacheMock) SetError(ctx context.Context, key string, err error, ttl time.Duration) (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.setCalls++
+	c.setCalls.Add(1)
 	c.data[key] = &_testUserRepositoryCachedResultMock{
 		value:     err,
 		expiresAt: time.Now().Add(ttl),
@@ -119,7 +120,7 @@ func (c *_testUserRepositoryCacheMock) SetError(ctx context.Context, key string,
 func (c *_testUserRepositoryCacheMock) Delete(ctx context.Context, keys ...string) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.delCalls++
+	c.delCalls.Add(1)
 	for _, key := range keys {
 		delete(c.data, key)
 	}
@@ -229,7 +230,7 @@ func TestUserRepositoryCacheDelegator_GetByID_CacheMiss(t *testing.T) {
 	if base.calls["GetByID"] != 1 {
 		t.Errorf("expected base.GetByID to be called once, got %d", base.calls["GetByID"])
 	}
-	if cache.setCalls < 1 {
+	if cache.setCalls.Load() < 1 {
 		t.Error("expected cache.Set to be called")
 	}
 }
@@ -276,7 +277,7 @@ func TestUserRepositoryCacheDelegator_GetByID_AsyncRefresh(t *testing.T) {
 
 	// First call - populate cache
 	_, _ = svc.GetByID(context.Background(), "test")
-	initialSetCalls := cache.setCalls
+	initialSetCalls := cache.setCalls.Load()
 
 	// Simulate cache near expiry by setting expiresAt to near future
 	for k, v := range cache.data {
@@ -288,8 +289,8 @@ func TestUserRepositoryCacheDelegator_GetByID_AsyncRefresh(t *testing.T) {
 	_, _ = svc.GetByID(context.Background(), "test")
 
 	// Async refresh should have been triggered (runs synchronously in mock)
-	if cache.setCalls <= initialSetCalls {
-		t.Errorf("expected async refresh to update cache, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls)
+	if cache.setCalls.Load() <= initialSetCalls {
+		t.Errorf("expected async refresh to update cache, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls.Load())
 	}
 	// Base should be called twice: initial + refresh
 	if base.calls["GetByID"] != 2 {
@@ -305,7 +306,7 @@ func TestUserRepositoryCacheDelegator_GetByID_AsyncRefresh_Error(t *testing.T) {
 
 	// First call - populate cache
 	_, _ = svc.GetByID(context.Background(), "test")
-	initialSetCalls := cache.setCalls
+	initialSetCalls := cache.setCalls.Load()
 
 	// Simulate cache near expiry
 	for k, v := range cache.data {
@@ -327,8 +328,8 @@ func TestUserRepositoryCacheDelegator_GetByID_AsyncRefresh_Error(t *testing.T) {
 		t.Error("expected cached value to be returned")
 	}
 	// Cache should not be updated on refresh error
-	if cache.setCalls != initialSetCalls {
-		t.Errorf("expected cache not to be updated on refresh error, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls)
+	if cache.setCalls.Load() != initialSetCalls {
+		t.Errorf("expected cache not to be updated on refresh error, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls.Load())
 	}
 }
 
@@ -344,7 +345,7 @@ func TestUserRepositoryCacheDelegator_GetByEmail_CacheMiss(t *testing.T) {
 	if base.calls["GetByEmail"] != 1 {
 		t.Errorf("expected base.GetByEmail to be called once, got %d", base.calls["GetByEmail"])
 	}
-	if cache.setCalls < 1 {
+	if cache.setCalls.Load() < 1 {
 		t.Error("expected cache.Set to be called")
 	}
 }
@@ -391,7 +392,7 @@ func TestUserRepositoryCacheDelegator_GetByEmail_AsyncRefresh(t *testing.T) {
 
 	// First call - populate cache
 	_, _ = svc.GetByEmail(context.Background(), "test")
-	initialSetCalls := cache.setCalls
+	initialSetCalls := cache.setCalls.Load()
 
 	// Simulate cache near expiry by setting expiresAt to near future
 	for k, v := range cache.data {
@@ -403,8 +404,8 @@ func TestUserRepositoryCacheDelegator_GetByEmail_AsyncRefresh(t *testing.T) {
 	_, _ = svc.GetByEmail(context.Background(), "test")
 
 	// Async refresh should have been triggered (runs synchronously in mock)
-	if cache.setCalls <= initialSetCalls {
-		t.Errorf("expected async refresh to update cache, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls)
+	if cache.setCalls.Load() <= initialSetCalls {
+		t.Errorf("expected async refresh to update cache, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls.Load())
 	}
 	// Base should be called twice: initial + refresh
 	if base.calls["GetByEmail"] != 2 {
@@ -420,7 +421,7 @@ func TestUserRepositoryCacheDelegator_GetByEmail_AsyncRefresh_Error(t *testing.T
 
 	// First call - populate cache
 	_, _ = svc.GetByEmail(context.Background(), "test")
-	initialSetCalls := cache.setCalls
+	initialSetCalls := cache.setCalls.Load()
 
 	// Simulate cache near expiry
 	for k, v := range cache.data {
@@ -442,8 +443,8 @@ func TestUserRepositoryCacheDelegator_GetByEmail_AsyncRefresh_Error(t *testing.T
 		t.Error("expected cached value to be returned")
 	}
 	// Cache should not be updated on refresh error
-	if cache.setCalls != initialSetCalls {
-		t.Errorf("expected cache not to be updated on refresh error, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls)
+	if cache.setCalls.Load() != initialSetCalls {
+		t.Errorf("expected cache not to be updated on refresh error, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls.Load())
 	}
 }
 
@@ -459,7 +460,7 @@ func TestUserRepositoryCacheDelegator_List_CacheMiss(t *testing.T) {
 	if base.calls["List"] != 1 {
 		t.Errorf("expected base.List to be called once, got %d", base.calls["List"])
 	}
-	if cache.setCalls < 1 {
+	if cache.setCalls.Load() < 1 {
 		t.Error("expected cache.Set to be called")
 	}
 }
@@ -506,7 +507,7 @@ func TestUserRepositoryCacheDelegator_List_AsyncRefresh(t *testing.T) {
 
 	// First call - populate cache
 	_, _ = svc.List(context.Background(), 1, 1)
-	initialSetCalls := cache.setCalls
+	initialSetCalls := cache.setCalls.Load()
 
 	// Simulate cache near expiry by setting expiresAt to near future
 	for k, v := range cache.data {
@@ -518,8 +519,8 @@ func TestUserRepositoryCacheDelegator_List_AsyncRefresh(t *testing.T) {
 	_, _ = svc.List(context.Background(), 1, 1)
 
 	// Async refresh should have been triggered (runs synchronously in mock)
-	if cache.setCalls <= initialSetCalls {
-		t.Errorf("expected async refresh to update cache, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls)
+	if cache.setCalls.Load() <= initialSetCalls {
+		t.Errorf("expected async refresh to update cache, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls.Load())
 	}
 	// Base should be called twice: initial + refresh
 	if base.calls["List"] != 2 {
@@ -535,7 +536,7 @@ func TestUserRepositoryCacheDelegator_List_AsyncRefresh_Error(t *testing.T) {
 
 	// First call - populate cache
 	_, _ = svc.List(context.Background(), 1, 1)
-	initialSetCalls := cache.setCalls
+	initialSetCalls := cache.setCalls.Load()
 
 	// Simulate cache near expiry
 	for k, v := range cache.data {
@@ -557,8 +558,8 @@ func TestUserRepositoryCacheDelegator_List_AsyncRefresh_Error(t *testing.T) {
 		t.Error("expected cached value to be returned")
 	}
 	// Cache should not be updated on refresh error
-	if cache.setCalls != initialSetCalls {
-		t.Errorf("expected cache not to be updated on refresh error, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls)
+	if cache.setCalls.Load() != initialSetCalls {
+		t.Errorf("expected cache not to be updated on refresh error, setCalls: initial=%d, after=%d", initialSetCalls, cache.setCalls.Load())
 	}
 }
 
@@ -573,7 +574,7 @@ func TestUserRepositoryCacheDelegator_Save_CacheEvict(t *testing.T) {
 	if base.calls["Save"] != 1 {
 		t.Errorf("expected base.Save to be called once, got %d", base.calls["Save"])
 	}
-	if cache.delCalls < 1 {
+	if cache.delCalls.Load() < 1 {
 		t.Error("expected cache.Delete to be called")
 	}
 }
@@ -591,8 +592,8 @@ func TestUserRepositoryCacheDelegator_Save_CacheEvict_Error(t *testing.T) {
 		t.Error("expected error to be returned")
 	}
 	// Cache should not be deleted on error
-	if cache.delCalls != 0 {
-		t.Errorf("expected cache.Delete not to be called on error, got %d calls", cache.delCalls)
+	if cache.delCalls.Load() != 0 {
+		t.Errorf("expected cache.Delete not to be called on error, got %d calls", cache.delCalls.Load())
 	}
 }
 
@@ -607,7 +608,7 @@ func TestUserRepositoryCacheDelegator_Delete_CacheEvict(t *testing.T) {
 	if base.calls["Delete"] != 1 {
 		t.Errorf("expected base.Delete to be called once, got %d", base.calls["Delete"])
 	}
-	if cache.delCalls < 1 {
+	if cache.delCalls.Load() < 1 {
 		t.Error("expected cache.Delete to be called")
 	}
 }
@@ -625,8 +626,8 @@ func TestUserRepositoryCacheDelegator_Delete_CacheEvict_Error(t *testing.T) {
 		t.Error("expected error to be returned")
 	}
 	// Cache should not be deleted on error
-	if cache.delCalls != 0 {
-		t.Errorf("expected cache.Delete not to be called on error, got %d calls", cache.delCalls)
+	if cache.delCalls.Load() != 0 {
+		t.Errorf("expected cache.Delete not to be called on error, got %d calls", cache.delCalls.Load())
 	}
 }
 
