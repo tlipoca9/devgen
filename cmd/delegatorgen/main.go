@@ -19,6 +19,8 @@ var (
 	date    = "unknown"
 )
 
+var includeTests bool
+
 func main() {
 	if err := fang.Execute(context.Background(), rootCmd()); err != nil {
 		os.Exit(1)
@@ -36,7 +38,8 @@ func rootCmd() *cobra.Command {
 		Long:    `delegatorgen generates delegator code for Go interfaces annotated with delegatorgen:@delegator.`,
 		Version: fmt.Sprintf("%s (%s) %s", ver, commit, date),
 		Example: `  delegatorgen ./...              # all packages
-  delegatorgen ./pkg/user         # specific package`,
+  delegatorgen ./pkg/user         # specific package
+  delegatorgen --include-tests ./...  # with test files`,
 		Args: cobra.ArbitraryArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -46,6 +49,7 @@ func rootCmd() *cobra.Command {
 		},
 	}
 	cmd.SetVersionTemplate(fmt.Sprintf("delegatorgen %s (%s) %s\n", ver, commit, date))
+	cmd.Flags().BoolVar(&includeTests, "include-tests", false, "Also generate *_test.go files")
 
 	return cmd
 }
@@ -55,6 +59,7 @@ func run(_ *cobra.Command, args []string) error {
 
 	gen := genkit.New(genkit.Options{
 		IgnoreGeneratedFiles: true,
+		IncludeTests:         includeTests,
 	})
 	if err := gen.Load(args...); err != nil {
 		return fmt.Errorf("load: %w", err)

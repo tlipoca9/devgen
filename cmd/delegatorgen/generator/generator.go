@@ -82,6 +82,16 @@ func (g *Generator) ProcessPackage(gen *genkit.Generator, pkg *genkit.Package) e
 		}
 	}
 
+	// Generate test file if requested
+	if gen.IncludeTests() {
+		testPath := genkit.OutputPath(pkg.Dir, pkg.Name+"_delegator_test.go")
+		tg := gen.NewGeneratedFile(testPath, pkg.GoImportPath())
+		g.WriteTestHeader(tg, pkg.Name)
+		for _, iface := range ifaces {
+			g.GenerateDelegatorTest(tg, iface, pkg)
+		}
+	}
+
 	return nil
 }
 
