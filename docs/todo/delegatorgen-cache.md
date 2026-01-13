@@ -7,71 +7,174 @@
 ```go
 // delegatorgen:@cache                                     // 启用缓存（使用默认配置）
 // delegatorgen:@cache(ttl=5m)                             // 自定义 TTL
-// delegatorgen:@cache(key=user:{id})                      // 自定义 key 模板
+// delegatorgen:@cache(key="user:{id}")                    // 自定义 key 后缀（双引号）
+// delegatorgen:@cache(key='user:{id}')                    // 自定义 key 后缀（单引号）
+// delegatorgen:@cache(prefix="myapp:")                    // 自定义 key 前缀
+// delegatorgen:@cache(prefix="{INTERFACE}:", key="{id}")  // 组合使用
 // delegatorgen:@cache(ttl=5m, jitter=15)                  // 自定义 jitter（±15%）
 // delegatorgen:@cache(ttl=5m, refresh=30)                 // TTL 剩余 30% 时异步刷新
 // delegatorgen:@cache(ttl=5m, refresh=0)                  // 禁用异步刷新
-// delegatorgen:@cache(null=ErrNotFound)                   // 缓存特定错误（空值缓存）
-// delegatorgen:@cache(null=ErrNotFound|ErrDeleted)        // 缓存多个错误
-// delegatorgen:@cache(null=ErrNotFound, null_ttl=10)      // 空值 TTL = 正常 TTL 的 10%（覆盖默认 20%）
-// delegatorgen:@cache_evict(key=user:{id})             // 驱逐单个 key
-// delegatorgen:@cache_evict(keys=user:{id},user:list)  // 驱逐多个 key（key 和 keys 互斥，只能用一个）
+
+// delegatorgen:@cache_evict(key="user:{id}")                  // 驱逐单个 key
+// delegatorgen:@cache_evict(keys="user:{id},user:list:{id}")  // 驱逐多个 key（逗号分隔需要引号包裹）
 ```
 
-### 1.1 注解参数
+### 1.1 注解参数语法
+
+参数值支持以下格式：
+- **无引号**：`key=value`（值中不能包含 `,` `=` `)` 等特殊字符）
+- **双引号**：`key="value"`（值中可包含特殊字符，`"` 需转义为 `\"`）
+- **单引号**：`key='value'`（值中可包含特殊字符，`'` 需转义为 `\'`）
+
+```go
+// 简单值（无特殊字符）可省略引号
+// delegatorgen:@cache(ttl=5m, key={id})
+
+// 包含逗号的值必须用引号
+// delegatorgen:@cache_evict(keys="user:{id},list:{id}")
+
+// 包含等号的值必须用引号
+// delegatorgen:@cache(key="type=user:id={id}")
+
+// 单引号和双引号等效
+// delegatorgen:@cache(key='user:{id}')
+// delegatorgen:@cache(key="user:{id}")
+```
+
+### 1.2 注解参数
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
 | `ttl` | 缓存过期时间 | `5m` |
-| `key` | 缓存 key 后缀模板（前缀固定为 `{import路径}:{接口名}:`） | `{方法名}:base64(json(参数))` |
+| `prefix` | 缓存 key 前缀模板 | `{PKG}:{INTERFACE}:` |
+| `key` | 缓存 key 后缀模板 | `{METHOD}:{base64_json()}` |
 | `jitter` | TTL 抖动百分比 | `10`（±10%） |
 | `refresh` | 异步刷新阈值百分比 | `20`（TTL 剩余 20% 时刷新），设为 `0` 禁用 |
-| `null` | 缓存的错误类型 | 无 |
-| `null_ttl` | 空值 TTL 百分比 | `20`（正常 TTL 的 20%） |
 
-### 1.2 Key 生成规则
+### 1.3 Key 生成规则
 
-Key 由两部分组成：**固定前缀** + **可配置后缀**
+Key 由两部分组成：**前缀（prefix）** + **后缀（key）**
 
-#### 固定前缀（不可配置）
+完整 key = `prefix` + `key`
 
-```
-{完整包import路径}:{接口名}:
-```
+#### 默认值
 
-例如：`github.com/myapp/user:UserRepository:`
+| 部分 | 默认模板 | 示例结果 |
+|------|----------|----------|
+| `prefix` | `{PKG}:{INTERFACE}:` | `github.com/myapp/user:UserRepository:` |
+| `key` | `{METHOD}:{base64_json()}` | `GetByID:eyJpZCI6IjEyMyJ9` |
 
-#### 后缀（可配置）
+### 1.4 模板语法
 
-| 配置方式 | 说明 | 示例 |
-|----------|------|------|
-| 默认 | `{方法名}:base64(json(参数))` | `GetByID:eyJpZCI6IjEyMyJ9` |
-| `key=` | 自定义模板 | `key={id}` → `123` |
+#### 内置变量
 
-#### 完整示例
+| 变量 | 说明 | 示例值 |
+|------|------|--------|
+| `{PKG}` | 完整包 import 路径 | `github.com/myapp/user` |
+| `{INTERFACE}` | 接口名 | `UserRepository` |
+| `{METHOD}` | 方法名 | `GetByID` |
+
+#### 参数引用
+
+| 语法 | 说明 | 示例 |
+|------|------|------|
+| `{param}` | 引用方法参数 | `{id}` → `123` |
+| `{param.Field}` | 引用参数的字段（支持嵌套） | `{user.ID}` → `user123` |
+
+#### 内置函数
+
+| 函数 | 说明 |
+|------|------|
+| `{base64_json(...)}` | 将参数 JSON 序列化后 Base64 编码 |
+
+**`base64_json` 函数参数说明**：
 
 ```go
-// 默认 key（无 key= 参数）
+// 方法签名：GetByID(ctx context.Context, id string) (*User, error)
+
+// 使用所有非 context 参数（推荐用于默认 key）
+{base64_json()}
+// 生成代码：base64JSONEncode(id)
+// 结果：eyJpZCI6IjEyMyJ9
+
+// 指定单个参数
+{base64_json(id)}
+// 生成代码：base64JSONEncode(id)
+
+// 指定多个参数
+{base64_json(id, name)}
+// 生成代码：base64JSONEncode(id, name)
+```
+
+**多参数方法示例**：
+
+```go
+// 方法签名：List(ctx context.Context, tenantID string, filter *Filter, page int) ([]*User, error)
+
+// 默认 key 使用 base64_json() 包含所有非 context 参数
+// delegatorgen:@cache
+// base64_json() → base64JSONEncode(tenantID, filter, page)
+// 结果：eyJ0ZW5hbnRJRCI6InQxIiwiZmlsdGVyIjp7InN0YXR1cyI6ImFjdGl2ZSJ9LCJwYWdlIjoxfQ==
+
+// 只使用部分参数
+// delegatorgen:@cache(key="{METHOD}:{tenantID}:{base64_json(filter)}")
+// 结果：List:t1:eyJzdGF0dXMiOiJhY3RpdmUifQ==
+
+// 组合使用
+// delegatorgen:@cache(key="{tenantID}:{page}:{base64_json(filter)}")
+// 结果：t1:1:eyJzdGF0dXMiOiJhY3RpdmUifQ==
+```
+
+**生成的辅助函数**：
+
+```go
+// base64JSONEncode 将参数 JSON 序列化后 Base64 编码
+func base64JSONEncode(args ...any) (string, error) {
+    var data []byte
+    var err error
+    if len(args) == 1 {
+        data, err = json.Marshal(args[0])
+    } else {
+        data, err = json.Marshal(args)
+    }
+    if err != nil {
+        return "", err
+    }
+    return base64.StdEncoding.EncodeToString(data), nil
+}
+```
+
+### 1.5 Key 示例
+
+```go
+// 默认 key（使用默认 prefix 和 key）
 // delegatorgen:@cache(ttl=5m)
 // → github.com/myapp/user:UserRepository:GetByID:eyJpZCI6IjEyMyJ9
 
 // 自定义后缀
-// delegatorgen:@cache(ttl=5m, key={id})
+// delegatorgen:@cache(ttl=5m, key="{id}")
 // → github.com/myapp/user:UserRepository:123
 
+// 自定义前缀
+// delegatorgen:@cache(ttl=5m, prefix="myapp:user:")
+// → myapp:user:GetByID:eyJpZCI6IjEyMyJ9
+
+// 自定义前缀（使用内置变量）
+// delegatorgen:@cache(ttl=5m, prefix="{INTERFACE}:")
+// → UserRepository:GetByID:eyJpZCI6IjEyMyJ9
+
+// 完全自定义
+// delegatorgen:@cache(ttl=5m, prefix="cache:", key="user:{id}")
+// → cache:user:123
+
 // 复杂模板
-// delegatorgen:@cache(ttl=5m, key={user.TenantID}:{user.ID})
+// delegatorgen:@cache(ttl=5m, key="{user.TenantID}:{user.ID}")
 // → github.com/myapp/user:UserRepository:tenant1:user123
+
+// 使用 base64_json 函数
+// delegatorgen:@cache(ttl=5m, key="{METHOD}:{base64_json(id, filter)}")
+// → github.com/myapp/user:UserRepository:List:eyJpZCI6IjEiLCJmaWx0ZXIiOnsic3RhdHVzIjoiYWN0aXZlIn19
 ```
-
-#### 模板语法
-
-- `{param}` - 引用方法参数
-- `{param.Field}` - 引用参数的字段（支持嵌套）
-
-### 1.3 空值缓存
-
-通过 `null` 参数指定需要缓存的错误类型，防止缓存穿透。空值 TTL 默认为正常 TTL 的 20%，可通过 `null_ttl` 自定义。
 
 ---
 
@@ -81,7 +184,7 @@ Key 由两部分组成：**固定前缀** + **可配置后缀**
 |------|------|--------|----------|
 | **Jitter** | TTL 抖动，防止缓存雪崩 | ±10% | 始终启用 |
 | **异步刷新** | TTL 剩余一定比例时异步刷新，避免请求阻塞 | 20% | Cache 实现了 `CacheAsyncExecutor` 接口 |
-| **空值缓存** | 缓存特定错误，防止缓存穿透 | TTL 的 20% | 注解指定 `null=` 参数 |
+| **错误缓存** | 缓存特定错误，防止缓存穿透 | - | Cache 实现了 `SetError` 方法并返回需要缓存 |
 | **分布式锁** | 缓存未命中时加锁，防止缓存击穿 | - | Cache 实现了 `CacheLocker` 接口 |
 
 ### 2.1 能力自动检测
@@ -111,11 +214,12 @@ if executor, ok := cache.(CacheAsyncExecutor); ok {
 // Users must implement this interface to integrate with their cache library.
 type CachedResult interface {
 	// Value returns the cached data.
+	// If IsError() returns true, this returns the cached error.
 	Value() any
 	// ExpiresAt returns the expiration time (used for async refresh decision).
 	ExpiresAt() time.Time
-	// IsNull returns true if this is a null-value cache entry (for cache penetration prevention).
-	IsNull() bool
+	// IsError returns true if this is an error cache entry (for cache penetration prevention).
+	IsError() bool
 }
 ```
 
@@ -128,15 +232,34 @@ type CachedResult interface {
 type Cache interface {
 	// Get retrieves cached result by key.
 	// Returns the cached result and whether the key was found.
+	// If the cached result is an error (IsError() == true), the delegator will
+	// return Value().(error) directly without calling the downstream.
 	Get(ctx context.Context, key string) (result CachedResult, ok bool)
 
 	// Set stores a value with the given TTL.
 	// Implementation should wrap value into CachedResult with ExpiresAt = time.Now().Add(ttl).
 	Set(ctx context.Context, key string, value any, ttl time.Duration) error
 
-	// SetNull stores a null-value cache entry with the given TTL.
-	// Used for cache penetration prevention.
-	SetNull(ctx context.Context, key string, ttl time.Duration) error
+	// SetError decides whether to cache an error and stores it if needed.
+	// This method gives full control to the user to decide:
+	//   1. Whether this error should be cached (return shouldCache=false to skip)
+	//   2. What TTL to use for the error cache
+	//   3. How to serialize/store the error
+	//
+	// Common use cases:
+	//   - Cache ErrNotFound with short TTL to prevent cache penetration
+	//   - Skip caching transient errors (network timeout, rate limit, etc.)
+	//   - Use different TTLs for different error types
+	//
+	// Parameters:
+	//   - key: the cache key
+	//   - err: the error returned by downstream
+	//   - ttl: the suggested TTL (same as normal cache TTL, user can override)
+	//
+	// Returns:
+	//   - shouldCache: true if the error was cached, false if skipped
+	//   - cacheErr: any error that occurred during caching (nil if successful or skipped)
+	SetError(ctx context.Context, key string, err error, ttl time.Duration) (shouldCache bool, cacheErr error)
 
 	// Delete removes one or more keys from the cache.
 	Delete(ctx context.Context, keys ...string) error
@@ -145,7 +268,10 @@ type Cache interface {
 
 > **设计说明**：
 > - `CachedResult` 为接口：用户可自定义实现，灵活适配不同缓存库
-> - `Set` 和 `SetNull` 分离：语义更清晰，避免混淆
+> - `SetError` 替代 `SetNull`：将错误缓存的决策权完全交给用户
+>   - 用户决定哪些错误需要缓存（如 `ErrNotFound`）
+>   - 用户决定错误缓存的 TTL（可以比正常 TTL 短）
+>   - 用户决定如何序列化错误（可以只存储错误类型标识）
 > - 类型断言：`Get` 返回后通过 `result.Value().(*User)` 获取实际数据
 > - 序列化由实现决定：Cache 实现自行处理序列化（JSON、Gob、Protobuf 等）
 
@@ -232,21 +358,27 @@ func newUserRepositoryCacheDelegator(next UserRepository, cache Cache) *userRepo
 ### 4.3 方法实现示例
 
 ```go
-// GetByID: @cache(ttl=5m, jitter=10, refresh=20, null=ErrNotFound, null_ttl=20)
+// GetByID: @cache(ttl=5m, jitter=10, refresh=20)
 func (m *userRepositoryCacheDelegator) GetByID(ctx context.Context, id string) (*User, error) {
 	// 编译时常量（从注解生成）
 	const baseTTL = 5 * time.Minute
 	const jitterPercent = 10
 	const refreshPercent = 20
-	const nullTTLPercent = 20
 
-	key := m.buildGetByIDKey(id)
+	key, err := m.buildGetByIDKey(id)
+	if err != nil {
+		return nil, fmt.Errorf("build cache key: %w", err)
+	}
 
 	// 缓存命中检查
 	if res, ok := m.cache.Get(ctx, key); ok {
-		// 检查是否为空值缓存
-		if res.IsNull() {
-			return nil, ErrNotFound // 返回注解中定义的错误
+		// 检查是否为错误缓存
+		if res.IsError() {
+			if err, ok := res.Value().(error); ok {
+				return nil, err
+			}
+			// 类型不匹配，视为缓存未命中
+			goto cacheMiss
 		}
 
 		// 类型断言获取实际数据
@@ -282,10 +414,11 @@ cacheMiss:
 			defer release()
 			// Double-check
 			if res, ok := m.cache.Get(ctx, key); ok {
-				if res.IsNull() {
-					return nil, ErrNotFound
-				}
-				if value, ok := res.Value().(*User); ok {
+				if res.IsError() {
+					if err, ok := res.Value().(error); ok {
+						return nil, err
+					}
+				} else if value, ok := res.Value().(*User); ok {
 					return value, nil
 				}
 			}
@@ -299,11 +432,8 @@ cacheMiss:
 	ttl := calculateTTL(baseTTL, jitterPercent)
 
 	if err != nil {
-		// 空值缓存（从注解生成的错误检查）
-		if errors.Is(err, ErrNotFound) {
-			nullTTL := calculateTTL(baseTTL*nullTTLPercent/100, jitterPercent)
-			m.cache.SetNull(ctx, key, nullTTL)
-		}
+		// 错误缓存：由用户实现决定是否缓存此错误
+		m.cache.SetError(ctx, key, err, ttl)
 		return nil, err
 	}
 
@@ -369,15 +499,35 @@ func (m *userRepositoryCacheDelegator) Delete(ctx context.Context, id string) er
 	return err
 }
 
-func (m *userRepositoryCacheDelegator) buildGetByIDKey(id string) string {
-	// 固定前缀：{import路径}:{接口名}:
+func (m *userRepositoryCacheDelegator) buildGetByIDKey(id string) (string, error) {
+	// 前缀（从注解 prefix 参数生成，默认为 {PKG}:{INTERFACE}:）
 	const prefix = "github.com/myapp/user:UserRepository:"
 
-	// 默认后缀：{方法名}:base64(json(参数))
-	data, _ := json.Marshal([]any{id})
-	suffix := "GetByID:" + base64.StdEncoding.EncodeToString(data)
+	// 后缀（从注解 key 参数生成，默认为 {METHOD}:{base64_json()}）
+	// base64_json() 无参数时，自动包含所有非 context 参数
+	encoded, err := base64JSONEncode(id)
+	if err != nil {
+		return "", fmt.Errorf("failed to encode cache key: %w", err)
+	}
+	suffix := "GetByID:" + encoded
 
-	return prefix + suffix
+	return prefix + suffix, nil
+}
+
+// base64JSONEncode 将参数 JSON 序列化后 Base64 编码
+// 单个参数时直接序列化，多个参数时序列化为数组
+func base64JSONEncode(args ...any) (string, error) {
+	var data []byte
+	var err error
+	if len(args) == 1 {
+		data, err = json.Marshal(args[0])
+	} else {
+		data, err = json.Marshal(args)
+	}
+	if err != nil {
+		return "", err
+	}
+	return base64.StdEncoding.EncodeToString(data), nil
 }
 
 func calculateTTL(baseTTL time.Duration, jitterPercent int) time.Duration {
@@ -395,7 +545,7 @@ func calculateTTL(baseTTL time.Duration, jitterPercent int) time.Duration {
 
 ## 五、用户适配示例
 
-### 5.1 简单 Redis 缓存（只有基础功能）
+### 5.1 简单 Redis 缓存（不缓存错误）
 
 ```go
 package adapters
@@ -412,22 +562,22 @@ import (
 type cachedResult struct {
 	data      any
 	expiresAt time.Time
-	isNull    bool
+	isError   bool
 }
 
-func (r *cachedResult) Value() any         { return r.data }
+func (r *cachedResult) Value() any           { return r.data }
 func (r *cachedResult) ExpiresAt() time.Time { return r.expiresAt }
-func (r *cachedResult) IsNull() bool       { return r.isNull }
+func (r *cachedResult) IsError() bool        { return r.isError }
 
 // cachedResultJSON 用于 JSON 序列化
 type cachedResultJSON struct {
 	Data      json.RawMessage `json:"data,omitempty"`
 	ExpiresAt time.Time       `json:"expires_at"`
-	IsNull    bool            `json:"is_null,omitempty"`
+	IsError   bool            `json:"is_error,omitempty"`
+	ErrorMsg  string          `json:"error_msg,omitempty"` // 用于存储错误信息
 }
 
-// SimpleRedisCache 只实现基础缓存接口。
-// 不支持分布式锁和异步刷新。
+// SimpleRedisCache 只实现基础缓存接口，不缓存任何错误。
 type SimpleRedisCache struct {
 	client redis.UniversalClient
 }
@@ -450,7 +600,7 @@ func (c *SimpleRedisCache) Get(ctx context.Context, key string) (CachedResult, b
 	return &cachedResult{
 		data:      stored.Data, // 保持为 json.RawMessage，由调用方解析
 		expiresAt: stored.ExpiresAt,
-		isNull:    stored.IsNull,
+		isError:   stored.IsError,
 	}, true
 }
 
@@ -472,17 +622,9 @@ func (c *SimpleRedisCache) Set(ctx context.Context, key string, value any, ttl t
 	return c.client.Set(ctx, key, data, ttl).Err()
 }
 
-func (c *SimpleRedisCache) SetNull(ctx context.Context, key string, ttl time.Duration) error {
-	stored := cachedResultJSON{
-		ExpiresAt: time.Now().Add(ttl),
-		IsNull:    true,
-	}
-
-	data, err := json.Marshal(stored)
-	if err != nil {
-		return err
-	}
-	return c.client.Set(ctx, key, data, ttl).Err()
+// SetError 不缓存任何错误
+func (c *SimpleRedisCache) SetError(ctx context.Context, key string, err error, ttl time.Duration) (bool, error) {
+	return false, nil // 不缓存错误
 }
 
 func (c *SimpleRedisCache) Delete(ctx context.Context, keys ...string) error {
@@ -493,7 +635,7 @@ func (c *SimpleRedisCache) Delete(ctx context.Context, keys ...string) error {
 }
 ```
 
-### 5.2 完整 Redis 缓存（支持所有高级功能）
+### 5.2 支持错误缓存的 Redis 实现
 
 ```go
 package adapters
@@ -501,24 +643,176 @@ package adapters
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
-// AdvancedRedisCache 实现完整的缓存接口，包括分布式锁和异步执行。
-// 通过实现 CacheLocker 和 CacheAsyncExecutor 接口，自动启用高级功能。
-type AdvancedRedisCache struct {
-	client    redis.UniversalClient
-	lockTTL   time.Duration
-	taskQueue chan func()
+// 定义需要缓存的错误
+var (
+	ErrNotFound = errors.New("not found")
+	ErrDeleted  = errors.New("deleted")
+)
+
+// ErrorCachingRedisCache 支持错误缓存的 Redis 实现
+type ErrorCachingRedisCache struct {
+	client       redis.UniversalClient
+	errorTTLRate float64 // 错误 TTL 相对于正常 TTL 的比例，如 0.2 表示 20%
 }
 
-func NewAdvancedRedisCache(client redis.UniversalClient, lockTTL time.Duration, workers, queueSize int) *AdvancedRedisCache {
+func NewErrorCachingRedisCache(client redis.UniversalClient, errorTTLRate float64) *ErrorCachingRedisCache {
+	if errorTTLRate <= 0 {
+		errorTTLRate = 0.2 // 默认 20%
+	}
+	return &ErrorCachingRedisCache{
+		client:       client,
+		errorTTLRate: errorTTLRate,
+	}
+}
+
+func (c *ErrorCachingRedisCache) Get(ctx context.Context, key string) (CachedResult, bool) {
+	val, err := c.client.Get(ctx, key).Result()
+	if err != nil {
+		return nil, false
+	}
+
+	var stored cachedResultJSON
+	if err := json.Unmarshal([]byte(val), &stored); err != nil {
+		return nil, false
+	}
+
+	result := &cachedResult{
+		expiresAt: stored.ExpiresAt,
+		isError:   stored.IsError,
+	}
+
+	if stored.IsError {
+		// 根据错误消息还原错误
+		result.data = c.restoreError(stored.ErrorMsg)
+	} else {
+		result.data = stored.Data
+	}
+
+	return result, true
+}
+
+func (c *ErrorCachingRedisCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
+	dataBytes, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+
+	stored := cachedResultJSON{
+		Data:      dataBytes,
+		ExpiresAt: time.Now().Add(ttl),
+	}
+
+	data, err := json.Marshal(stored)
+	if err != nil {
+		return err
+	}
+	return c.client.Set(ctx, key, data, ttl).Err()
+}
+
+// SetError 决定是否缓存错误
+func (c *ErrorCachingRedisCache) SetError(ctx context.Context, key string, err error, ttl time.Duration) (bool, error) {
+	// 只缓存特定的错误类型
+	if !c.shouldCacheError(err) {
+		return false, nil
+	}
+
+	// 使用较短的 TTL
+	errorTTL := time.Duration(float64(ttl) * c.errorTTLRate)
+
+	stored := cachedResultJSON{
+		ExpiresAt: time.Now().Add(errorTTL),
+		IsError:   true,
+		ErrorMsg:  c.errorToString(err),
+	}
+
+	data, jsonErr := json.Marshal(stored)
+	if jsonErr != nil {
+		return false, jsonErr
+	}
+
+	if setErr := c.client.Set(ctx, key, data, errorTTL).Err(); setErr != nil {
+		return false, setErr
+	}
+
+	return true, nil
+}
+
+// shouldCacheError 决定哪些错误需要缓存
+func (c *ErrorCachingRedisCache) shouldCacheError(err error) bool {
+	// 只缓存 "not found" 类型的错误，防止缓存穿透
+	return errors.Is(err, ErrNotFound) || errors.Is(err, ErrDeleted)
+}
+
+// errorToString 将错误转换为可存储的字符串
+func (c *ErrorCachingRedisCache) errorToString(err error) string {
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return "not_found"
+	case errors.Is(err, ErrDeleted):
+		return "deleted"
+	default:
+		return err.Error()
+	}
+}
+
+// restoreError 从字符串还原错误
+func (c *ErrorCachingRedisCache) restoreError(msg string) error {
+	switch msg {
+	case "not_found":
+		return ErrNotFound
+	case "deleted":
+		return ErrDeleted
+	default:
+		return errors.New(msg)
+	}
+}
+
+func (c *ErrorCachingRedisCache) Delete(ctx context.Context, keys ...string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	return c.client.Del(ctx, keys...).Err()
+}
+```
+
+### 5.3 完整 Redis 缓存（支持所有高级功能）
+
+```go
+package adapters
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"time"
+
+	"github.com/redis/go-redis/v9"
+)
+
+// AdvancedRedisCache 实现完整的缓存接口，包括分布式锁、异步执行和错误缓存。
+type AdvancedRedisCache struct {
+	client       redis.UniversalClient
+	lockTTL      time.Duration
+	taskQueue    chan func()
+	errorTTLRate float64
+}
+
+func NewAdvancedRedisCache(client redis.UniversalClient, lockTTL time.Duration, workers, queueSize int, errorTTLRate float64) *AdvancedRedisCache {
+	if errorTTLRate <= 0 {
+		errorTTLRate = 0.2
+	}
+
 	c := &AdvancedRedisCache{
-		client:    client,
-		lockTTL:   lockTTL,
-		taskQueue: make(chan func(), queueSize),
+		client:       client,
+		lockTTL:      lockTTL,
+		taskQueue:    make(chan func(), queueSize),
+		errorTTLRate: errorTTLRate,
 	}
 
 	// 启动 worker goroutines
@@ -558,11 +852,18 @@ func (c *AdvancedRedisCache) Get(ctx context.Context, key string) (CachedResult,
 		return nil, false
 	}
 
-	return &cachedResult{
-		data:      stored.Data,
+	result := &cachedResult{
 		expiresAt: stored.ExpiresAt,
-		isNull:    stored.IsNull,
-	}, true
+		isError:   stored.IsError,
+	}
+
+	if stored.IsError {
+		result.data = c.restoreError(stored.ErrorMsg)
+	} else {
+		result.data = stored.Data
+	}
+
+	return result, true
 }
 
 func (c *AdvancedRedisCache) Set(ctx context.Context, key string, value any, ttl time.Duration) error {
@@ -583,17 +884,55 @@ func (c *AdvancedRedisCache) Set(ctx context.Context, key string, value any, ttl
 	return c.client.Set(ctx, key, data, ttl).Err()
 }
 
-func (c *AdvancedRedisCache) SetNull(ctx context.Context, key string, ttl time.Duration) error {
-	stored := cachedResultJSON{
-		ExpiresAt: time.Now().Add(ttl),
-		IsNull:    true,
+func (c *AdvancedRedisCache) SetError(ctx context.Context, key string, err error, ttl time.Duration) (bool, error) {
+	if !c.shouldCacheError(err) {
+		return false, nil
 	}
 
-	data, err := json.Marshal(stored)
-	if err != nil {
-		return err
+	errorTTL := time.Duration(float64(ttl) * c.errorTTLRate)
+
+	stored := cachedResultJSON{
+		ExpiresAt: time.Now().Add(errorTTL),
+		IsError:   true,
+		ErrorMsg:  c.errorToString(err),
 	}
-	return c.client.Set(ctx, key, data, ttl).Err()
+
+	data, jsonErr := json.Marshal(stored)
+	if jsonErr != nil {
+		return false, jsonErr
+	}
+
+	if setErr := c.client.Set(ctx, key, data, errorTTL).Err(); setErr != nil {
+		return false, setErr
+	}
+
+	return true, nil
+}
+
+func (c *AdvancedRedisCache) shouldCacheError(err error) bool {
+	return errors.Is(err, ErrNotFound) || errors.Is(err, ErrDeleted)
+}
+
+func (c *AdvancedRedisCache) errorToString(err error) string {
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return "not_found"
+	case errors.Is(err, ErrDeleted):
+		return "deleted"
+	default:
+		return err.Error()
+	}
+}
+
+func (c *AdvancedRedisCache) restoreError(msg string) error {
+	switch msg {
+	case "not_found":
+		return ErrNotFound
+	case "deleted":
+		return ErrDeleted
+	default:
+		return errors.New(msg)
+	}
 }
 
 func (c *AdvancedRedisCache) Delete(ctx context.Context, keys ...string) error {
@@ -638,19 +977,31 @@ func (c *AdvancedRedisCache) Close() {
 
 ## 六、使用示例
 
-### 6.1 简单使用（只有基础缓存）
+### 6.1 简单使用（不缓存错误）
 
 ```go
-// 创建简单缓存
+// 创建简单缓存（不缓存任何错误）
 cache := adapters.NewSimpleRedisCache(redisClient)
 
-// 组装委托器 - 只有基础缓存功能
+// 组装委托器
 repo := user.NewUserRepositoryDelegator(baseRepo).
 	WithCache(cache).
 	Build()
 ```
 
-### 6.2 完整使用（所有高级功能）
+### 6.2 缓存特定错误（防止缓存穿透）
+
+```go
+// 创建支持错误缓存的实现（错误 TTL = 正常 TTL 的 20%）
+cache := adapters.NewErrorCachingRedisCache(redisClient, 0.2)
+
+// 组装委托器
+repo := user.NewUserRepositoryDelegator(baseRepo).
+	WithCache(cache).
+	Build()
+```
+
+### 6.3 完整使用（所有高级功能）
 
 ```go
 // 创建高级缓存（实现了 CacheLocker 和 CacheAsyncExecutor）
@@ -659,6 +1010,7 @@ cache := adapters.NewAdvancedRedisCache(
 	10*time.Second, // lock TTL
 	10,             // workers
 	1000,           // queue size
+	0.2,            // error TTL rate
 )
 defer cache.Close()
 
@@ -685,36 +1037,44 @@ func (g *Generator) Config() genkit.ToolConfig {
 用法：
   // delegatorgen:@cache                                     // 启用（默认配置）
   // delegatorgen:@cache(ttl=10m)                            // 自定义 TTL
-  // delegatorgen:@cache(key=user:{id})                      // 自定义 key 模板
+  // delegatorgen:@cache(key=user:{id})                      // 自定义 key 后缀
+  // delegatorgen:@cache(prefix=myapp:)                      // 自定义 key 前缀
   // delegatorgen:@cache(ttl=5m, jitter=15)                  // 自定义 jitter（±15%）
   // delegatorgen:@cache(ttl=5m, refresh=30)                 // TTL 剩余 30% 时异步刷新
   // delegatorgen:@cache(ttl=5m, refresh=0)                  // 禁用异步刷新
-  // delegatorgen:@cache(null=ErrNotFound)                   // 缓存特定错误
-  // delegatorgen:@cache(null=ErrNotFound, null_ttl=10)      // 空值 TTL = 正常 TTL 的 10%
 
-默认 Key 生成：
-  前缀（固定）：{完整包import路径}:{接口名}:
-  后缀（默认）：{方法名}:base64(json(参数))
+Key 生成：
+  完整 key = prefix + key
+  默认 prefix：{PKG}:{INTERFACE}:
+  默认 key：{METHOD}:{base64_json(ARGS)}
   例如：github.com/myapp/user:UserRepository:GetByID:eyJpZCI6IjEyMyJ9
 
-自定义 Key 后缀（key= 参数只配置后缀部分）：
+内置变量：
+  {PKG}       - 完整包 import 路径
+  {INTERFACE} - 接口名
+  {METHOD}    - 方法名
+  {ARGS}      - 所有参数（用于函数调用）
+
+参数引用：
   {param}       - 引用方法参数
   {param.Field} - 引用参数的字段
-  例如：key={id} → github.com/myapp/user:UserRepository:123
+
+内置函数：
+  {base64_json(ARGS)}      - 所有参数 JSON+Base64
+  {base64_json(p1, p2)}    - 指定参数 JSON+Base64
 
 高级特性（自动检测启用）：
   - Jitter: TTL 抖动，防止缓存雪崩（默认 ±10%）
   - 异步刷新: Cache 实现 CacheAsyncExecutor 接口时自动启用
-  - 空值缓存: 注解指定 null= 参数时启用，防止缓存穿透
+  - 错误缓存: Cache.SetError() 方法决定是否缓存错误，防止缓存穿透
   - 分布式锁: Cache 实现 CacheLocker 接口时自动启用，防止缓存击穿`,
 				Params: &genkit.AnnotationParams{
 					Docs: map[string]string{
-						"key":      "缓存 key 后缀模板（前缀固定为 {import路径}:{接口名}:）",
-						"ttl":      "缓存过期时间（如 5m, 1h，默认 5m）",
-						"jitter":   "TTL 抖动百分比（默认 10，即 ±10%）",
-						"refresh":  "异步刷新阈值百分比（默认 20，设为 0 禁用）",
-						"null":     "需要缓存的错误类型（用 | 分隔多个错误）",
-						"null_ttl": "空值 TTL 百分比（默认 20，即正常 TTL 的 20%）",
+						"prefix":  "缓存 key 前缀模板（默认 {PKG}:{INTERFACE}:）",
+						"key":     "缓存 key 后缀模板（默认 {METHOD}:{base64_json(ARGS)}）",
+						"ttl":     "缓存过期时间（如 5m, 1h，默认 5m）",
+						"jitter":  "TTL 抖动百分比（默认 10，即 ±10%）",
+						"refresh": "异步刷新阈值百分比（默认 20，设为 0 禁用）",
 					},
 				},
 			},
