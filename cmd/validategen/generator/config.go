@@ -151,7 +151,11 @@ func Config() genkit.ToolConfig {
 
 用法：在字段上方添加注解
   // validategen:@oneof(pending active completed)
-  Status string`,
+  Status string
+
+允许空字符串：使用 __EMPTY__ 占位符
+  // validategen:@oneof(admin, user, guest, __EMPTY__)
+  Role string`,
 				Params: &genkit.AnnotationParams{Type: "list", Placeholder: "value1 value2 ..."},
 			},
 			{

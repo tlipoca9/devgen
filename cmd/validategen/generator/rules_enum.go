@@ -8,6 +8,9 @@ import (
 	"github.com/tlipoca9/devgen/genkit"
 )
 
+// EmptyPlaceholder is the placeholder for empty string in @oneof values.
+const EmptyPlaceholder = "__EMPTY__"
+
 func init() {
 	DefaultRegistry.Register("oneof", PriorityEquality+2, func() Rule { return &OneofRule{} })
 	DefaultRegistry.Register("oneof_enum", PriorityEquality+3, func() Rule { return &OneofEnumRule{} })
@@ -36,8 +39,15 @@ func (r *OneofRule) Generate(ctx *GenerateContext) {
 
 	if IsStringType(fieldType) {
 		var quoted []string
+		var display []string
 		for _, v := range cleanValues {
-			quoted = append(quoted, fmt.Sprintf("%q", v))
+			if v == EmptyPlaceholder {
+				quoted = append(quoted, `""`)
+				display = append(display, "(empty)")
+			} else {
+				quoted = append(quoted, fmt.Sprintf("%q", v))
+				display = append(display, v)
+			}
 		}
 		g.P("if !func() bool {")
 		g.P("for _, v := range []string{", strings.Join(quoted, ", "), "} {")
@@ -45,7 +55,7 @@ func (r *OneofRule) Generate(ctx *GenerateContext) {
 		g.P("}")
 		g.P("return false")
 		g.P("}() {")
-		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be one of [", strings.Join(cleanValues, ", "), "], got %q\", x.", fieldName, "))")
+		g.P("errs = append(errs, ", fmtSprintf, "(\"", fieldName, " must be one of [", strings.Join(display, ", "), "], got %q\", x.", fieldName, "))")
 		g.P("}")
 	} else {
 		g.P("if !func() bool {")
@@ -80,18 +90,28 @@ func (r *OneofRule) Validate(ctx *ValidateContext) {
 		return
 	}
 
-	// Validate numeric values for numeric types
-	if IsNumericType(underlyingType) {
-		for _, v := range cleanValues {
-			if !isValidNumber(v) {
+	// Validate values
+	for _, v := range cleanValues {
+		if v == EmptyPlaceholder {
+			if !IsStringType(underlyingType) {
 				ctx.Collector.Errorf(
 					ErrCodeInvalidOneofValue,
 					ctx.Field.Pos,
-					"@oneof value %q is not a valid number for numeric field type %s",
-					v,
+					"%s can only be used with string types, got %s",
+					EmptyPlaceholder,
 					underlyingType,
 				)
 			}
+			continue
+		}
+		if IsNumericType(underlyingType) && !isValidNumber(v) {
+			ctx.Collector.Errorf(
+				ErrCodeInvalidOneofValue,
+				ctx.Field.Pos,
+				"@oneof value %q is not a valid number for numeric field type %s",
+				v,
+				underlyingType,
+			)
 		}
 	}
 }
@@ -252,3 +272,4 @@ func (r *OneofEnumRule) Validate(ctx *ValidateContext) {
 		}
 	}
 }
+
