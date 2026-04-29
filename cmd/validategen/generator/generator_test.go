@@ -987,6 +987,47 @@ type Oneof struct {
 				}
 			})
 
+			It("should generate tests that treat __EMPTY__ as an empty string", func() {
+				testFile := filepath.Join(tempDir, "oneof_empty.go")
+				content := `package testpkg
+
+type Role string
+
+// OneofEmpty has oneof validation with an empty string placeholder.
+// validategen:@validate
+type OneofEmpty struct {
+	// validategen:@oneof(__EMPTY__, admin, user)
+	OptionalRole Role
+
+	// validategen:@required
+	// validategen:@oneof(__EMPTY__, admin, user)
+	RequiredRole Role
+}
+`
+				err := os.WriteFile(testFile, []byte(content), 0644)
+				Expect(err).NotTo(HaveOccurred())
+
+				gk = genkit.New(genkit.Options{Dir: tempDir, IncludeTests: true})
+				err = gk.Load(".")
+				Expect(err).NotTo(HaveOccurred())
+
+				err = gen.ProcessPackage(gk, gk.Packages[0])
+				Expect(err).NotTo(HaveOccurred())
+
+				files, err := gk.DryRun()
+				Expect(err).NotTo(HaveOccurred())
+
+				validateCode := string(files[filepath.Join(tempDir, "testpkg_validate.go")])
+				Expect(validateCode).To(ContainSubstring(`[]Role{"", "admin", "user"}`))
+				Expect(validateCode).To(ContainSubstring("OptionalRole must be one of [(empty), admin, user]"))
+
+				testCode := string(files[filepath.Join(tempDir, "testpkg_validate_test.go")])
+				Expect(testCode).To(ContainSubstring(`OptionalRole: "",`))
+				Expect(testCode).To(ContainSubstring(`RequiredRole: "admin",`))
+				Expect(testCode).NotTo(ContainSubstring(`OptionalRole: "__EMPTY__",`))
+				Expect(testCode).NotTo(ContainSubstring(`RequiredRole: "",`))
+			})
+
 			It("should generate oneof validation for numeric", func() {
 				testFile := filepath.Join(tempDir, "oneofnum.go")
 				content := `package testpkg

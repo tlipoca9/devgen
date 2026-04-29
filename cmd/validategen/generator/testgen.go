@@ -351,9 +351,8 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *FieldV
 		} else if hasNumeric {
 			value = "123456"
 		} else if hasOneof {
-			parts := strings.Split(oneofValues, " ")
-			if len(parts) > 0 {
-				value = strings.TrimSpace(parts[0])
+			if testValue, ok := oneofTestValue(oneofValues, !hasRequired); ok {
+				value = testValue
 			}
 		} else if hasRegex {
 			value = vg.generateValidRegexValue(regexVal)
@@ -387,9 +386,8 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *FieldV
 			vg.generateEnumTestValue(g, fieldName, fieldType, oneofEnumParam, 1, pkg)
 			return
 		} else if hasOneof {
-			parts := strings.Split(oneofValues, " ")
-			if len(parts) > 0 && strings.TrimSpace(parts[0]) != "" {
-				value = strings.TrimSpace(parts[0])
+			if testValue, ok := oneofTestValue(oneofValues, false); ok {
+				value = testValue
 			} else {
 				value = "1"
 			}
@@ -453,6 +451,19 @@ func (vg *Generator) generateValidFieldValue(g *genkit.GeneratedFile, fv *FieldV
 	} else if hasOneofEnum {
 		vg.generateEnumTestValue(g, fieldName, fieldType, oneofEnumParam, 1, pkg)
 	}
+}
+
+func oneofTestValue(values string, allowEmpty bool) (string, bool) {
+	for _, value := range splitAndClean(values) {
+		if value == EmptyPlaceholder {
+			if allowEmpty {
+				return "", true
+			}
+			continue
+		}
+		return value, true
+	}
+	return "", false
 }
 
 func (vg *Generator) generateEnumTestValue(
@@ -698,7 +709,7 @@ func (vg *Generator) generateInvalidTestCases(
 				if otherFv.Field.Name != fieldName {
 					vg.generateValidFieldValue(g, otherFv, pkg)
 				} else {
-					g.P(fieldName, ": \"invalid-value\",")
+					g.P(fieldName, ": \"", invalidStringTestValue(rule.Name), "\",")
 				}
 			}
 			g.P("},")
@@ -739,5 +750,14 @@ func (vg *Generator) generateInvalidTestCases(
 			g.P("wantErr: true,")
 			g.P("},")
 		}
+	}
+}
+
+func invalidStringTestValue(ruleName string) string {
+	switch ruleName {
+	case "dns1123_label":
+		return "Invalid_Value"
+	default:
+		return "invalid-value"
 	}
 }

@@ -33,7 +33,7 @@ func TestDNS1123Example__validate(t *testing.T) {
 		{
 			name: "invalid_Hostname_dns1123_label",
 			input: DNS1123Example{
-				Hostname:    "invalid-value",
+				Hostname:    "Invalid_Value",
 				ServiceName: "example-name",
 				PodName:     "example-name",
 			},
@@ -51,7 +51,7 @@ func TestDNS1123Example__validate(t *testing.T) {
 			name: "invalid_ServiceName_dns1123_label",
 			input: DNS1123Example{
 				Hostname:    "example-name",
-				ServiceName: "invalid-value",
+				ServiceName: "Invalid_Value",
 				PodName:     "example-name",
 			},
 			wantErr: true,
@@ -69,7 +69,7 @@ func TestDNS1123Example__validate(t *testing.T) {
 			input: DNS1123Example{
 				Hostname:    "example-name",
 				ServiceName: "example-name",
-				PodName:     "invalid-value",
+				PodName:     "Invalid_Value",
 			},
 			wantErr: true,
 		},
@@ -113,7 +113,7 @@ func TestKubernetesName__validate(t *testing.T) {
 		{
 			name: "invalid_Namespace_dns1123_label",
 			input: KubernetesName{
-				Namespace:       "invalid-value",
+				Namespace:       "Invalid_Value",
 				Pod:             "example-name",
 				Service:         "example-name",
 				StatefulSetName: "example-name",
@@ -133,7 +133,7 @@ func TestKubernetesName__validate(t *testing.T) {
 			name: "invalid_Pod_dns1123_label",
 			input: KubernetesName{
 				Namespace:       "example-name",
-				Pod:             "invalid-value",
+				Pod:             "Invalid_Value",
 				Service:         "example-name",
 				StatefulSetName: "example-name",
 			},
@@ -153,7 +153,7 @@ func TestKubernetesName__validate(t *testing.T) {
 			input: KubernetesName{
 				Namespace:       "example-name",
 				Pod:             "example-name",
-				Service:         "invalid-value",
+				Service:         "Invalid_Value",
 				StatefulSetName: "example-name",
 			},
 			wantErr: true,
@@ -173,7 +173,7 @@ func TestKubernetesName__validate(t *testing.T) {
 				Namespace:       "example-name",
 				Pod:             "example-name",
 				Service:         "example-name",
-				StatefulSetName: "invalid-value",
+				StatefulSetName: "Invalid_Value",
 			},
 			wantErr: true,
 		},
@@ -215,7 +215,7 @@ func TestCloudNativeService__validate(t *testing.T) {
 		{
 			name: "invalid_DomainName_dns1123_label",
 			input: CloudNativeService{
-				DomainName:   "invalid-value",
+				DomainName:   "Invalid_Value",
 				InstanceName: "example-name",
 				RegistryHost: "example-name",
 			},
@@ -233,7 +233,7 @@ func TestCloudNativeService__validate(t *testing.T) {
 			name: "invalid_InstanceName_dns1123_label",
 			input: CloudNativeService{
 				DomainName:   "example-name",
-				InstanceName: "invalid-value",
+				InstanceName: "Invalid_Value",
 				RegistryHost: "example-name",
 			},
 			wantErr: true,
@@ -251,7 +251,7 @@ func TestCloudNativeService__validate(t *testing.T) {
 			input: CloudNativeService{
 				DomainName:   "example-name",
 				InstanceName: "example-name",
-				RegistryHost: "invalid-value",
+				RegistryHost: "Invalid_Value",
 			},
 			wantErr: true,
 		},

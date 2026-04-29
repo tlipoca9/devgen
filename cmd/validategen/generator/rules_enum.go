@@ -19,8 +19,8 @@ func init() {
 // OneofRule validates field is one of specified values.
 type OneofRule struct{}
 
-func (r *OneofRule) Name() string              { return "oneof" }
-func (r *OneofRule) RequiredRegex() []string   { return nil }
+func (r *OneofRule) Name() string            { return "oneof" }
+func (r *OneofRule) RequiredRegex() []string { return nil }
 
 func (r *OneofRule) Generate(ctx *GenerateContext) {
 	if ctx.Param == "" {
@@ -37,9 +37,13 @@ func (r *OneofRule) Generate(ctx *GenerateContext) {
 	fmtSprintf := fmtSprintf()
 	g := ctx.G
 
-	if IsStringType(fieldType) {
+	if IsStringType(ctx.Field.UnderlyingType) {
 		var quoted []string
 		var display []string
+		sliceType := "string"
+		if fieldType != "string" {
+			sliceType = fieldType
+		}
 		for _, v := range cleanValues {
 			if v == EmptyPlaceholder {
 				quoted = append(quoted, `""`)
@@ -50,7 +54,7 @@ func (r *OneofRule) Generate(ctx *GenerateContext) {
 			}
 		}
 		g.P("if !func() bool {")
-		g.P("for _, v := range []string{", strings.Join(quoted, ", "), "} {")
+		g.P("for _, v := range []", sliceType, "{", strings.Join(quoted, ", "), "} {")
 		g.P("if x.", fieldName, " == v { return true }")
 		g.P("}")
 		g.P("return false")
@@ -119,8 +123,8 @@ func (r *OneofRule) Validate(ctx *ValidateContext) {
 // OneofEnumRule validates field is a valid enum value.
 type OneofEnumRule struct{}
 
-func (r *OneofEnumRule) Name() string              { return "oneof_enum" }
-func (r *OneofEnumRule) RequiredRegex() []string   { return nil }
+func (r *OneofEnumRule) Name() string            { return "oneof_enum" }
+func (r *OneofEnumRule) RequiredRegex() []string { return nil }
 
 func (r *OneofEnumRule) Generate(ctx *GenerateContext) {
 	if ctx.Param == "" {
@@ -272,4 +276,3 @@ func (r *OneofEnumRule) Validate(ctx *ValidateContext) {
 		}
 	}
 }
-
